@@ -1,9 +1,18 @@
 # CLAUDE.md — PcBridgeDesktop
 
-> **BU DEPODA İŞE BAŞLAMADAN ÖNCE [ASAMALAR.md](ASAMALAR.md)'Yİ OKU.**
-> Hangi aşamanın bittiği, sıradakinin ne olduğu ve bitiş ölçütü orada.
-> Kullanıcı "devam et" derse kastettiği odur; ne yapacağını sorma, oku ve
-> bulduğun sıradaki aşamayı özetleyip onay al.
+> **BU DEPODA İŞE BAŞLAMADAN ÖNCE `YAPILACAKLAR.md`'Yİ OKU.**
+> Sıradaki iş orada. [ASAMALAR.md](ASAMALAR.md)'deki beş aşama **bitti**;
+> o dosya artık yapılacak iş listesi değil, bitmiş işin kaydı.
+>
+> **"YAPILACAKLAR.md'yi uygula" denince kastedilen bölüm 1'dir**
+> (*Uygulama ajan çalıştırıcısı olsun*). Bölüm 2 (*Eklentiler*) bilerek
+> beklemede — kullanıcı açıkça istemeden ona başlama.
+>
+> **Kod yazmadan önce** bölüm 1'in "Karar verilmemiş" başlığındaki dört
+> soruyu kullanıcıya sor; cevapsız yazılan kod büyük ihtimalle atılır.
+>
+> `YAPILACAKLAR.md` **yerel bir dosyadır, depoda yoktur** — kullanıcının
+> isteğiyle izlenmiyor. Yoksa kullanıcıya söyle, uydurma.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
 gerçek terminal ızgarası.
