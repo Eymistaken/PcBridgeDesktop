@@ -233,7 +233,7 @@ pub fn append_messages(id: &str, msgs: &[crate::model::Message]) {
     append_messages_in(&runs_dir(), id, msgs)
 }
 
-fn append_messages_in(kok: &Path, id: &str, msgs: &[crate::model::Message]) {
+pub(crate) fn append_messages_in(kok: &Path, id: &str, msgs: &[crate::model::Message]) {
     if msgs.is_empty() {
         return;
     }
@@ -260,7 +260,7 @@ pub fn messages(id: &str) -> Vec<crate::model::Message> {
     messages_in(&runs_dir(), id)
 }
 
-fn messages_in(kok: &Path, id: &str) -> Vec<crate::model::Message> {
+pub(crate) fn messages_in(kok: &Path, id: &str) -> Vec<crate::model::Message> {
     let Ok(text) = std::fs::read_to_string(messages_path(kok, id)) else {
         return Vec::new();
     };
@@ -291,11 +291,7 @@ fn ctx_path(kok: &Path, id: &str) -> PathBuf {
     kok.join(id).join("ctx.json")
 }
 
-pub fn read_ctx(id: &str) -> RunCtx {
-    read_ctx_in(&runs_dir(), id)
-}
-
-fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
+pub(crate) fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
     std::fs::read_to_string(ctx_path(kok, id))
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
@@ -306,7 +302,7 @@ pub fn write_ctx(id: &str, ctx: &RunCtx) {
     write_ctx_in(&runs_dir(), id, ctx)
 }
 
-fn write_ctx_in(kok: &Path, id: &str, ctx: &RunCtx) {
+pub(crate) fn write_ctx_in(kok: &Path, id: &str, ctx: &RunCtx) {
     if std::fs::create_dir_all(kok.join(id)).is_err() {
         return;
     }

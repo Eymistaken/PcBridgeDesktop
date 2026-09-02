@@ -308,6 +308,11 @@ noktası** oluyor: bir kez hesaplanır, her koşumda tekrarlanmaz.
 - Özetleme **başarısız olursa koşum ölmüyor**: sert kırpmaya düşülüyor ve
   arayüz `#summaryFailed` ile bunu açıkça yazıyor.
 
+**Gerçek modelle ölçüldü** (`cargo test --lib gercek_ozetleme -- --ignored`):
+dört turluk bir konuşmanın ilk ikisi özetlendi, **4 mesaj düştü, 4 korundu**,
+kesme koşum sınırından oldu ve özet somut bilgiyi (proje adı, kullanılan
+diller) korudu. **8 saniye.**
+
 ### Araç onayı — bot başına önceden (kullanıcının seçimi)
 
 Koşum sırasında onay sorulmuyor; BotForge'da bot başına araç filtresi var.

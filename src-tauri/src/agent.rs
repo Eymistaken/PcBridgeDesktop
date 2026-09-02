@@ -542,12 +542,16 @@ fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> S
 /// kendisinden önceki bütün koşumların mesajları yerine o özet geçer. Özet
 /// bir kez hesaplanır, her koşumda yeniden üretilmez.
 fn gecmis(bot: &Bot) -> (Option<String>, Vec<Message>) {
+    gecmis_in(&runs::runs_dir(), bot)
+}
+
+fn gecmis_in(kok: &std::path::Path, bot: &Bot) -> (Option<String>, Vec<Message>) {
     let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
 
     let mut baslangic = 0usize;
     let mut ozet: Option<String> = None;
     for (i, r) in yerel.iter().enumerate() {
-        if let Some(s) = runs::read_ctx(r).summary {
+        if let Some(s) = runs::read_ctx_in(kok, r).summary {
             baslangic = i;
             ozet = if s.trim().is_empty() { None } else { Some(s) };
         }
@@ -555,17 +559,21 @@ fn gecmis(bot: &Bot) -> (Option<String>, Vec<Message>) {
 
     let mut msgs = Vec::new();
     for r in &yerel[baslangic..] {
-        msgs.extend(runs::messages(r));
+        msgs.extend(runs::messages_in(kok, r));
     }
     (ozet, msgs)
 }
 
 /// Son koşumun **ölçülmüş** `prompt_tokens`'ı bütçenin eşiğini aştı mı?
 fn ozetleme_gerek(bot: &Bot) -> bool {
+    ozetleme_gerek_in(&runs::runs_dir(), bot)
+}
+
+fn ozetleme_gerek_in(kok: &std::path::Path, bot: &Bot) -> bool {
     let Some(son) = bot.jobs.iter().rev().find(|j| runs::bizim(j)) else {
         return false;
     };
-    let kullanilan = runs::read_ctx(son).prompt_tokens;
+    let kullanilan = runs::read_ctx_in(kok, son).prompt_tokens;
     kullanilan > 0 && kullanilan as f64 > bot.context_budget as f64 * OZET_ESIGI
 }
 
@@ -575,6 +583,18 @@ fn ozetleme_gerek(bot: &Bot) -> bool {
 /// özetleme başarısız olmuş ve **sert kırpmaya** düşülmüştür — eski mesajlar
 /// yine de atılır, çünkü bağlamı taşıran şey onlardı.
 async fn ozetle(
+    base_url: &str,
+    model_id: &str,
+    bot: &Bot,
+    onceki_ozet: &Option<String>,
+    gecmis_msg: &[Message],
+) -> Result<(String, u32, Vec<Message>), ModelError> {
+    ozetle_in(&runs::runs_dir(), base_url, model_id, bot, onceki_ozet, gecmis_msg).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn ozetle_in(
+    kok: &std::path::Path,
     base_url: &str,
     model_id: &str,
     bot: &Bot,
@@ -591,7 +611,7 @@ async fn ozetle(
     let korunan_ids: Vec<&&String> = yerel.iter().rev().take(KORUNAN_KOSUM).collect();
     let mut korunan: Vec<Message> = Vec::new();
     for r in korunan_ids.iter().rev() {
-        korunan.extend(runs::messages(r));
+        korunan.extend(runs::messages_in(kok, r));
     }
 
     let dusen = gecmis_msg.len().saturating_sub(korunan.len());
@@ -724,14 +744,137 @@ mod tests {
         assert!(!bos.contains("Önceki konuşmanın özeti"), "{bos}");
     }
 
+    /// Yalıtık bir kökte `n` sahte yerel koşum kurar ve kimliklerini döner.
+    /// Her koşum bir kullanıcı sorusu + bir yanıt taşıyor.
+    fn sahte_kosumlar(kok: &std::path::Path, n: usize) -> Vec<String> {
+        let mut ids = Vec::new();
+        for i in 0..n {
+            let id = format!("local-sahte-{i:04}");
+            runs::append_messages_in(
+                kok,
+                &id,
+                &[
+                    Message::user(format!("{i}. soru: bana bir şey anlat")),
+                    Message::assistant(format!("{i}. yanıt: işte bilgi"), vec![]),
+                ],
+            );
+            ids.push(id);
+        }
+        ids
+    }
+
     #[test]
     fn ozetleme_esigi_olculen_sayiya_bakar() {
+        let k = std::env::temp_dir().join(format!("pcbd-esik-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
         let mut b = bot("");
-        assert!(!ozetleme_gerek(&b), "koşum yoksa özetleme yok");
+        assert!(!ozetleme_gerek_in(&k, &b), "koşum yoksa özetleme yok");
+
         b.context_budget = 1000;
         // pcbridge koşumlarının bizde `ctx`'i yok; sayılmıyorlar.
         b.jobs = vec!["20260902-231500-a1b2c3".into()];
-        assert!(!ozetleme_gerek(&b));
+        assert!(!ozetleme_gerek_in(&k, &b));
+
+        // Ölçülen sayı eşiğin altındaysa özetleme yok…
+        let ids = sahte_kosumlar(&k, 1);
+        b.jobs = ids.clone();
+        runs::write_ctx_in(
+            &k,
+            &ids[0],
+            &runs::RunCtx {
+                prompt_tokens: 700,
+                ..Default::default()
+            },
+        );
+        assert!(!ozetleme_gerek_in(&k, &b), "700 < 1000·0.75");
+
+        // …üstündeyse var.
+        runs::write_ctx_in(
+            &k,
+            &ids[0],
+            &runs::RunCtx {
+                prompt_tokens: 800,
+                ..Default::default()
+            },
+        );
+        assert!(ozetleme_gerek_in(&k, &b), "800 > 1000·0.75");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    #[test]
+    fn ozet_denetim_noktasi_oncesini_degistirir() {
+        let k = std::env::temp_dir().join(format!("pcbd-ozet-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        let ids = sahte_kosumlar(&k, 5);
+        let mut b = bot("");
+        b.jobs = ids.clone();
+
+        // Özet yokken bütün koşumlar taşınır: 5 koşum × 2 mesaj.
+        let (ozet, msgs) = gecmis_in(&k, &b);
+        assert!(ozet.is_none());
+        assert_eq!(msgs.len(), 10);
+
+        // 3. koşuma bir özet yazılınca o **denetim noktası** olur: kendisinden
+        // öncesi tek bir özetle değişir, kendisi ve sonrası olduğu gibi kalır.
+        runs::write_ctx_in(
+            &k,
+            &ids[2],
+            &runs::RunCtx {
+                prompt_tokens: 0,
+                summary: Some("ilk iki koşumun özeti".into()),
+                dropped: 4,
+            },
+        );
+        let (ozet, msgs) = gecmis_in(&k, &b);
+        assert_eq!(ozet.as_deref(), Some("ilk iki koşumun özeti"));
+        assert_eq!(msgs.len(), 6, "3., 4. ve 5. koşum kalmalı");
+        assert!(
+            msgs[0].content.as_deref().unwrap().starts_with("2. soru"),
+            "kesme koşum sınırından olmalı: {:?}",
+            msgs[0].content
+        );
+
+        // Boş özet = sert kırpma: metin yok ama denetim noktası yine geçerli.
+        runs::write_ctx_in(
+            &k,
+            &ids[2],
+            &runs::RunCtx {
+                prompt_tokens: 0,
+                summary: Some(String::new()),
+                dropped: 4,
+            },
+        );
+        let (ozet, msgs) = gecmis_in(&k, &b);
+        assert!(ozet.is_none(), "boş özet metin olarak taşınmamalı");
+        assert_eq!(msgs.len(), 6, "kesme yine de uygulanmalı");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    #[test]
+    fn ozetleme_az_kosumda_calismaz() {
+        // İki koşum zaten korunuyor; özetlenecek bir şey yok.
+        let k = std::env::temp_dir().join(format!("pcbd-az-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+        let ids = sahte_kosumlar(&k, KORUNAN_KOSUM);
+        let mut b = bot("");
+        b.jobs = ids;
+        let (_, msgs) = gecmis_in(&k, &b);
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let sonuc = rt.block_on(ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &None, &msgs));
+        assert!(sonuc.is_err(), "özetlenecek koşum yokken denenmemeli");
+
+        let _ = std::fs::remove_dir_all(&k);
     }
 
     #[test]
@@ -975,6 +1118,75 @@ mod tests {
         let mesajlar = kayit.mesajlar.lock().unwrap().clone();
         assert_eq!(mesajlar.len(), 1, "yalnızca kullanıcı mesajı yazılmalı");
         assert!(yanitsizlar(&mesajlar).is_empty());
+    }
+
+    /// **Gerçek modelle özetleme.** Kullanıcının bağlam yönetimi için seçtiği
+    /// yol bu; ölçmeden "çalışıyor" denemez.
+    ///
+    /// ```text
+    /// cargo test --lib gercek_ozetleme -- --ignored --nocapture
+    /// ```
+    #[tokio::test]
+    #[ignore = "LM Studio ayakta olmalı"]
+    async fn gercek_ozetleme_eski_turlari_sikistirir() {
+        let base = std::env::var("PCBRIDGE_MODEL_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:1234/v1".into());
+        let model_id =
+            std::env::var("PCBRIDGE_MODEL_ID").unwrap_or_else(|_| "ornith-1.5-35b-a3b".into());
+
+        let k = std::env::temp_dir().join(format!("pcbd-gercek-ozet-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // Özetlenecek somut bir konuşma: özetin bunları koruması bekleniyor.
+        let konusma = [
+            ("Projenin adı ne?", "Projenin adı Pcbridge Desktop."),
+            ("Hangi dilde yazılmış?", "Arka uç Rust, arayüz TypeScript ve React."),
+            ("Kaç aşama bitti?", "Altı aşama bitti."),
+            ("Son aşama neydi?", "Ajan döngüsünün uygulamanın içine taşınması."),
+        ];
+        let mut ids = Vec::new();
+        for (i, (soru, yanit)) in konusma.iter().enumerate() {
+            let id = format!("local-ozet-{i:04}");
+            runs::append_messages_in(
+                &k,
+                &id,
+                &[
+                    Message::user((*soru).to_string()),
+                    Message::assistant((*yanit).to_string(), vec![]),
+                ],
+            );
+            ids.push(id);
+        }
+
+        let mut b = bot("");
+        b.jobs = ids.clone();
+        let (onceki, msgs) = gecmis_in(&k, &b);
+        assert_eq!(msgs.len(), 8);
+
+        let (ozet, dusen, korunan) = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs)
+            .await
+            .expect("özetleme çağrısı kurulmalı");
+
+        eprintln!("--- özet ---\n{ozet}\n--- {dusen} mesaj düştü, {} korundu ---", korunan.len());
+
+        assert!(!ozet.trim().is_empty(), "özet boş döndü — sert kırpmaya düşüldü");
+        assert_eq!(dusen, 4, "ilk iki koşumun 4 mesajı düşmeli");
+        assert_eq!(korunan.len(), 4, "son iki koşum korunmalı");
+        assert!(
+            korunan[0].content.as_deref().unwrap().starts_with("Kaç aşama"),
+            "korunanlar koşum sınırından başlamalı: {:?}",
+            korunan[0].content
+        );
+        // Özet konuşmanın somut bilgisini taşımalı; yalnızca "konuştular"
+        // demesi işe yaramaz.
+        let kucuk = ozet.to_lowercase();
+        assert!(
+            kucuk.contains("pcbridge") || kucuk.contains("rust"),
+            "özet somut bilgiyi korumalı: {ozet}"
+        );
+
+        let _ = std::fs::remove_dir_all(&k);
     }
 
     /// **Gerçek model ve gerçek pcbridge ile** uçtan uca. Varsayılan olarak
