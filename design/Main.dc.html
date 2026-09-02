@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#151618; --bg-side:#0F0F11; --field:#1F2023;
+      --surface:#26282A; --surface-2:#36383B; --line:#2F3033; --well:#08090B;
+      --text:#EAEBED; --text-muted:#96989C;
+      --run:#D3A056; --ok:#75B683; --fail:#E2726B;
+      --av-mor:#8D73D1; --av-mavi:#398AD6; --av-cam:#009FA0;
+      --av-yesil:#399D57; --av-kehribar:#B67700; --av-mercan:#CD6151;
+      --sans:"Geist",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+      --mono:"Geist Mono",ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+      --r-sm:10px; --r-lg:20px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:var(--bg);
+         -webkit-font-smoothing:antialiased}
+    a{color:var(--text)}
+    a:hover{color:var(--text-muted)}
+    .mono{font-family:var(--mono);letter-spacing:-.01em}
+    .dot{width:7px;height:7px;border-radius:9999px;flex:none}
+    .av{border-radius:9999px;flex:none;display:flex;align-items:center;justify-content:center;
+        font-weight:600;color:var(--bg)}
+    .row{display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);
+         margin:0 8px}
+    .bub{border-radius:var(--r-lg);padding:11px 16px;font-size:14px;line-height:1.5;
+         max-width:640px}
+    .ts{align-self:center;font-size:11.5px;color:var(--text-muted);padding:2px 0}
+    .ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;
+        justify-content:center;flex:none}
+  </style>
+</helmet>
+
+<div style="width:1440px;height:900px;display:flex;background:var(--bg);overflow:hidden;font-size:14px">
+
+  <!-- ══════════════════════════ KENAR ÇUBUĞU ══════════════════════════ -->
+  <div style="width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0">
+
+    <div style="height:54px;flex:none;display:flex;align-items:center;padding:0 10px 0 18px">
+      <span style="font-size:16px;font-weight:600;letter-spacing:-.015em">pcbridge</span>
+      <div style="flex-grow:1"></div>
+      <div class="ib" style="background:var(--field)">
+        <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"></path></svg>
+      </div>
+    </div>
+
+    <div style="flex:none;padding:0 12px 10px">
+      <div style="display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:var(--r-sm);background:var(--field)">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"></circle><path d="M13.2 13.2L17 17"></path></svg>
+        <span style="font-size:13.5px;color:var(--text-muted)">Bot ara</span>
+      </div>
+    </div>
+
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:1px;min-height:0">
+
+      <div class="row" style="background:var(--surface)">
+        <span class="av" style="width:36px;height:36px;background:var(--av-mor);font-size:14px">K</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:600;flex-grow:1">Köprü Bakımı</span>
+            <span class="mono" style="font-size:11px;color:var(--run)">4:12</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="dot" style="background:var(--run)"></span>
+            <span style="font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">YAPILACAKLAR.md düzenleniyor…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:36px;height:36px;background:var(--av-cam);font-size:14px">M</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:500;flex-grow:1">Masaüstü Sürücüsü</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted)">18:02</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ayarlar penceresi açıldı, ses sekmesine…</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:36px;height:36px;background:var(--av-kehribar);font-size:14px">H</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:500;flex-grow:1">Hızlı Sorgu</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted)">17:31</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Üç dosyada geçiyor: tools, models, jobs.</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:36px;height:36px;background:var(--av-yesil);font-size:14px">T</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:500;flex-grow:1">Test Koşucusu</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted)">16:44</span>
+          </div>
+          <span class="mono" style="font-size:12.5px;color:var(--ok);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">398 gecti, 0 kaldi</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:36px;height:36px;background:var(--av-mavi);font-size:14px">B</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:500;flex-grow:1">Belge Bakımı</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted)">dün</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">KULLANIM.md güncel, 4 satır değişti.</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:36px;height:36px;background:var(--av-mercan);font-size:14px">A</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;font-weight:500;flex-grow:1">Arşivci</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted)">Paz</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Yedek alındı: 1.2 GB, 3 dk 40 sn.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- bağlantı: referanstaki kullanıcı çipinin yerinde, ama işe yarayanı -->
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:13px 18px">
+      <span class="dot" style="background:var(--ok)"></span>
+      <div style="display:flex;flex-direction:column;gap:1px;flex-grow:1;min-width:0">
+        <span class="mono" style="font-size:12px">127.0.0.1:8765</span>
+        <span style="font-size:11.5px;color:var(--text-muted)">33 araç · 2 ajan · masaüstü kilitli</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ SOHBET ══════════════════════════ -->
+  <div style="flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0">
+
+    <div style="height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 20px 0 24px">
+      <span class="av" style="width:26px;height:26px;background:var(--av-mor);font-size:11px">K</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">Köprü Bakımı</span>
+      <span class="mono" style="font-size:12px;color:var(--text-muted)">opus · high · ~/Belgeler/Pcbridge</span>
+      <div style="flex-grow:1"></div>
+      <div class="ib">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="3.5" width="15" height="13" rx="2.5"></rect><path d="M6 8l2.5 2L6 12"></path><path d="M11 12.5h3"></path>
+        </svg>
+      </div>
+      <div class="ib">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="10" cy="4.2" r="1.3" fill="var(--text-muted)"></circle><circle cx="10" cy="10" r="1.3" fill="var(--text-muted)"></circle><circle cx="10" cy="15.8" r="1.3" fill="var(--text-muted)"></circle>
+        </svg>
+      </div>
+    </div>
+
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:14px;padding:8px 32px 0;overflow:hidden;min-height:0">
+
+      <span class="ts">21:47</span>
+
+      <div style="display:flex;justify-content:flex-end">
+        <div class="bub" style="background:var(--surface-2)">
+          İmleç katmanı fiziksel fareyle tıklamayı bozuyordu. <span class="mono" style="font-size:13px">set_pointer_visible(false)</span> çağrısını çıkar, yalnızca çerçeve kalsın.
+        </div>
+      </div>
+
+      <div style="display:flex">
+        <div class="bub" style="background:var(--surface)">
+          Tamam. Eklentide iki yerde geçiyor — <span class="mono" style="font-size:13px">enable()</span> ve durum izleyicisinin geri çağrımında. İkisini de kaldırıyorum.
+        </div>
+      </div>
+
+      <span class="ts">21:49</span>
+
+      <!-- referansın imza hamlesi: baloncuğun içinde yapılanların dökümü -->
+      <div style="display:flex">
+        <div class="bub" style="background:var(--surface);display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--ok)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.5 3.5 7.5-8"></path></svg>
+            <span style="font-weight:600;width:66px;flex:none">Okundu</span>
+            <span class="mono" style="font-size:12.5px;color:var(--text-muted)">gnome-extension/…/extension.js</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--ok)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.5 3.5 7.5-8"></path></svg>
+            <span style="font-weight:600;width:66px;flex:none">Arandı</span>
+            <span class="mono" style="font-size:12.5px;color:var(--text-muted)">"set_pointer_visible" · 2 eşleşme</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--ok)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.5 3.5 7.5-8"></path></svg>
+            <span style="font-weight:600;width:66px;flex:none">Yazıldı</span>
+            <span class="mono" style="font-size:12.5px;color:var(--text-muted)">extension.js · 4 satır silindi</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="dot" style="background:var(--run);margin:0 3.5px"></span>
+            <span style="font-weight:600;width:66px;flex:none;color:var(--run)">Sürüyor</span>
+            <span class="mono" style="font-size:12.5px;color:var(--text-muted)">YAPILACAKLAR.md</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex">
+        <div class="bub" style="background:var(--surface)">
+          Çerçeve çizimi <span class="mono" style="font-size:13px">St.DrawingArea</span> tarafında, etkilenmedi. Bulguyu silmek yerine sebebini ekliyorum — yoksa aynı yol bir daha denenir.
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <div class="bub" style="background:var(--surface-2)">İyi. Bitince commit at.</div>
+      </div>
+    </div>
+
+    <!-- çalışan iş: ayrı sütun değil, akışın dibinde ince bir şerit -->
+    <div style="flex:none;padding:12px 32px 0">
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px 11px 16px;border-radius:var(--r-lg);background:var(--field)">
+        <span class="dot" style="background:var(--run)"></span>
+        <span style="font-size:13.5px;font-weight:500">YAPILACAKLAR.md düzenleniyor</span>
+        <span class="mono" style="font-size:12px;color:var(--text-muted)">20260901-214703-3f9a1c</span>
+        <div style="flex-grow:1"></div>
+        <span class="mono" style="font-size:13px;color:var(--run)">4:12</span>
+        <div class="ib" style="width:30px;height:30px;background:var(--surface)">
+          <svg width="11" height="11" viewBox="0 0 20 20" fill="var(--fail)" stroke="none"><rect x="5" y="5" width="10" height="10" rx="2"></rect></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- besteci -->
+    <div style="flex:none;padding:14px 32px 22px">
+      <div style="display:flex;align-items:center;gap:12px;height:52px;padding:0 8px 0 8px;border-radius:9999px;background:var(--field)">
+        <div class="ib" style="width:36px;height:36px;background:var(--surface)">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"></path></svg>
+        </div>
+        <span style="flex-grow:1;font-size:14px;color:var(--text-muted)">Köprü Bakımı'na yaz</span>
+        <span class="mono" style="font-size:11.5px;color:var(--text-muted)">⌘↵</span>
+        <div class="ib" style="width:36px;height:36px;background:var(--text)">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9"></path></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

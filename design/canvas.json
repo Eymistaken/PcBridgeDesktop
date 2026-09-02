@@ -1,0 +1,27 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",      "x": 0,    "y": 0,    "w": 1440, "h": 900 },
+    { "file": "Light.dc.html",     "x": 1560, "y": 0,    "w": 1440, "h": 900 },
+    { "file": "Terminals.dc.html", "x": 3120, "y": 0,    "w": 1440, "h": 900 },
+    { "file": "Tokens.dc.html",    "x": 0,    "y": 1100, "w": 1180, "h": 940 },
+    { "file": "BotForge.dc.html",  "x": 1300, "y": 1100, "w": 880,  "h": 770 }
+  ],
+  "annotations": [
+    {
+      "id": "yon-2",
+      "x": 0, "y": -250, "w": 640,
+      "text": "AJAN KİPİ — koyu birincil, aydınlık varyant yanında\n\nGrok Bot referansına göre yeniden: iki panel, baloncuklu sohbet, nötr gri kabuk.\n\nSistem aksan rengi KALDIRILDI. Renk yalnızca bot avatarlarından ve iş durumundan geliyor. Köşeler üç değere indi: 10 / 20 / tam."
+    },
+    {
+      "id": "kuyu-2",
+      "x": 3120, "y": -250, "w": 640,
+      "text": "TERMİNAL KİPİ — aynı kabuk, kenar çubuğu oturum listesi\n\nOturum kutucukları daire değil köşeli: bakışta bot olmadığı anlaşılsın.\n\nHer bölme gerçek bir tmux oturumu. Çıktılar kaynaktan doğrulandı — PASS satırları ve istem gerçek biçimleri."
+    },
+    {
+      "id": "sozlesme-2",
+      "x": 1300, "y": 1950, "w": 880,
+      "text": "Soldaki künye kodun sözleşmesi. Yasak listesi ilk turdaki geri bildirimden büyüdü: sistem aksanı, renkli birincil düğme ve karışık köşe yarıçapı artık açıkça yasak.\n\nBot formunda birincil eylem beyaz dolgu — renksiz. Bağırmıyor ama en yüksek kontrasta sahip, yani yine de birincil."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

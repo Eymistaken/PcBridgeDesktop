@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#151618; --bg-side:#0F0F11; --field:#1F2023;
+      --surface:#26282A; --surface-2:#36383B; --line:#2F3033; --well:#08090B;
+      --text:#EAEBED; --text-muted:#96989C;
+      --run:#D3A056; --ok:#75B683; --fail:#E2726B;
+      --sans:"Geist",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+      --mono:"Geist Mono",ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+      --r-sm:10px; --r-lg:20px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:var(--bg);
+         -webkit-font-smoothing:antialiased}
+    a{color:var(--text)} a:hover{color:var(--text-muted)}
+    .mono{font-family:var(--mono);font-size:11.5px;letter-spacing:-.01em}
+    .h{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+    .pr{display:flex;align-items:center;gap:11px;padding:4px 0}
+    .chip{width:34px;height:22px;border-radius:6px;flex:none}
+    .card{border-radius:var(--r-lg);padding:18px 20px;display:flex;flex-direction:column;gap:13px}
+  </style>
+</helmet>
+
+<div style="width:1180px;height:940px;display:flex;flex-direction:column;gap:18px;
+            background:var(--bg);padding:30px 32px;overflow:hidden">
+
+  <div style="flex:none;display:flex;align-items:flex-end;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="h">PcBridgeDesktop · tasarım sistemi</span>
+      <span style="font-size:30px;font-weight:600;letter-spacing:-.025em;line-height:1">Nötr Kabuk</span>
+    </div>
+    <div style="flex-grow:1"></div>
+    <p style="margin:0 0 3px;max-width:52ch;font-size:13px;line-height:1.6;color:var(--text-muted);text-wrap:pretty">
+      Kabuk renksiz. Renk yalnızca <span style="color:var(--text)">kimlikten</span> gelir — bot avatarları — ve <span style="color:var(--text)">durumdan</span>: çalışıyor, bitti, başarısız. Sistem aksanı yok, çünkü her yere serpiştirilmiş bir aksan rengi arayüzü jenerik yapan şeyin ta kendisi.
+    </p>
+  </div>
+
+  <div style="flex-grow:1;display:flex;gap:18px;min-height:0">
+
+    <!-- PALET -->
+    <div style="width:340px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <div class="card" style="background:var(--bg-side)">
+        <div style="display:flex;align-items:baseline;gap:10px"><span class="h">Koyu · birincil</span><div style="flex-grow:1"></div><span class="mono" style="color:var(--text-muted)">zemine</span></div>
+        <div style="display:flex;flex-direction:column">
+          <div class="pr"><span class="chip" style="background:#0F0F11"></span><span class="mono" style="width:82px">--bg-side</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#0F0F11</span></div>
+          <div class="pr"><span class="chip" style="background:#151618"></span><span class="mono" style="width:82px">--bg</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#151618</span></div>
+          <div class="pr"><span class="chip" style="background:#1F2023"></span><span class="mono" style="width:82px">--field</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#1F2023</span></div>
+          <div class="pr"><span class="chip" style="background:#26282A"></span><span class="mono" style="width:82px">--surface</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#26282A</span></div>
+          <div class="pr"><span class="chip" style="background:#36383B"></span><span class="mono" style="width:82px">--surface-2</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#36383B</span></div>
+          <div class="pr"><span class="chip" style="background:#EAEBED"></span><span class="mono" style="width:82px">--text</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#EAEBED</span><span class="mono" style="color:var(--ok)">15.2</span></div>
+          <div class="pr"><span class="chip" style="background:#96989C"></span><span class="mono" style="width:82px">--text-muted</span><span class="mono" style="color:var(--text-muted);flex-grow:1">#96989C</span><span class="mono" style="color:var(--ok)">6.3</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="background:#F1F2F4;color:#191B1D">
+        <div style="display:flex;align-items:baseline;gap:10px"><span class="h" style="color:#56585D">Aydınlık · varyant</span></div>
+        <div style="display:flex;flex-direction:column">
+          <div class="pr"><span class="chip" style="background:#F8F8FA;box-shadow:inset 0 0 0 1px #D9DBDD"></span><span class="mono" style="width:82px">--bg</span><span class="mono" style="color:#56585D;flex-grow:1">#F8F8FA</span></div>
+          <div class="pr"><span class="chip" style="background:#E8E9EC"></span><span class="mono" style="width:82px">--surface</span><span class="mono" style="color:#56585D;flex-grow:1">#E8E9EC</span></div>
+          <div class="pr"><span class="chip" style="background:#D9DBDE"></span><span class="mono" style="width:82px">--surface-2</span><span class="mono" style="color:#56585D;flex-grow:1">#D9DBDE</span></div>
+          <div class="pr"><span class="chip" style="background:#191B1D"></span><span class="mono" style="width:82px">--text</span><span class="mono" style="color:#56585D;flex-grow:1">#191B1D</span><span class="mono" style="color:#337344">16.3</span></div>
+          <div class="pr"><span class="chip" style="background:#56585D"></span><span class="mono" style="width:82px">--text-muted</span><span class="mono" style="color:#56585D;flex-grow:1">#56585D</span><span class="mono" style="color:#337344">6.7</span></div>
+        </div>
+        <p style="margin:0;font-size:11.5px;line-height:1.5;color:#56585D;text-wrap:pretty">Üçüncü bir metin seviyesi <span style="color:#191B1D">yok</span>: her denemede AA'nın altında kaldı. Hiyerarşi boyut ve ağırlıkla kurulur.</p>
+      </div>
+    </div>
+
+    <!-- ORTA -->
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:14px;min-width:0">
+
+      <div class="card" style="background:var(--bg-side)">
+        <span class="h">Kimlik ve durum — kabuktaki tek renk</span>
+        <div style="display:flex;gap:26px;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;gap:9px">
+              <span style="width:34px;height:34px;border-radius:9999px;background:#8D73D1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">K</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:#398AD6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">B</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:#009FA0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">M</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:#399D57;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">T</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:#B67700;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">H</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:#CD6151;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg)">A</span>
+            </div>
+            <span style="font-size:11.5px;color:var(--text-muted)">L=62 · C=0.14 · yalnızca hue. Harf koyu, hepsi 4.6:1 üstü. Surat yok.</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line)"></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;gap:18px">
+              <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--run)"><span style="width:7px;height:7px;border-radius:9999px;background:var(--run)"></span>çalışıyor</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ok)"><span style="width:7px;height:7px;border-radius:9999px;background:var(--ok)"></span>bitti</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--fail)"><span style="width:7px;height:7px;border-radius:9999px;background:var(--fail)"></span>başarısız</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-muted)"><span style="width:7px;height:7px;border-radius:9999px;background:var(--text-muted)"></span>boşta</span>
+            </div>
+            <span style="font-size:11.5px;color:var(--text-muted)">7.7 · 7.6 · 5.9 · 6.3 — hepsi AA. Durum rengi başka hiçbir yerde kullanılmaz.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px">
+        <div class="card" style="background:var(--bg-side);flex-grow:1">
+          <span class="h">Köşeler — üç değer, arası yok</span>
+          <div style="display:flex;gap:16px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;gap:7px;align-items:center">
+              <span style="width:64px;height:44px;border-radius:10px;background:var(--surface-2)"></span>
+              <span class="mono" style="color:var(--text-muted)">10px</span>
+              <span style="font-size:11px;color:var(--text-muted)">satır · alan</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;align-items:center">
+              <span style="width:64px;height:44px;border-radius:20px;background:var(--surface-2)"></span>
+              <span class="mono" style="color:var(--text-muted)">20px</span>
+              <span style="font-size:11px;color:var(--text-muted)">baloncuk · kuyu</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;align-items:center">
+              <span style="width:64px;height:44px;border-radius:9999px;background:var(--surface-2)"></span>
+              <span class="mono" style="color:var(--text-muted)">tam</span>
+              <span style="font-size:11px;color:var(--text-muted)">besteci · avatar</span>
+            </div>
+            <div style="width:1px;align-self:stretch;background:var(--line);margin:0 4px"></div>
+            <p style="margin:0 0 3px;max-width:30ch;font-size:11.5px;line-height:1.55;color:var(--text-muted);text-wrap:pretty">
+              İç içe yüzeyde yarıçap <span style="color:var(--text)">dış &minus; dolgu</span>&#39;dur: 10 &minus; 3 = 7. 30px altındaki ikon çizimleri bu ölçekte <span style="color:var(--text)">değildir</span> &mdash; onlar orantılı çizilir.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="background:var(--bg-side);width:290px;flex:none">
+          <span class="h">Yazı</span>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:baseline;gap:12px"><span class="mono" style="width:76px;color:var(--text-muted)">Geist</span><span style="font-size:17px;font-weight:500">Arayüz ve mesajlar</span></div>
+            <div style="display:flex;align-items:baseline;gap:12px"><span class="mono" style="width:76px;color:var(--text-muted)">Geist Mono</span><span class="mono" style="font-size:13px">3f9a1c · ~/Pcbridge</span></div>
+          </div>
+          <span style="font-size:11.5px;color:var(--text-muted);line-height:1.5">İki aile. Serif gitti — bu yön belge değil sohbet.</span>
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--bg-side);flex-grow:1;min-height:0">
+        <span class="h">Bileşenler — hiçbir düğme bağırmıyor</span>
+        <div style="display:flex;gap:26px;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <div style="display:flex;gap:10px;align-items:center">
+              <span style="padding:9px 20px;border-radius:10px;background:var(--text);color:var(--bg);font-size:13.5px;font-weight:600">Kaydet</span>
+              <span style="padding:9px 18px;border-radius:10px;color:var(--text-muted);font-size:13.5px">Vazgeç</span>
+              <span style="width:34px;height:34px;border-radius:9999px;background:var(--surface);display:flex;align-items:center;justify-content:center">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="var(--fail)" stroke="none"><rect x="5" y="5" width="10" height="10" rx="2"></rect></svg>
+              </span>
+            </div>
+            <div style="display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--field);align-self:flex-start">
+              <span style="padding:7px 15px;border-radius:7px;background:var(--surface-2);font-size:13.5px;font-weight:500">claude</span>
+              <span style="padding:7px 15px;border-radius:7px;color:var(--text-muted);font-size:13.5px">antigravity</span>
+            </div>
+            <span style="font-size:11.5px;color:var(--text-muted);max-width:34ch;line-height:1.5">Birincil eylem beyaz dolgu — renkli değil. Seçim yükselen yüzeyle anlatılır, renkli çubukla değil.</span>
+          </div>
+          <div style="width:1px;align-self:stretch;background:var(--line)"></div>
+          <div style="display:flex;flex-direction:column;gap:9px;flex-grow:1;min-width:0">
+            <div style="display:flex;justify-content:flex-end"><span style="border-radius:20px;padding:10px 15px;background:var(--surface-2);font-size:13.5px">sen</span></div>
+            <div style="display:flex"><span style="border-radius:20px;padding:10px 15px;background:var(--surface);font-size:13.5px">bot — yüzey bir kademe koyu</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- YASAK -->
+    <div style="width:250px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <div class="card" style="background:var(--bg-side);flex-grow:1">
+        <span class="h" style="color:var(--fail)">Yasak</span>
+        <ul style="margin:0;padding-left:16px;font-size:12.5px;line-height:1.9;color:var(--text)">
+          <li>Sistem aksan rengi</li>
+          <li>Gradyan, cam, blur, neon</li>
+          <li>Renkli birincil düğme</li>
+          <li>Karışık köşe yarıçapı</li>
+          <li>Üçüncü metin seviyesi</li>
+          <li>Emoji · dingbat ikon</li>
+          <li>Hover'da zıplama</li>
+          <li>Sahte pencere düğmeleri</li>
+          <li>shadcn · MUI · Chakra</li>
+          <li>Inter · Roboto · Arial</li>
+        </ul>
+        <div style="height:1px;background:var(--line)"></div>
+        <p style="margin:0;font-size:12px;line-height:1.6;color:var(--text-muted);text-wrap:pretty">
+          Ayırıcı olarak çizgi değil <span style="color:var(--text)">yüzey kademesi</span> kullanılır. Kod bu sayfadan sapamaz.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

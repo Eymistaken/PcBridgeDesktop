@@ -1,0 +1,108 @@
+/* PcBridgeDesktop — tasarım sözleşmesi.
+ *
+ * Kaynak: CLAUDE.md "Nötr Kabuk" + design/Tokens.dc.html.
+ * Kabuk renksiz. Renk yalnızca KİMLİKTEN (bot avatarı) ve DURUMDAN
+ * (çalışıyor / bitti / başarısız) gelir. Sistem aksan rengi YOKTUR.
+ *
+ * Üç blok, bu sırayla — son ikisinin özgüllüğü eşit olduğu için sıra karar verir:
+ *   1. :root                                   → koyu, birincil
+ *   2. @media light + :root:not([data-theme="dark"])  → sistemi izle
+ *   3. :root[data-theme="light"]               → zorla aydınlık, media'yı yener
+ * Dört kombinasyonun dördü de doğru çıkar.
+ */
+
+:root {
+  /* zeminler */
+  --bg: #151618;
+  --bg-side: #0f0f11;
+  --field: #1f2023;
+  --surface: #26282a;
+  --surface-2: #36383b;
+  --line: #2f3033;
+  --well: #08090b;
+
+  /* metin — iki seviye, üçüncüsü YOK (her denemede AA altında kaldı) */
+  --text: #eaebed; /* 15.2:1 */
+  --text-muted: #96989c; /* 6.3:1 — --surface-2 üstünde KULLANILMAZ (4.08:1) */
+
+  /* durum */
+  --run: #d3a056; /* 7.7 */
+  --ok: #75b683; /* 7.6 */
+  --fail: #e2726b; /* 5.9 */
+  --blue: #398ad6;
+
+  /* kimlik — L=62, C=0.14, yalnızca hue değişir */
+  --av-mor: #8d73d1;
+  --av-mavi: #398ad6;
+  --av-cam: #009fa0;
+  --av-yesil: #399d57;
+  --av-kehribar: #b67700;
+  --av-mercan: #cd6151;
+
+  /* köşeler — üç değer, arası yok */
+  --r-sm: 10px; /* satır · alan · düğme */
+  --r-lg: 20px; /* baloncuk · kuyu · panel */
+  /* üçüncüsü 9999px, doğrudan yazılır */
+
+  /* yazı — aile adları @fontsource paketlerinin ilan ettiği adlar.
+   * Türkçe kapsamı ölçüldü: geist-sans tek altkümede (538 glif) hepsini
+   * taşıyor; geist-mono ikiye bölünmüş — `ı ç ö ü` latin'de, `ğ ş İ Ğ Ş`
+   * latin-ext'te, unicode-range doğru yönlendiriyor. Yedek yığına düşen
+   * karakter yok. Bu yüzden 400.css/500.css bütün olarak içe aktarılıyor,
+   * tek tek altküme seçilmiyor. */
+  --sans: "Geist Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f8f8fa;
+    --bg-side: #f1f2f4;
+    --field: #ebedef;
+    --surface: #e8e9ec;
+    --surface-2: #d9dbde;
+    --line: #d9dbdd;
+    --well: #111213;
+
+    --text: #191b1d; /* 16.3:1 */
+    --text-muted: #56585d; /* 6.7:1 */
+
+    --run: #8d5e00;
+    --ok: #337344;
+    --fail: #af3c3a;
+    --blue: #0465af;
+
+    /* L=50, C=0.14 */
+    --av-mor: #6a4fa9;
+    --av-mavi: #0465af;
+    --av-cam: #007a7c;
+    --av-yesil: #007834;
+    --av-kehribar: #905300;
+    --av-mercan: #a43c2f;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f8f8fa;
+  --bg-side: #f1f2f4;
+  --field: #ebedef;
+  --surface: #e8e9ec;
+  --surface-2: #d9dbde;
+  --line: #d9dbdd;
+  --well: #111213;
+
+  --text: #191b1d;
+  --text-muted: #56585d;
+
+  --run: #8d5e00;
+  --ok: #337344;
+  --fail: #af3c3a;
+  --blue: #0465af;
+
+  --av-mor: #6a4fa9;
+  --av-mavi: #0465af;
+  --av-cam: #007a7c;
+  --av-yesil: #007834;
+  --av-kehribar: #905300;
+  --av-mercan: #a43c2f;
+}

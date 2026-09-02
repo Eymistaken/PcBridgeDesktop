@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#151618; --bg-side:#0F0F11; --field:#1F2023;
+      --surface:#26282A; --surface-2:#36383B; --line:#2F3033;
+      --text:#EAEBED; --text-muted:#96989C;
+      --run:#D3A056; --ok:#75B683; --fail:#E2726B;
+      --sans:"Geist",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+      --mono:"Geist Mono",ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+      --r-sm:10px; --r-lg:20px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:var(--bg);
+         -webkit-font-smoothing:antialiased}
+    a{color:var(--text)} a:hover{color:var(--text-muted)}
+    .mono{font-family:var(--mono);letter-spacing:-.01em}
+    .lbl{font-size:12px;font-weight:500;color:var(--text-muted)}
+    .fld{display:flex;align-items:center;height:42px;padding:0 14px;border-radius:var(--r-sm);
+         background:var(--field);font-size:14px}
+    .grp{display:flex;flex-direction:column;gap:8px}
+    /* Bölümlü denetim: çerçeve yok, seçili olan yükselen yüzeyle anlatılıyor. */
+    .seg{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);align-self:flex-start}
+    .seg > span{padding:7px 15px;border-radius:7px;font-size:13.5px;color:var(--text-muted)}
+    .seg > .on{background:var(--surface-2);color:var(--text);font-weight:500}
+  </style>
+</helmet>
+
+<div style="width:880px;height:770px;display:flex;flex-direction:column;background:var(--bg);
+            border-radius:var(--r-lg);overflow:hidden">
+
+  <div style="flex:none;display:flex;align-items:center;gap:14px;padding:22px 26px 18px">
+    <span style="font-size:19px;font-weight:600;letter-spacing:-.015em">Yeni bot</span>
+    <div style="flex-grow:1"></div>
+    <span style="font-size:12.5px;color:var(--text-muted)">Bu uygulamada yaşar · <span class="mono">config.toml</span>'a dokunulmaz</span>
+  </div>
+
+  <div style="flex-grow:1;display:flex;flex-direction:column;gap:20px;padding:0 26px;overflow:hidden">
+
+    <!-- kimlik -->
+    <div style="display:flex;gap:16px;align-items:center">
+      <span style="width:56px;height:56px;border-radius:9999px;background:#8D73D1;flex:none;
+                   display:flex;align-items:center;justify-content:center;font-size:22px;
+                   font-weight:600;color:var(--bg)">K</span>
+      <div class="grp" style="flex-grow:1">
+        <span class="lbl">Ad</span>
+        <div class="fld" style="background:var(--surface);font-weight:500">Köprü Bakımı</div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <span class="lbl">İşaret</span>
+      <div style="display:flex;gap:11px;align-items:center">
+        <span style="width:30px;height:30px;border-radius:9999px;background:#8D73D1;flex:none;
+                     box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--text)"></span>
+        <span style="width:30px;height:30px;border-radius:9999px;background:#398AD6;flex:none"></span>
+        <span style="width:30px;height:30px;border-radius:9999px;background:#009FA0;flex:none"></span>
+        <span style="width:30px;height:30px;border-radius:9999px;background:#399D57;flex:none"></span>
+        <span style="width:30px;height:30px;border-radius:9999px;background:#B67700;flex:none"></span>
+        <span style="width:30px;height:30px;border-radius:9999px;background:#CD6151;flex:none"></span>
+        <div style="flex-grow:1"></div>
+        <span style="font-size:11.5px;color:var(--text-muted)">altısı da aynı L ve C · yalnızca hue değişir</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px">
+      <div class="grp" style="flex-grow:1">
+        <span class="lbl">Ajan</span>
+        <div class="seg"><span class="on">claude</span><span>antigravity</span></div>
+      </div>
+      <div class="grp" style="width:200px;flex:none">
+        <span class="lbl">Model</span>
+        <div class="fld" style="justify-content:space-between">
+          <span style="font-weight:500">opus</span>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5l4 4 4-4"></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <span class="lbl">Effort</span>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div class="seg"><span>low</span><span>medium</span><span class="on">high</span><span>xhigh</span><span>max</span></div>
+        <span style="font-size:11.5px;color:var(--text-muted)"><span class="mono">list_agents</span>'tan okundu · <span style="color:var(--fail)">fable, best</span> kapalı</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <span class="lbl">Çalışma dizini</span>
+      <div style="display:flex;gap:10px">
+        <div class="fld" style="flex-grow:1"><span class="mono" style="font-size:13px">/home/eymistaken/Belgeler/Pcbridge</span></div>
+        <div class="fld" style="color:var(--text-muted);flex:none">Seç…</div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <span class="lbl">Kalıcı yönerge · her prompt'un başına eklenir</span>
+      <div style="padding:12px 14px;border-radius:var(--r-sm);background:var(--field);min-height:76px;
+                  font-size:13.5px;line-height:1.55">
+        Türkçe cevap ver. Ölçmediğin şeyi “çalışıyor” diye yazma. Bölüm bitince commit at, öncesinde değil.
+      </div>
+    </div>
+
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="width:44px;height:26px;border-radius:9999px;background:var(--surface-2);padding:3px;display:flex;flex:none;margin-top:1px">
+        <span style="width:20px;height:20px;border-radius:9999px;background:var(--text-muted)"></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span style="font-size:13.5px;font-weight:500">Masaüstü izni</span>
+        <span style="font-size:11.5px;color:var(--text-muted);line-height:1.5">Açılırsa her koşumda <span class="mono">desktop_unlock</span> istenir — sanal klavye ve fare. Süre dolunca kendiliğinden kapanır.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:16px 26px;background:var(--bg-side)">
+    <span class="mono" style="font-size:11.5px;color:var(--text-muted)">agent_run(claude, opus, high, ~/Belgeler/Pcbridge, wait_seconds=0)</span>
+    <div style="flex-grow:1"></div>
+    <div style="padding:10px 18px;border-radius:var(--r-sm);font-size:13.5px;color:var(--text-muted)">Vazgeç</div>
+    <div style="padding:10px 22px;border-radius:var(--r-sm);background:var(--text);font-size:13.5px;font-weight:600;color:var(--bg)">Kaydet</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

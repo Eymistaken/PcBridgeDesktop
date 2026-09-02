@@ -1,0 +1,232 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#151618; --bg-side:#0F0F11; --field:#1F2023;
+      --surface:#26282A; --surface-2:#36383B; --line:#2F3033; --well:#08090B;
+      --text:#EAEBED; --text-muted:#96989C;
+      --run:#D3A056; --ok:#75B683; --fail:#E2726B; --blue:#398AD6;
+      --sans:"Geist",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+      --mono:"Geist Mono",ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+      --r-sm:10px; --r-lg:20px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:var(--bg);
+         -webkit-font-smoothing:antialiased}
+    a{color:var(--text)} a:hover{color:var(--text-muted)}
+    .mono{font-family:var(--mono);letter-spacing:-.01em}
+    .dot{width:7px;height:7px;border-radius:9999px;flex:none}
+    .row{display:flex;gap:11px;align-items:center;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px}
+    .ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;flex:none}
+    /* Oturum kutucuğu daire DEĞİL: bot değil, terminal olduğu bakışta anlaşılsın. */
+    .tile{width:34px;height:34px;border-radius:var(--r-sm);flex:none;display:flex;
+          align-items:center;justify-content:center;background:var(--field)}
+    .pane{display:flex;flex-direction:column;border-radius:var(--r-lg);overflow:hidden;
+          background:var(--well);min-width:0;min-height:0}
+    .phead{height:36px;flex:none;display:flex;align-items:center;gap:9px;padding:0 8px 0 14px;
+           background:var(--field)}
+    .term{font-family:var(--mono);font-size:11.5px;line-height:1.62;color:var(--text);
+          white-space:pre-wrap;margin:0;padding:12px 14px}
+    .ps{color:var(--ok);font-weight:500}   /* \u@\h  ANSI 01;32 */
+    .pw{color:var(--blue);font-weight:500} /* \w     ANSI 01;34 */
+    .pm{color:var(--text-muted)} .pg{color:var(--ok)} .pr{color:var(--fail)} .pa{color:var(--run)}
+    .cur{background:var(--text);color:var(--well)}
+  </style>
+</helmet>
+
+<div style="width:1440px;height:900px;display:flex;background:var(--bg);overflow:hidden;font-size:14px">
+
+  <!-- KENAR ÇUBUĞU — OTURUMLAR -->
+  <div style="width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0">
+
+    <div style="height:54px;flex:none;display:flex;align-items:center;padding:0 10px 0 18px">
+      <span style="font-size:16px;font-weight:600;letter-spacing:-.015em">Terminaller</span>
+      <div style="flex-grow:1"></div>
+      <div class="ib" style="background:var(--field)">
+        <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"></path></svg>
+      </div>
+    </div>
+
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:1px;min-height:0">
+
+      <div class="row" style="background:var(--surface)">
+        <span class="tile"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4-4 4"></path><path d="M10.5 14.5h5.5"></path></svg></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span class="mono" style="font-size:13.5px;font-weight:500;flex-grow:1">kopru</span>
+            <span class="dot" style="background:var(--run);align-self:center"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">claude · PC'de de açık</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="tile"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4-4 4"></path><path d="M10.5 14.5h5.5"></path></svg></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span class="mono" style="font-size:13.5px;flex-grow:1">izle</span>
+            <span class="dot" style="background:var(--run);align-self:center"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">journalctl</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="tile"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4-4 4"></path><path d="M10.5 14.5h5.5"></path></svg></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span class="mono" style="font-size:13.5px;flex-grow:1">test</span>
+            <span class="dot" style="background:var(--ok);align-self:center"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bash</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="tile"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4-4 4"></path><path d="M10.5 14.5h5.5"></path></svg></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span class="mono" style="font-size:13.5px;flex-grow:1">kabuk</span>
+            <span class="dot" style="background:var(--ok);align-self:center"></span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bash</span>
+        </div>
+      </div>
+
+      <div style="padding:14px 18px 6px"><span style="font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted)">PC'de açık, burada değil</span></div>
+
+      <div class="row">
+        <span class="tile" style="background:transparent;border:1px dashed var(--line)"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4-4 4"></path><path d="M10.5 14.5h5.5"></path></svg></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+          <span class="mono" style="font-size:13.5px;color:var(--text-muted)">yedek</span>
+          <span style="font-size:12px;color:var(--text-muted)">rsync · 3 sa önce</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:13px 18px">
+      <span class="dot" style="background:var(--ok)"></span>
+      <div style="display:flex;flex-direction:column;gap:1px;flex-grow:1;min-width:0">
+        <span class="mono" style="font-size:12px">tmux 3.4</span>
+        <span style="font-size:11.5px;color:var(--text-muted)">5 oturum · 4'ü burada açık</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANA PANEL — IZGARA -->
+  <div style="flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0">
+
+    <div style="height:54px;flex:none;display:flex;align-items:center;gap:14px;padding:0 20px 0 24px">
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">Dört bölme</span>
+      <div style="flex-grow:1"></div>
+      <div style="display:flex;gap:4px;padding:4px;border-radius:var(--r-sm);background:var(--field)">
+        <div style="width:26px;height:22px;border-radius:5px;display:flex;padding:4px"><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span></div>
+        <div style="width:26px;height:22px;border-radius:5px;display:flex;gap:2px;padding:4px"><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span></div>
+        <div style="width:26px;height:22px;border-radius:5px;display:flex;gap:2px;padding:4px"><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span><span style="flex-grow:1;background:var(--text-muted);border-radius:2px"></span></div></div>
+        <div style="width:26px;height:22px;border-radius:5px;background:var(--surface-2);display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));grid-template-rows:repeat(2, minmax(0, 1fr));gap:2px;padding:4px">
+          <span style="background:var(--text);border-radius:2px"></span><span style="background:var(--text);border-radius:2px"></span>
+          <span style="background:var(--text);border-radius:2px"></span><span style="background:var(--text);border-radius:2px"></span>
+        </div>
+      </div>
+      <div class="ib">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="10" cy="4.2" r="1.3" fill="var(--text-muted)"></circle><circle cx="10" cy="10" r="1.3" fill="var(--text-muted)"></circle><circle cx="10" cy="15.8" r="1.3" fill="var(--text-muted)"></circle>
+        </svg>
+      </div>
+    </div>
+
+    <div style="flex-grow:1;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));grid-template-rows:repeat(2, minmax(0, 1fr));gap:14px;padding:0 24px 24px;min-height:0">
+
+      <div class="pane">
+        <div class="phead">
+          <span class="dot" style="background:var(--run)"></span>
+          <span class="mono" style="font-size:12.5px;font-weight:500">kopru</span>
+          <span class="mono" style="font-size:12px;color:var(--text-muted)">claude</span>
+          <div style="flex-grow:1"></div>
+          <span style="font-size:11.5px;color:var(--text-muted)">PC'de de açık</span>
+          <div class="ib" style="width:26px;height:26px"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l8 8M14 6l-8 8"></path></svg></div>
+        </div>
+<p class="term"><span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ claude
+<span class="pm">──────────────────────────────────────────────</span>
+  Read      gnome-extension/…/extension.js
+  Grep      "set_pointer_visible"      <span class="pm">2 eşleşme</span>
+  Edit      gnome-extension/…/extension.js
+
+<span class="pm">  İki çağrıyı da kaldırdım. Çerçeve çizimi
+  St.DrawingArea tarafında, etkilenmedi.</span>
+
+  <span class="pa">·</span> YAPILACAKLAR.md düzenleniyor…<span class="cur"> </span></p>
+      </div>
+
+      <div class="pane">
+        <div class="phead">
+          <span class="dot" style="background:var(--run)"></span>
+          <span class="mono" style="font-size:12.5px;font-weight:500">izle</span>
+          <span class="mono" style="font-size:12px;color:var(--text-muted)">journalctl</span>
+          <div style="flex-grow:1"></div>
+          <div class="ib" style="width:26px;height:26px"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l8 8M14 6l-8 8"></path></svg></div>
+        </div>
+<p class="term"><span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~</span>$ journalctl --user -u pcbridge -f
+<span class="pm">21:47:03</span> {"event":"agent_run","agent":"claude",
+         "model":"opus","effort":"high",
+         "job":"20260901-214703-3f9a1c",
+         "prompt_chars":<span class="pg">186</span>}
+<span class="pm">21:47:07</span> {"event":"fs_read","path":"gnome-ext…"}
+<span class="pm">21:47:14</span> {"event":"fs_search","hits":<span class="pg">2</span>}
+<span class="pm">21:48:41</span> {"event":"fs_write","bytes":<span class="pg">14802</span>}
+<span class="pm">21:49:22</span> {"event":"desktop_denied",
+         "reason":"<span class="pr">kilitli</span>"}<span class="cur"> </span></p>
+      </div>
+
+      <div class="pane">
+        <div class="phead">
+          <span class="dot" style="background:var(--ok)"></span>
+          <span class="mono" style="font-size:12.5px;font-weight:500">test</span>
+          <span class="mono" style="font-size:12px;color:var(--text-muted)">bash</span>
+          <div style="flex-grow:1"></div>
+          <div class="ib" style="width:26px;height:26px"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l8 8M14 6l-8 8"></path></svg></div>
+        </div>
+<p class="term"><span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ ./.venv/bin/python tests/test_desktop.py
+<span class="pm">…</span>
+  <span class="pg">PASS</span>  monitör tablosu soldan sağa
+  <span class="pg">PASS</span>  to_global ofseti yalnızca sınırda
+  <span class="pg">PASS</span>  batch bütçesi aşılınca duruyor
+  <span class="pg">PASS</span>  hold_max_seconds sonunda bırakıyor
+
+<span style="font-weight:500">398 gecti, 0 kaldi</span>
+<span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ <span class="cur"> </span></p>
+      </div>
+
+      <div class="pane">
+        <div class="phead">
+          <span class="dot" style="background:var(--ok)"></span>
+          <span class="mono" style="font-size:12.5px;font-weight:500">kabuk</span>
+          <span class="mono" style="font-size:12px;color:var(--text-muted)">bash</span>
+          <div style="flex-grow:1"></div>
+          <div class="ib" style="width:26px;height:26px"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l8 8M14 6l-8 8"></path></svg></div>
+        </div>
+<p class="term"><span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ git status --short
+<span class="pg"> M</span> gnome-extension/…/extension.js
+<span class="pg"> M</span> YAPILACAKLAR.md
+
+<span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ git diff --stat
+ gnome-extension/…/extension.js | <span class="pm">4 +---</span>
+ YAPILACAKLAR.md                | <span class="pm">11 +++++--</span>
+ <span class="pm">2 files changed, 8 insertions(+), 7 deletions(-)</span>
+
+<span class="ps">eymistaken@ZorinOS</span>:<span class="pw">~/Belgeler/Pcbridge</span>$ <span class="cur"> </span></p>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
