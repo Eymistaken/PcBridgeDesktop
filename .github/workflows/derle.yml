@@ -1,0 +1,132 @@
+# Her push derler. Sürüm yeniyse bir de yayınlar.
+#
+# "Yeni sürüm" = `v<sürüm>` etiketli bir yayın HENÜZ YOK demek. Sürüm
+# `src-tauri/tauri.conf.json`'dan okunuyor; `scripts/version.mjs` üç dosyanın
+# ayrışmadığını da doğruluyor, çünkü `v0.2.0` etiketiyle `…_0.1.0_amd64.AppImage`
+# yüklemek tam olarak böyle olurdu.
+#
+# Kullanılan eylemlerin hepsi GitHub'ın kendi eylemleri; üçüncü taraf yok.
+
+name: Derle
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Aynı dalda iki koşum yarışmasın: ikisi de aynı yayını yaratmaya kalkardı.
+# İptal etmiyoruz, sıraya alıyoruz — ikinci koşum yayının var olduğunu görüp
+# yalnızca derler.
+concurrency:
+  group: derle-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  derle:
+    # 22.04 bilinçli: AppImage derlendiği glibc'ye bağlanır, daha yeni bir
+    # taban daha az makinede çalışır.
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Sürüm ve yayın kararı
+        id: s
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          V="$(node scripts/version.mjs)"
+          echo "surum=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "yayinla=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$V zaten yayınlanmış — yalnızca derlenecek."
+          else
+            echo "yayinla=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$V yeni — derlenip yayınlanacak."
+          fi
+
+      - name: Sistem bağımlılıkları
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential curl wget file
+
+      - name: Cargo önbelleği
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: Derle
+        run: npm run tauri build
+
+      # Tauri paket adını `productName`'den kuruyor, o da boşluk taşıyor
+      # ("Pcbridge Desktop_0.1.0_amd64.AppImage"). İndirme bağlantısında
+      # boşluk hoş değil; kopyalarken tireye çeviriyoruz.
+      - name: Paketleri topla
+        id: p
+        run: |
+          set -euo pipefail
+          mkdir -p cikti
+          bulunan=0
+          for f in src-tauri/target/release/bundle/appimage/*.AppImage \
+                   src-tauri/target/release/bundle/deb/*.deb; do
+            [ -e "$f" ] || continue
+            cp "$f" "cikti/$(basename "$f" | tr ' ' '-')"
+            bulunan=$((bulunan + 1))
+          done
+          if [ "$bulunan" -eq 0 ]; then
+            echo "::error::Hiç paket üretilmedi."
+            exit 1
+          fi
+          ls -la cikti/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pcbridge-desktop-${{ steps.s.outputs.surum }}
+          path: cikti/*
+          if-no-files-found: error
+
+      - name: Yayınla
+        if: steps.s.outputs.yayinla == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.s.outputs.surum }}
+        run: |
+          set -euo pipefail
+          cat > notlar.md <<EOF
+          Desktop client for the [pcbridge](https://github.com/Eymistaken/Pcbridge) MCP server. Linux x86-64.
+
+          **AppImage** — download, \`chmod +x\`, run.
+          **deb** — \`sudo apt install ./Pcbridge-Desktop_${V}_amd64.deb\`
+
+          Needs a running pcbridge server and \`tmux\`. Built from \`${GITHUB_SHA}\` on Ubuntu 22.04.
+          EOF
+          gh release create "v$V" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "v$V" \
+            --notes-file notlar.md \
+            cikti/*
