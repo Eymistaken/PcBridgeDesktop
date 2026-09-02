@@ -69,6 +69,19 @@ pub struct Agent {
     pub note: Option<String>,
 }
 
+/// Bir MCP aracının modele anlatılabilecek hâli.
+///
+/// `read_only` sunucunun **ipucu**; pcbridge veriyorsa araç filtresinin
+/// gruplaması ondan çıkar, vermiyorsa arayüz kendi ad listesine düşer.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDef {
+    pub name: String,
+    pub description: Option<String>,
+    pub input_schema: serde_json::Value,
+    pub read_only: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnSnapshot {
@@ -127,6 +140,30 @@ pub enum ConnError {
 impl From<SecretError> for ConnError {
     fn from(e: SecretError) -> Self {
         ConnError::Keyring(e.to_string())
+    }
+}
+
+/// `#kod` biçimi — arayüzde `err.*` sözlüğüne çözülüyor, çözülemezse ham
+/// metin olduğu gibi kalıyor (`ipc.ts::kodCoz`). Ajan döngüsü araç çağrısı
+/// başarısız olduğunda bu metni **modele** de veriyor.
+impl std::fmt::Display for ConnError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConnError::NoToken => write!(f, "#noToken"),
+            ConnError::Unauthorized => write!(f, "#unauthorized"),
+            ConnError::Unreachable(d) => write!(f, "#unreachable:{d}"),
+            ConnError::Keyring(d) => write!(f, "{d}"),
+            ConnError::Protocol(d) => write!(f, "#protocol:{d}"),
+        }
+    }
+}
+
+/// Model hatası aynı kanaldan geçer: `to_string()` zaten `#kod` üretiyor ve
+/// arayüz `kodCoz` ile `err.*` sözlüğüne çözüyor. Sarmalama yüzünden
+/// ayrıntının kaybolduğu bir katman eklenmiyor.
+impl From<crate::model::ModelError> for ConnError {
+    fn from(e: crate::model::ModelError) -> Self {
+        ConnError::Protocol(e.to_string())
     }
 }
 
@@ -294,7 +331,7 @@ impl Conn {
     /// olmayan içerik lazım olduğunda gerekiyor.
     async fn call_tool_raw(
         &self,
-        name: &'static str,
+        name: impl Into<std::borrow::Cow<'static, str>>,
         args: serde_json::Map<String, serde_json::Value>,
     ) -> Result<CallToolResult, ConnError> {
         let mut params = CallToolRequestParams::new(name);
@@ -315,10 +352,72 @@ impl Conn {
     /// Bir aracı çağırıp metin yanıtını döndürür.
     async fn call_text(
         &self,
-        name: &'static str,
+        name: impl Into<std::borrow::Cow<'static, str>>,
         args: serde_json::Map<String, serde_json::Value>,
     ) -> Result<String, ConnError> {
         Ok(extract_text(&self.call_tool_raw(name, args).await?))
+    }
+
+    /// Ajan döngüsü için araç çağrısı. `call_tool_raw`'dan **iki farkı** var:
+    ///
+    /// 1. `is_error` yukarı fırlatılmaz. Aracın kendi hatası (dosya yok, komut
+    ///    çöktü) modele geri verilmesi gereken bir **sonuçtur**; bağlantı
+    ///    hatası gibi koşumu düşürmemeli.
+    /// 2. Görüntü blokları metne çevrilemediği için sayılıp yer tutucuya
+    ///    dönüşür — yerel modele görüntü göndermek ayrı bir hedef.
+    async fn call_for_agent(
+        &self,
+        name: String,
+        args: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(String, bool), ConnError> {
+        let mut params = CallToolRequestParams::new(name);
+        if !args.is_empty() {
+            params = params.with_arguments(args);
+        }
+        let res = self
+            .client
+            .call_tool(params)
+            .await
+            .map_err(|e| classify(&e, &self.token))?;
+
+        let hata = res.is_error.unwrap_or(false);
+        let mut metin = scrub(extract_text(&res), &self.token);
+
+        let gorseller = res
+            .content
+            .iter()
+            .filter(|c| matches!(c, ContentBlock::Image(_)))
+            .count();
+        if gorseller > 0 {
+            if !metin.is_empty() {
+                metin.push('\n');
+            }
+            metin.push_str(&format!("[{gorseller} görüntü — bu botta gösterilemiyor]"));
+        }
+        if metin.trim().is_empty() {
+            metin = "(araç boş yanıt döndürdü)".into();
+        }
+        Ok((metin, hata))
+    }
+
+    /// Araçların adı, açıklaması ve girdi şeması. `snapshot()` bunu zaten
+    /// çağırıyor ama yalnızca sayısını tutuyordu; şemalar kilobaytlarca
+    /// olduğu için `ConnSnapshot`'a konmuyor, ayrı istendiğinde geliyor.
+    async fn tool_defs(&self, token: &str) -> Result<Vec<ToolDef>, ConnError> {
+        let tools = self
+            .client
+            .list_all_tools()
+            .await
+            .map_err(|e| classify(&e, token))?;
+        Ok(tools
+            .into_iter()
+            .map(|t| ToolDef {
+                name: t.name.to_string(),
+                description: t.description.map(|d| d.to_string()),
+                input_schema: serde_json::Value::Object((*t.input_schema).clone()),
+                read_only: t.annotations.and_then(|a| a.read_only_hint),
+            })
+            .collect())
     }
 
     async fn snapshot(&self, token: &str) -> Result<ConnSnapshot, ConnError> {
@@ -421,7 +520,7 @@ impl McpState {
     /// Bir aracı çağırıp yanıtından iş kimliğini alır.
     async fn baslat(
         &self,
-        name: &'static str,
+        name: impl Into<std::borrow::Cow<'static, str>>,
         args: serde_json::Map<String, serde_json::Value>,
     ) -> Result<String, ConnError> {
         let guard = self.inner.lock().await;
@@ -449,6 +548,26 @@ impl McpState {
         // Akış dosyadan geliyor; sunucunun beklemesine gerek yok.
         a.insert("wait_seconds".into(), 0.into());
         self.baslat("agent_run", a).await
+    }
+
+    /// Araç tanımları — ajan döngüsü ve BotForge'daki filtre bunu kullanıyor.
+    pub async fn tools(&self) -> Result<Vec<ToolDef>, ConnError> {
+        let token = secrets::get_async().await?.ok_or(ConnError::NoToken)?;
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        conn.tool_defs(&token).await
+    }
+
+    /// Ajan döngüsünün araç çağrısı. `(metin, araç_hata_verdi_mi)` döner;
+    /// yalnızca **bağlantı** hatası `Err` olur.
+    pub async fn call_for_agent(
+        &self,
+        name: String,
+        args: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(String, bool), ConnError> {
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        conn.call_for_agent(name, args).await
     }
 
     /// İşin durumunu sorar. **Yan etkisi asıl amaç:** pcbridge biten çocuğu

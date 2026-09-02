@@ -1,15 +1,12 @@
 # CLAUDE.md — PcBridgeDesktop
 
 > **BU DEPODA İŞE BAŞLAMADAN ÖNCE `YAPILACAKLAR.md`'Yİ OKU.**
-> Sıradaki iş orada. [ASAMALAR.md](ASAMALAR.md)'deki beş aşama **bitti**;
+> Sıradaki iş orada. [ASAMALAR.md](ASAMALAR.md)'deki **altı aşama da bitti**;
 > o dosya artık yapılacak iş listesi değil, bitmiş işin kaydı.
 >
-> **"YAPILACAKLAR.md'yi uygula" denince kastedilen bölüm 1'dir**
-> (*Uygulama ajan çalıştırıcısı olsun*). Bölüm 2 (*Eklentiler*) bilerek
-> beklemede — kullanıcı açıkça istemeden ona başlama.
->
-> **Kod yazmadan önce** bölüm 1'in "Karar verilmemiş" başlığındaki dört
-> soruyu kullanıcıya sor; cevapsız yazılan kod büyük ihtimalle atılır.
+> **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Kullanıcı açıkça istemeden
+> başlama; önce YAPILACAKLAR.md'deki "Karar verilmemiş: araçları kim tüketiyor"
+> başlığını okuyup A/B ayrımını sor.
 >
 > `YAPILACAKLAR.md` **yerel bir dosyadır, depoda yoktur** — kullanıcının
 > isteğiyle izlenmiyor. Yoksa kullanıcıya söyle, uydurma.
@@ -28,6 +25,11 @@ gerçek terminal ızgarası.
   token'ı isteme, okumaya çalışma.
 - **Bot, uygulamanın kendi JSON'unda yaşar** (`~/.config/pcbridge-desktop/bots.json`).
   `[agents.*]` bloğu yazma yeteneği bilinçli olarak yok.
+- **Botun `backend` alanı koşumu kimin yürüttüğünü söyler**
+  (`pcbridge-agent` | `yerel-model`). Ama **yönlendirme buna bakmaz**, koşum
+  kimliğinin önekine bakar: `local-…` bizim (`runs.rs`), `%Y%m%d-%H%M%S-…`
+  pcbridge'in (`jobs.rs`). Kullanıcı arka ucu sonradan değiştirse bile eski
+  geçmiş doğru yerden okunsun diye.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"
@@ -112,10 +114,11 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
   statik token'ı erişim token'ı sayıyor, `tests/test_e2e.py:924` bu çağrıyı
   yapıyor. stdio **kullanılmıyor**: orada sunucuyu istemci başlatır ve uygulama
   kapanınca çalışan ajan işi de ölür.
-  ⚠️ **Bu gerekçe 2026-09-02'de bilinçli olarak terk edildi.** Uygulama ajan
-  döngüsünü kendi yürütecek ve iş uygulamayla birlikte ölecek; kullanıcı bu
-  bedeli kabul etti. Ölçüm doğru, ama artık bir yasak değil. Gerekçesi ve
-  planı **`YAPILACAKLAR.md` bölüm 1'de** (yerel dosya, depoda değil).
+  ⚠️ **Bu gerekçe 2026-09-02'de bilinçli olarak terk edildi ve iş bitti.**
+  Uygulama ajan döngüsünü **artık kendi yürütüyor** (`agent.rs`); yerel koşum
+  uygulamayla birlikte ölüyor ve açılışta `#appClosed` ile kapatılıyor.
+  Kullanıcı bu bedeli kabul etti. Ölçüm doğru, ama bir yasak değil.
+  Ayrıntı: **ASAMALAR.md, Aşama 6.**
 - **İş çıktısı diskte:** `~/.local/state/pcbridge/jobs/<id>/` altında
   `meta.json` (durum, pid, argv, exit_code), `out.log` (stdout+stderr birleşik),
   `exit_code` (iş bitince yazılır). Canlı akış için **MCP pollanmaz**, dosya
@@ -295,6 +298,60 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
 - **pcbridge'in sanal faresinin tekerleği WebKitGTK'da kaydırmıyor** (ölçüldü;
   `Tab` ile odak taşıyınca kap düzgün kaydı). Uygulamanın hatası değil,
   otomasyonun sınırı — gerçek fareyle sorun yok.
+
+### Yerel model yolu — 2026-09-02'de ölçüldü
+
+- **LM Studio bu makinede Flatpak** (`ai.lmstudio.lm-studio` 0.4.23).
+  Host'taki `~/.lmstudio/bin/lms` **ancak GUI açıkken** çalışıyor; kapalıyken
+  "daemon is not running and no valid installation could be found" diyor —
+  yanıltıcı, kurulum yerinde. Sıra: `flatpak run ai.lmstudio.lm-studio`,
+  daemon ayağa kalksın, sonra `lms server start`. Ollama, llama.cpp, vLLM
+  **kurulu değil**.
+- **`ornith-1.5-35b-a3b` akış kipinde araç çağırıyor.** Ölçülen tel biçimi —
+  istek `"tools":[{"type":"function","function":{name,description,parameters}}]`
+  + `"stream":true` + `"stream_options":{"include_usage":true}`; yanıtta
+  `tool_calls[].function.arguments` **kırık JSON dizgesi** olarak parça parça
+  geliyor ve `id` yalnızca ilk parçada var — `index` ile birleştirmek şart.
+- **`reasoning_content` ayrı bir alan.** `delta.content` değil; `Thinking`
+  olayına çevriliyor. Bu modelde her yanıttan önce geliyor.
+- **`usage.prompt_tokens` kesin sayı olarak dönüyor** (`include_usage`).
+  Özetleme eşiği **tahminle değil bu sayıyla** tetikleniyor.
+- **Uçtan uca ölçüm:** `cargo test --lib gercek_model -- --ignored --nocapture`
+  → `ToolStart { tool: "fs_list", detail: "/tmp" }` → `ToolEnd { ok: true }` →
+  model Türkçe yanıt. **27,9 saniye.** LM Studio ve pcbridge ayakta olmalı.
+- **Araç filtresi fiilen kısıtlıyor.** LM Studio'nun kendi kaydında 7 istekte
+  yalnızca `fs_list` göründü; seçilmeyen 32 araç modele hiç gönderilmedi.
+  Doğrulama: `grep -o '"name": "[a-z_]*"' ~/.lmstudio/server-logs/<gün>.log`.
+- **`Response::chunk()` reqwest'in `stream` özelliğinin dışında**
+  (`reqwest-0.13.4/src/async_impl/response.rs:310` — kaynaktan okundu). SSE
+  onunla okunuyor; `stream` özelliği ve `futures-util` **eklenmedi**.
+- **`rmcp` araç adında `&'static str` istemiyor.**
+  `CallToolRequestParams::new` `impl Into<Cow<'static, str>>` alıyor; eski
+  kısıt bizim kendi koyduğumuzdu ve kalktı.
+- **`rmcp::model::Tool` şemayı zaten taşıyor** — `input_schema: Arc<JsonObject>`
+  ve `annotations.read_only_hint`. `list_all_tools` sonucundan alınıyor,
+  **ek ağ çağrısı yok**. `ConnSnapshot`'a konmuyor: şemalar kilobaytlarca ve
+  her `refresh()`'te ön yüze gitmemeli.
+- **`JobMeta`'nın iki biçimi var ve karıştırılırsa iş sonsuza kadar "sürüyor"
+  görünür.** Diskte **snake_case** (`exit_code`) — pcbridge'in yazdığıyla aynı;
+  arayüze giden tel biçimi **camelCase** (`exitCode`). `runs.rs::meta_json`
+  disk biçimini açıkça kuruyor, `JobMeta`'nın kendi `Serialize`'ı kullanılmıyor.
+  Bir test bunu sabitliyor.
+- **`Event::Text` ve `Event::Thinking` artık `delta` taşıyor.** İki üreticinin
+  anlamı farklı: CLI ayrıştırıcıları tamamlanmış **blok** yayıyor (ardışık
+  olanlar satır atlanarak birleşir), ajan döngüsü **token akışı** yayıyor
+  (olduğu gibi birleşir). Alan olmadan `timeline.ts::toBlocks` her token'ın
+  arasına `\n` koyuyordu ve **her kelime alt alta düşüyordu** — ekranda
+  görüldü, düzeltildi. Eski kayıtlarda alan yok; `default` ile blok sayılıyor.
+- **`runs::last_line` tek olaya bakamaz.** Token akışında sondaki olay çoğu
+  zaman "." gibi tek bir parça; kenar çubuğunda o görünüyordu. Sondan geriye
+  **ardışık** metin olayları birleştirilip son mesajın ilk satırı alınıyor.
+- ⚠️ **pcbridge'in `fs_read`'i dosyanın SONUNU döndürüyor.** `max_chars` ile
+  okunduğunda baş taraf kesiliyor ve yerine `…(kirpildi)…` yazılıyor (ölçüldü:
+  `README.md`, `max_chars=300` → dosyanın son 300 karakteri). Sonuç: bir modele
+  "dosyanın ilk satırı ne" diye sorulursa `fs_read` ile **asla** bulamıyor ve
+  denemeye devam ediyor. pcbridge'in işi, bu depodan dokunulmuyor — ama
+  yerel modelle çalışırken bu davranışı bilmek gerekiyor.
 
 ### Kontrast tablosu — hesaplandı, tahmin değil
 

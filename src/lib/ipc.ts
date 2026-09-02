@@ -12,6 +12,9 @@ import type {
   ConnSnapshot,
   DesktopReply,
   DesktopState,
+  McpTool,
+  ModelConfig,
+  ModelInfo,
   Shots,
   TerminalsView,
   Turn,
@@ -115,7 +118,12 @@ export const botSummaries = () => call<BotSummary[]>("bot_summaries");
 export const sendMessage = (id: string, text: string) =>
   call<{ jobId: string }>("send_message", { id, text });
 
-export const cancelJob = (jobId: string) => call<string>("cancel_job", { jobId });
+/**
+ * Koşumu durdurur. `botId` yerel koşum için gerekli: iptal edilen döngünün
+ * bitiş olayını doğru bota yollayabilmek için.
+ */
+export const cancelJob = (botId: string, jobId: string) =>
+  call<string>("cancel_job", { botId, jobId });
 
 /** Açılışta yarım kalmış işleri yeniden izlemeye alır. */
 export const resumeWatches = () => call<string[]>("resume_watches");
@@ -157,3 +165,25 @@ export const systemStatus = () => call<string>("system_status");
 
 /** İzin kapalıyken `shots` boş döner ve `note` gerekçeyi taşır. */
 export const screenCapture = () => call<Shots>("screen_capture");
+
+// ────────────────────────── model sunucusu ──────────────────────────
+
+/** Kayıtlı adres. Anahtarın **kendisi hiç gelmez**. */
+export const modelConfig = () => call<ModelConfig>("model_config");
+
+/**
+ * Adresi kaydeder. `key` verilmezse anahtara dokunulmaz; boş dizge verilirse
+ * keyring'den **silinir**.
+ */
+export const saveModelConfig = (baseUrl: string, key?: string) =>
+  call<ModelConfig>("save_model_config", { baseUrl, key: key ?? null });
+
+/**
+ * `GET /v1/models`. Bağlantıyı denemenin de yolu bu: liste geldiyse sunucu
+ * ayakta ve anahtar geçerli demektir. `baseUrl` verilmezse kayıtlı adres.
+ */
+export const modelModels = (baseUrl?: string) =>
+  call<ModelInfo[]>("model_models", { baseUrl: baseUrl ?? null });
+
+/** Araç filtresinin listelediği araçlar — ad, açıklama, şema. */
+export const mcpTools = () => call<McpTool[]>("mcp_tools");

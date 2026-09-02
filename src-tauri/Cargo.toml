@@ -25,7 +25,10 @@ portable-pty = "0.9"
 # PTY baytları JSON'dan geçerken bozulmasın: UTF-8 sınırı ve kaçış
 # dizileri parça sınırına denk gelebiliyor.
 base64 = "0.22"
-# Yalnızca bağlantı hatasını sınıflandırmak için — rmcp zaten ağaçta tutuyor.
+# Bağlantı hatasını sınıflandırmak **ve** model akışını okumak için.
+# `stream` özelliği gerekmiyor: `Response::chunk()` özellik kapısının dışında
+# (reqwest-0.13.4/src/async_impl/response.rs:310 — ölçüldü), SSE onunla
+# okunuyor ve futures-util'e hiç girilmiyor.
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
 rmcp = { version = "3.2", default-features = false, features = [
   "client",

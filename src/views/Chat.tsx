@@ -5,6 +5,7 @@ import Avatar from "../ui/Avatar";
 import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
+import { detailText } from "../lib/ipc";
 import type { Bot, Turn } from "../lib/types";
 
 interface Props {
@@ -85,7 +86,16 @@ export default function Chat({
         <Avatar tone={bot.avatar} name={bot.name} size={26} />
         <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{bot.name}</span>
         <span className="mono muted" style={{ fontSize: 12 }}>
-          {[bot.model, bot.effort, kisaltEv(bot.workdir)].filter(Boolean).join(" · ")}
+          {[
+            bot.model,
+            // Yerel botta effort yok; onun yerinde kaç araç gördüğü duruyor.
+            bot.backend === "yerel-model"
+              ? t("side.nTools", { n: bot.tools.length })
+              : bot.effort,
+            kisaltEv(bot.workdir),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
         <div style={{ flexGrow: 1 }} />
       </div>
@@ -283,6 +293,35 @@ function BlockView({ block }: { block: Block }) {
     return (
       <div style={{ display: "flex" }}>
         <pre className="bub mono well">{block.text}</pre>
+      </div>
+    );
+  }
+
+  // Bağlam özeti. Sessizce olmaz: özetleme fazladan bir model koşumu ve
+  // geçmişin bir kısmının atılması demek — ikisi de görünür olmalı.
+  if (block.t === "summary") {
+    const basarisiz = block.text === "#summaryFailed";
+    return (
+      <div style={{ display: "flex" }}>
+        <div
+          className="bub muted"
+          style={{
+            background: "var(--surface)",
+            whiteSpace: "pre-wrap",
+            fontSize: 13,
+            borderLeft: "2px solid var(--line)",
+            borderTopLeftRadius: 6,
+            borderBottomLeftRadius: 6,
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
+            {t("chat.summarized", { n: block.dropped })}
+          </div>
+          {basarisiz ? null : block.text}
+          {basarisiz && (
+            <div style={{ color: "var(--fail)", marginTop: 6 }}>{detailText(block.text)}</div>
+          )}
+        </div>
       </div>
     );
   }

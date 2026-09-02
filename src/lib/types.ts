@@ -51,17 +51,34 @@ export const AVATARS: Avatar[] = ["mor", "mavi", "cam", "yesil", "kehribar", "me
 /** `var(--av-mor)` gibi — koyu ve aydınlık temada farklı hex'e çözülür. */
 export const avatarVar = (a: Avatar) => `var(--av-${a})`;
 
+/**
+ * Koşumu **kim yürütüyor**.
+ *
+ * `pcbridge-agent`: eski yol — pcbridge bir CLI başlatır, araçlar o CLI'nın
+ * kendi MCP yapılandırmasından gelir.
+ * `yerel-model`: yeni yol — döngü uygulamanın içinde döner, araçları modele
+ * uygulama verir ve modelin tarafında hiçbir kurulum gerekmez.
+ */
+export type Backend = "pcbridge-agent" | "yerel-model";
+
+export const BACKENDS: Backend[] = ["pcbridge-agent", "yerel-model"];
+
 export interface Bot {
   id: string;
   name: string;
   avatar: Avatar;
   agent: string;
+  backend: Backend;
   model: string | null;
   effort: string | null;
   workdir: string;
   preamble: string;
   desktop: boolean;
   timeout: number;
+  /** Modele gösterilen araçlar. **Boş = hiçbiri.** */
+  tools: string[];
+  /** Bağlam bütçesi (token); aşılınca geçmiş özetlenir. */
+  contextBudget: number;
   sessionId: string | null;
   /** Koşum kimlikleri, eskiden yeniye. Geçmiş bunlardan kurulur. */
   jobs: string[];
@@ -74,20 +91,50 @@ export interface BotDraft {
   name: string;
   avatar: Avatar;
   agent: string;
+  backend: Backend;
   model: string | null;
   effort: string | null;
   workdir: string;
   preamble: string;
   desktop: boolean;
   timeout: number;
+  tools: string[];
+  contextBudget: number;
+}
+
+// ────────────────────────────── model sunucusu ──────────────────────────────
+
+/** Kayıtlı adres. Anahtarın **kendisi hiç gelmez**, yalnızca var olup olmadığı. */
+export interface ModelConfig {
+  baseUrl: string;
+  hasKey: boolean;
+}
+
+export interface ModelInfo {
+  id: string;
+}
+
+/** Bir MCP aracının modele anlatılabilecek hâli. */
+export interface McpTool {
+  name: string;
+  description: string | null;
+  inputSchema: unknown;
+  /** Sunucunun ipucu; vermiyorsa `null` ve arayüz kendi ad listesine düşer. */
+  readOnly: boolean | null;
 }
 
 // ─────────────────────────────── koşumlar ───────────────────────────────
 
 export type JobEvent =
   | { kind: "session"; id: string; model: string | null; cwd: string | null }
-  | { kind: "text"; text: string }
-  | { kind: "thinking"; text: string }
+  /**
+   * Ajanın söylediği metin. `delta` bu parçanın öncekine **nasıl**
+   * ekleneceğini söyler: CLI ayrıştırıcıları tamamlanmış bloklar yayar
+   * (satır atlanarak birleşir), uygulamanın kendi döngüsü token akışı yayar
+   * (olduğu gibi birleşir). Eski kayıtlarda alan yok — blok sayılır.
+   */
+  | { kind: "text"; text: string; delta?: boolean }
+  | { kind: "thinking"; text: string; delta?: boolean }
   | { kind: "toolStart"; id: string; tool: string; detail: string }
   | { kind: "toolEnd"; id: string; ok: boolean }
   | {
@@ -98,7 +145,13 @@ export type JobEvent =
       costUsd: number | null;
       error: string | null;
     }
-  | { kind: "raw"; text: string };
+  | { kind: "raw"; text: string }
+  /**
+   * Bağlam özetlendi: bu olaydan **öncesi** tek bir mesajla değiştirildi.
+   * Yalnızca uygulamanın kendi ajan döngüsü üretir. `text` `#summaryFailed`
+   * ise özetleme başarısız olmuş ve sert kırpmaya düşülmüştür.
+   */
+  | { kind: "summary"; text: string; dropped: number };
 
 export interface JobMeta {
   id: string;

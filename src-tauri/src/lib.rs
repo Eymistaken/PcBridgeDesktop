@@ -1,18 +1,24 @@
+mod agent;
 mod bots;
 mod desktop;
 mod jobs;
 mod mcp;
+mod model;
 mod parse;
 mod pty;
+mod runs;
 mod secrets;
 
-use bots::{Bot, BotDraft, BotError};
+use agent::Runs;
+use bots::{Backend, Bot, BotDraft, BotError};
 use desktop::{AuditRow, DesktopState};
 use jobs::{JobMeta, Watchers};
-use mcp::{AgentRunRequest, ConnError, ConnSnapshot, McpState, Shots};
+use mcp::{AgentRunRequest, ConnError, ConnSnapshot, McpState, Shots, ToolDef};
+use model::{ModelConfig, ModelError, ModelInfo};
 use parse::Event;
 use pty::{PtyError, Ptys, TmuxSession};
 use serde::Serialize;
+use std::sync::Arc;
 
 // ─────────────────────────── bağlantı ───────────────────────────
 
@@ -28,19 +34,19 @@ async fn has_token() -> Result<bool, ConnError> {
 
 #[tauri::command]
 async fn connect(
-    state: tauri::State<'_, McpState>,
+    state: tauri::State<'_, Arc<McpState>>,
     token: Option<String>,
 ) -> Result<ConnSnapshot, ConnError> {
     state.connect(token).await
 }
 
 #[tauri::command]
-async fn refresh(state: tauri::State<'_, McpState>) -> Result<ConnSnapshot, ConnError> {
+async fn refresh(state: tauri::State<'_, Arc<McpState>>) -> Result<ConnSnapshot, ConnError> {
     state.refresh().await
 }
 
 #[tauri::command]
-async fn sign_out(state: tauri::State<'_, McpState>) -> Result<(), ConnError> {
+async fn sign_out(state: tauri::State<'_, Arc<McpState>>) -> Result<(), ConnError> {
     state.disconnect().await;
     secrets::clear_async().await.map_err(ConnError::from)
 }
@@ -116,7 +122,13 @@ fn bot_history(id: String) -> Result<Vec<Turn>, BotError> {
         .jobs
         .iter()
         .map(|job_id| {
-            let (meta, events) = jobs::replay(job_id);
+            // Yönlendirme **önekle**, botun arka ucuyla değil: kullanıcı
+            // arka ucu sonradan değiştirse bile eski geçmiş doğru okunur.
+            let (meta, events) = if runs::bizim(job_id) {
+                runs::replay(job_id)
+            } else {
+                jobs::replay(job_id)
+            };
             let prompt = meta
                 .prompt
                 .as_deref()
@@ -153,11 +165,16 @@ fn bot_summaries() -> Result<Vec<BotSummary>, BotError> {
         .into_iter()
         .map(|b| {
             let son = b.jobs.last().cloned();
-            let meta = son.as_deref().and_then(jobs::read_meta);
+            let yerel = son.as_deref().map(runs::bizim).unwrap_or(false);
+            let meta = son
+                .as_deref()
+                .and_then(|j| if yerel { runs::read_meta(j) } else { jobs::read_meta(j) });
             let running = meta.as_ref().map(|m| !m.bitti()).unwrap_or(false);
             BotSummary {
                 id: b.id,
-                line: son.as_deref().and_then(jobs::last_line),
+                line: son
+                    .as_deref()
+                    .and_then(|j| if yerel { runs::last_line(j) } else { jobs::last_line(j) }),
                 at: meta
                     .as_ref()
                     .and_then(|m| m.finished_at.or(m.started_at))
@@ -180,8 +197,9 @@ struct Started {
 #[tauri::command]
 async fn send_message(
     app: tauri::AppHandle,
-    state: tauri::State<'_, McpState>,
+    state: tauri::State<'_, Arc<McpState>>,
     watchers: tauri::State<'_, Watchers>,
+    runs_state: tauri::State<'_, Arc<Runs>>,
     id: String,
     text: String,
 ) -> Result<Started, ConnError> {
@@ -190,6 +208,20 @@ async fn send_message(
         return Err(ConnError::Protocol("#emptyMessage".into()));
     }
     let bot = bots::get(&id).map_err(|e| ConnError::Protocol(e.to_string()))?;
+
+    // Yerel yolda koşum uygulamanın içinde dönüyor: pcbridge'e yalnızca
+    // araç çağrıları için gidiliyor, `agent_run` hiç çağrılmıyor.
+    if bot.backend == Backend::YerelModel {
+        let job_id = agent::baslat(
+            app,
+            state.inner().clone(),
+            runs_state.inner().clone(),
+            bot,
+            text,
+        )
+        .await?;
+        return Ok(Started { job_id });
+    }
 
     let job_id = state
         .agent_run(AgentRunRequest {
@@ -210,9 +242,20 @@ async fn send_message(
 
 #[tauri::command]
 async fn cancel_job(
-    state: tauri::State<'_, McpState>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<McpState>>,
+    runs_state: tauri::State<'_, Arc<Runs>>,
+    bot_id: String,
     job_id: String,
 ) -> Result<String, ConnError> {
+    if runs::bizim(&job_id) {
+        return Ok(if runs_state.cancel(&app, &job_id, &bot_id).await {
+            "#runCancelled".into()
+        } else {
+            // Koşum zaten bitmişti; kullanıcıya yalan söylemiyoruz.
+            "#runNotRunning".into()
+        });
+    }
     state.job_cancel(job_id).await
 }
 
@@ -224,7 +267,13 @@ async fn resume_watches(
 ) -> Result<Vec<String>, BotError> {
     let mut devam = Vec::new();
     for bot in bots::list()? {
-        for job_id in &bot.jobs {
+        // Yerel koşum **devam ettirilemez**: süreç öldüğünde modelle kurulan
+        // tur bellekteydi. Kabul edilen bedelin diskteki dürüst kaydı bu —
+        // yarım koşum `#appClosed` ile kapatılır, sonsuza kadar "sürüyor"
+        // görünmez.
+        runs::kapanista_temizle(&bot.jobs);
+
+        for job_id in bot.jobs.iter().filter(|j| !runs::bizim(j)) {
             let bitti = jobs::read_meta(job_id).map(|m| m.bitti()).unwrap_or(true);
             if !bitti {
                 watchers
@@ -235,6 +284,42 @@ async fn resume_watches(
         }
     }
     Ok(devam)
+}
+
+// ───────────────────────── model sunucusu ─────────────────────────
+
+/// Kayıtlı adres. Anahtarın **kendisi değil**, yalnızca var olup olmadığı
+/// dönüyor — sır arayüze hiç çıkmıyor.
+#[tauri::command]
+fn model_config() -> ModelConfig {
+    model::read_config()
+}
+
+/// Adresi (ve verilmişse anahtarı) kaydeder. `key: Some("")` anahtarı siler,
+/// `None` ise anahtara dokunmaz.
+#[tauri::command]
+async fn save_model_config(
+    base_url: String,
+    key: Option<String>,
+) -> Result<ModelConfig, ModelError> {
+    model::save_config(base_url, key).await
+}
+
+/// `GET /v1/models`. Bağlantıyı denemenin de yolu bu: liste geldiyse sunucu
+/// ayakta ve anahtar geçerli demektir.
+#[tauri::command]
+async fn model_models(base_url: Option<String>) -> Result<Vec<ModelInfo>, ModelError> {
+    let adres = match base_url {
+        Some(u) if !u.trim().is_empty() => u.trim().trim_end_matches('/').to_string(),
+        _ => model::read_config().base_url,
+    };
+    model::models(&adres).await
+}
+
+/// Araçların adı, açıklaması ve şeması — BotForge'daki filtre bunu listeliyor.
+#[tauri::command]
+async fn mcp_tools(state: tauri::State<'_, Arc<McpState>>) -> Result<Vec<ToolDef>, ConnError> {
+    state.tools().await
 }
 
 // ───────────────────────── terminaller ─────────────────────────
@@ -252,7 +337,7 @@ struct TerminalsView {
 
 #[tauri::command]
 async fn terminals(
-    state: tauri::State<'_, McpState>,
+    state: tauri::State<'_, Arc<McpState>>,
     ptys: tauri::State<'_, Ptys>,
 ) -> Result<TerminalsView, ConnError> {
     let text = state.tmux_list().await?;
@@ -323,7 +408,7 @@ async fn pty_close(ptys: tauri::State<'_, Ptys>, session: String) -> Result<(), 
 /// Oturumu **sonlandırır** — bölme kapatmaktan ayrı, geri dönüşü yok.
 #[tauri::command]
 async fn tmux_kill(
-    state: tauri::State<'_, McpState>,
+    state: tauri::State<'_, Arc<McpState>>,
     ptys: tauri::State<'_, Ptys>,
     session: String,
 ) -> Result<String, ConnError> {
@@ -362,7 +447,7 @@ struct DesktopReply {
 /// İzni açar.
 #[tauri::command]
 async fn desktop_unlock(
-    state: tauri::State<'_, McpState>,
+    state: tauri::State<'_, Arc<McpState>>,
     minutes: u32,
     reason: String,
 ) -> Result<DesktopReply, ConnError> {
@@ -374,7 +459,7 @@ async fn desktop_unlock(
 }
 
 #[tauri::command]
-async fn desktop_lock(state: tauri::State<'_, McpState>) -> Result<DesktopReply, ConnError> {
+async fn desktop_lock(state: tauri::State<'_, Arc<McpState>>) -> Result<DesktopReply, ConnError> {
     let message = state.desktop_lock().await?;
     Ok(DesktopReply {
         state: desktop::read_state(),
@@ -383,14 +468,14 @@ async fn desktop_lock(state: tauri::State<'_, McpState>) -> Result<DesktopReply,
 }
 
 #[tauri::command]
-async fn system_status(state: tauri::State<'_, McpState>) -> Result<String, ConnError> {
+async fn system_status(state: tauri::State<'_, Arc<McpState>>) -> Result<String, ConnError> {
     state.system_status().await
 }
 
 /// Önizleme için ekran görüntüsü. `scale` en uzun kenar; tam çözünürlük
 /// IPC'den geçirmek için gereksiz büyük.
 #[tauri::command]
-async fn screen_capture(state: tauri::State<'_, McpState>) -> Result<Shots, ConnError> {
+async fn screen_capture(state: tauri::State<'_, Arc<McpState>>) -> Result<Shots, ConnError> {
     state.screen_capture(1100).await
 }
 
@@ -398,7 +483,8 @@ async fn screen_capture(state: tauri::State<'_, McpState>) -> Result<Shots, Conn
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(McpState::default())
+        .manage(Arc::new(McpState::default()))
+        .manage(Arc::new(Runs::default()))
         .manage(Watchers::default())
         .manage(Ptys::default())
         .invoke_handler(tauri::generate_handler![
@@ -417,6 +503,10 @@ pub fn run() {
             send_message,
             cancel_job,
             resume_watches,
+            model_config,
+            save_model_config,
+            model_models,
+            mcp_tools,
             terminals,
             pty_open,
             pty_write,

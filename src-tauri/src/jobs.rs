@@ -161,7 +161,7 @@ pub fn last_line(job_id: &str) -> Option<String> {
     };
 
     for e in events.iter().rev() {
-        if let Event::Text { text } = e {
+        if let Event::Text { text, .. } = e {
             if let Some(s) = ilk_satir(text) {
                 return Some(s);
             }
@@ -195,6 +195,32 @@ struct StatusPayload<'a> {
     meta: &'a JobMeta,
     /// İzleme bitti mi — arayüz şeridi buna göre kaldırır.
     done: bool,
+}
+
+/// Olay yayını **tek yerde**: hem `agent_run` yolu hem uygulamanın kendi
+/// ajan döngüsü aynı iki olayı yayıyor (`job://chunk`, `job://status`).
+/// Arayüzdeki abonelik bu yüzden tek blok kalabiliyor (`Shell.tsx:226`).
+pub fn emit_chunk(app: &AppHandle, job_id: &str, bot_id: &str, events: &[Event]) {
+    let _ = app.emit(
+        "job://chunk",
+        ChunkPayload {
+            job_id,
+            bot_id,
+            events,
+        },
+    );
+}
+
+pub fn emit_status(app: &AppHandle, job_id: &str, bot_id: &str, meta: &JobMeta, done: bool) {
+    let _ = app.emit(
+        "job://status",
+        StatusPayload {
+            job_id,
+            bot_id,
+            meta,
+            done,
+        },
+    );
 }
 
 #[derive(Default)]

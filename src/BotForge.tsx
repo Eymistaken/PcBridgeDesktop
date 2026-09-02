@@ -1,11 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "./ui/Avatar";
-import { createBot, detailText, updateBot } from "./lib/ipc";
+import { createBot, detailText, mcpTools, modelModels, updateBot } from "./lib/ipc";
 import { t } from "./lib/i18n";
-import { AVATARS, avatarVar } from "./lib/types";
-import type { Agent, Avatar as Tone, Bot, BotDraft } from "./lib/types";
+import { AVATARS, BACKENDS, avatarVar } from "./lib/types";
+import { TOOL_GROUPS, byGroup, groupOf, type ToolGroup } from "./lib/tools";
+import type {
+  Agent,
+  Avatar as Tone,
+  Backend,
+  Bot,
+  BotDraft,
+  McpTool,
+  ModelInfo,
+} from "./lib/types";
 
 interface Props {
   agents: Agent[];
@@ -19,12 +28,16 @@ interface Props {
 
 const BOS: Omit<BotDraft, "avatar" | "agent"> = {
   name: "",
+  backend: "pcbridge-agent",
   model: null,
   effort: null,
   workdir: "",
   preamble: "",
   desktop: false,
   timeout: 1800,
+  // **Boş başlar.** Bir bota araç vermek ayrı ve bilinçli bir eylem.
+  tools: [],
+  contextBudget: 8192,
 };
 
 export default function BotForge({
@@ -45,13 +58,53 @@ export default function BotForge({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [yerelModeller, setYerelModeller] = useState<ModelInfo[]>([]);
+  const [araclar, setAraclar] = useState<McpTool[]>([]);
+  const [aracHata, setAracHata] = useState<string>();
+  /// Varsayılan araç kümesi bir kez uygulanır; kullanıcı hepsini bilerek
+  /// kapatırsa geri gelmemeli.
+  const varsayilanKonuldu = useRef(false);
 
+  const yerel = draft.backend === "yerel-model";
   const agent = agents.find((a) => a.id === draft.agent);
   const model = agent?.models.find((m) => m.id === draft.model) ?? null;
   const efforts = model?.efforts ?? [];
 
-  // Ajan değişince o ajanda olmayan model/effort taşınmamalı.
+  // Yerel arka uç seçilince model listesi ve araçlar gerekiyor. Sunucu
+  // kapalıysa liste boş kalır ve form bunu açıkça söyler — sessizce
+  // boş bir açılır menü göstermez.
   useEffect(() => {
+    if (!yerel) return;
+    let iptal = false;
+    void (async () => {
+      try {
+        const [m, a] = await Promise.all([modelModels(), mcpTools()]);
+        if (iptal) return;
+        setYerelModeller(m);
+        setAraclar(a);
+        setAracHata(undefined);
+
+        // Yeni bir botta okuma araçları açık başlar; yazma ve masaüstü
+        // kapalı. Bir bota yazma aracı vermek ayrı ve bilinçli bir eylem.
+        if (!bot && !varsayilanKonuldu.current) {
+          varsayilanKonuldu.current = true;
+          const okuma = a.filter((x) => groupOf(x) === "read").map((x) => x.name);
+          setDraft((d) => (d.tools.length === 0 ? { ...d, tools: okuma } : d));
+        }
+      } catch (e) {
+        if (!iptal) setAracHata(detailText(e));
+      }
+    })();
+    return () => {
+      iptal = true;
+    };
+  }, [yerel]);
+
+  // Ajan değişince o ajanda olmayan model/effort taşınmamalı.
+  // Yerel yolda ajan ağacı geçersiz: kaskad hiç çalışmamalı, yoksa
+  // kullanıcının seçtiği yerel modeli `null`'a sıfırlar.
+  useEffect(() => {
+    if (yerel) return;
     if (!agent) return;
     const gecerli = agent.models.some((m) => m.id === draft.model);
     if (!gecerli) {
@@ -62,14 +115,15 @@ export default function BotForge({
         effort: m?.defaultEffort ?? null,
       }));
     }
-  }, [agent, draft.model]);
+  }, [yerel, agent, draft.model]);
 
   // Model değişince effort da o modelin listesinden olmalı.
   useEffect(() => {
+    if (yerel) return;
     if (!model) return;
     if (draft.effort && model.efforts.includes(draft.effort)) return;
     setDraft((d) => ({ ...d, effort: model.defaultEffort ?? model.efforts[0] ?? null }));
-  }, [model, draft.effort]);
+  }, [yerel, model, draft.effort]);
 
   async function kaydet() {
     setBusy(true);
@@ -93,9 +147,32 @@ export default function BotForge({
     if (typeof secilen === "string") setDraft((d) => ({ ...d, workdir: secilen }));
   }
 
-  const cagri = `agent_run(${draft.agent}${draft.model ? ", " + draft.model : ""}${
-    draft.effort ? ", " + draft.effort : ""
-  }, ${draft.workdir || "…"}, wait_seconds=0)`;
+  const gruplar = byGroup(araclar);
+
+  function aracDegistir(ad: string, acik: boolean) {
+    setDraft((d) => ({
+      ...d,
+      tools: acik ? [...d.tools, ad] : d.tools.filter((x) => x !== ad),
+    }));
+  }
+
+  function grupDegistir(grup: ToolGroup, acik: boolean) {
+    const adlar = gruplar[grup].map((x) => x.name);
+    setDraft((d) => ({
+      ...d,
+      tools: acik
+        ? [...new Set([...d.tools, ...adlar])]
+        : d.tools.filter((x) => !adlar.includes(x)),
+    }));
+  }
+
+  // Yerel yolda `agent_run` hiç çağrılmıyor; önizleme onu yazsaydı yalan
+  // söylerdi.
+  const cagri = yerel
+    ? `chat(${draft.model ?? "…"}, ${t("forge.nTools", { n: draft.tools.length })})`
+    : `agent_run(${draft.agent}${draft.model ? ", " + draft.model : ""}${
+        draft.effort ? ", " + draft.effort : ""
+      }, ${draft.workdir || "…"}, wait_seconds=0)`;
 
   return (
     <div className="scrim" role="dialog" aria-modal="true" aria-label={bot ? t("forge.edit") : t("forge.new")}>
@@ -160,45 +237,189 @@ export default function BotForge({
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 16 }}>
-            <div className="grp" style={{ flexGrow: 1 }}>
-              <span className="lbl">{t("forge.agent")}</span>
-              <div className="seg" role="group" aria-label={t("forge.agent")}>
-                {agents.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    disabled={!a.available}
-                    aria-pressed={draft.agent === a.id}
-                    title={a.available ? a.description : t("forge.notOnPath")}
-                    onClick={() => setDraft({ ...draft, agent: a.id })}
-                  >
-                    {a.id}
-                  </button>
-                ))}
-              </div>
+          <div className="grp">
+            <span className="lbl">{t("forge.backend")}</span>
+            <div className="seg" role="group" aria-label={t("forge.backend")}>
+              {BACKENDS.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  aria-pressed={draft.backend === b}
+                  title={t(`forge.backend.${b}.hint`)}
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      backend: b as Backend,
+                      // Bir arka ucun model kimliği ötekinde hiçbir şey ifade
+                      // etmiyor. Taşınırsa kullanıcı `sonnet`'i LM Studio'ya
+                      // işaret eden bir botla kaydedebilirdi.
+                      ...(b === draft.backend ? {} : { model: null, effort: null }),
+                    })
+                  }
+                >
+                  {t(`forge.backend.${b}`)}
+                </button>
+              ))}
             </div>
-            <div className="grp" style={{ width: 200, flex: "none" }}>
-              <label className="lbl" htmlFor="bot-model">
+            <span className="muted" style={{ fontSize: 11.5 }}>
+              {t(`forge.backend.${draft.backend}.hint`)}
+            </span>
+          </div>
+
+          {yerel ? (
+            <div className="grp">
+              <label className="lbl" htmlFor="bot-yerel-model">
                 {t("forge.model")}
               </label>
               <div className="fld">
                 <select
-                  id="bot-model"
+                  id="bot-yerel-model"
+                  className="mono"
                   value={draft.model ?? ""}
-                  style={{ flexGrow: 1, fontWeight: 500 }}
+                  style={{ flexGrow: 1 }}
                   onChange={(e) => setDraft({ ...draft, model: e.target.value || null })}
                 >
-                  {(agent?.models ?? []).map((m) => (
+                  <option value="">{t("forge.pickModel")}</option>
+                  {/* Kaydedilmiş model sunucuda görünmüyorsa yine de
+                      listelenir: seçim sessizce kaybolmamalı. */}
+                  {(draft.model && !yerelModeller.some((m) => m.id === draft.model)
+                    ? [{ id: draft.model }, ...yerelModeller]
+                    : yerelModeller
+                  ).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.id}
                     </option>
                   ))}
                 </select>
               </div>
+              <span className="muted" style={{ fontSize: 11.5 }}>
+                {aracHata ?? t("forge.modelsFrom", { n: yerelModeller.length })}
+              </span>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: "flex", gap: 16 }}>
+              <div className="grp" style={{ flexGrow: 1 }}>
+                <span className="lbl">{t("forge.agent")}</span>
+                <div className="seg" role="group" aria-label={t("forge.agent")}>
+                  {agents.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      disabled={!a.available}
+                      aria-pressed={draft.agent === a.id}
+                      title={a.available ? a.description : t("forge.notOnPath")}
+                      onClick={() => setDraft({ ...draft, agent: a.id })}
+                    >
+                      {a.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grp" style={{ width: 200, flex: "none" }}>
+                <label className="lbl" htmlFor="bot-model">
+                  {t("forge.model")}
+                </label>
+                <div className="fld">
+                  <select
+                    id="bot-model"
+                    value={draft.model ?? ""}
+                    style={{ flexGrow: 1, fontWeight: 500 }}
+                    onChange={(e) => setDraft({ ...draft, model: e.target.value || null })}
+                  >
+                    {(agent?.models ?? []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
+          {yerel && (
+            <div className="grp">
+              <span className="lbl">{t("forge.tools")}</span>
+              {araclar.length === 0 ? (
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  {t("forge.toolsUnavailable")}
+                </span>
+              ) : (
+                <div className="toolset">
+                  {TOOL_GROUPS.map((g) => {
+                    const liste = gruplar[g];
+                    if (liste.length === 0) return null;
+                    const secili = liste.filter((x) => draft.tools.includes(x.name)).length;
+                    return (
+                      <div key={g} className="toolset__grup">
+                        <div className="toolset__bas">
+                          <button
+                            type="button"
+                            className="toolset__hepsi"
+                            aria-pressed={secili === liste.length}
+                            onClick={() => grupDegistir(g, secili !== liste.length)}
+                          >
+                            {t(`forge.toolGroup.${g}`)}
+                          </button>
+                          <span className="muted" style={{ fontSize: 11.5 }}>
+                            {secili}/{liste.length}
+                          </span>
+                        </div>
+                        {g !== "read" && (
+                          <span className="muted" style={{ fontSize: 11.5 }}>
+                            {t(`forge.toolGroup.${g}.warn`)}
+                          </span>
+                        )}
+                        <div className="toolset__liste">
+                          {liste.map((x) => (
+                            <button
+                              key={x.name}
+                              type="button"
+                              className="toolset__arac mono"
+                              aria-pressed={draft.tools.includes(x.name)}
+                              title={x.description ?? x.name}
+                              onClick={() =>
+                                aracDegistir(x.name, !draft.tools.includes(x.name))
+                              }
+                            >
+                              {x.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {yerel && (
+            <div className="grp" style={{ width: 220 }}>
+              <label className="lbl" htmlFor="bot-butce">
+                {t("forge.budget")}
+              </label>
+              <div className="fld">
+                <input
+                  id="bot-butce"
+                  className="mono"
+                  type="number"
+                  min={512}
+                  step={512}
+                  value={draft.contextBudget}
+                  style={{ flexGrow: 1 }}
+                  onChange={(e) =>
+                    setDraft({ ...draft, contextBudget: Number(e.target.value) || 0 })
+                  }
+                />
+              </div>
+              <span className="muted" style={{ fontSize: 11.5 }}>
+                {t("forge.budgetHint")}
+              </span>
+            </div>
+          )}
+
+          {!yerel && (
           <div className="grp">
             <span className="lbl">{t("forge.effort")}</span>
             <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -226,6 +447,7 @@ export default function BotForge({
               </span>
             </div>
           </div>
+          )}
 
           <div className="grp">
             <label className="lbl" htmlFor="bot-dizin">
@@ -297,7 +519,14 @@ export default function BotForge({
           <button
             type="button"
             className="btn-primary"
-            disabled={busy || !draft.name.trim() || !draft.workdir.trim()}
+            disabled={
+              busy ||
+              !draft.name.trim() ||
+              !draft.workdir.trim() ||
+              // Yerel yolda model seçilmeden kaydetmek Rust'ta
+              // `#modelRequired` ile reddedilirdi; formda engelliyoruz.
+              (yerel && !draft.model)
+            }
             onClick={() => void kaydet()}
           >
             {busy ? t("forge.saving") : t("forge.save")}

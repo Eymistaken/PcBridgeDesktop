@@ -360,8 +360,9 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   }
 
   async function durdur(jobId: string) {
+    if (!selectedId) return;
     try {
-      await cancelJob(jobId);
+      await cancelJob(selectedId, jobId);
     } catch (e) {
       setChatError(errorText(e as ConnError));
     }

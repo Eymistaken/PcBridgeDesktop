@@ -43,14 +43,32 @@ impl Avatar {
     }
 }
 
+/// Botun koşumu **kim yürütüyor**.
+///
+/// `PcbridgeAgent` eski yol: pcbridge bir CLI başlatır, araçlar o CLI'nın
+/// kendi MCP yapılandırmasından gelir. `YerelModel` yeni yol: döngü
+/// uygulamanın içinde döner, araçları modele biz veririz.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum Backend {
+    #[default]
+    PcbridgeAgent,
+    YerelModel,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bot {
     pub id: String,
     pub name: String,
     pub avatar: Avatar,
-    /// `list_agents`'tan gelen ajan kimliği.
+    /// `list_agents`'tan gelen ajan kimliği. Yerel arka uçta kullanılmaz.
     pub agent: String,
+    /// Koşumu kim yürütüyor. **`default` şart:** diskteki mevcut `bots.json`
+    /// bu alanı taşımıyor ve olmazsa bütün botlar açılışta kaybolurdu.
+    #[serde(default)]
+    pub backend: Backend,
+    /// Eski yolda ajanın modeli, yerel yolda `/v1/models`'ten seçilen model.
     #[serde(default)]
     pub model: Option<String>,
     #[serde(default)]
@@ -62,6 +80,13 @@ pub struct Bot {
     pub desktop: bool,
     #[serde(default = "varsayilan_timeout")]
     pub timeout: u64,
+    /// Bu botun modele gösterilen araçları. **Boş = hiçbiri.** 33 aracın
+    /// tamamı küçük bir modeli boğuyor; filtre konfor değil şart.
+    #[serde(default)]
+    pub tools: Vec<String>,
+    /// Bağlam bütçesi (token). Aşılınca geçmiş özetlenir.
+    #[serde(default = "varsayilan_butce")]
+    pub context_budget: u32,
     /// `resume_session` için — bot başına saklanır.
     #[serde(default)]
     pub session_id: Option<String>,
@@ -78,6 +103,10 @@ fn varsayilan_timeout() -> u64 {
     1800
 }
 
+fn varsayilan_butce() -> u32 {
+    8192
+}
+
 /// Yeni bot yaratırken formdan gelen alanlar. `id`, zaman damgaları ve
 /// `jobs` sunucu tarafında konur — istemci uyduramaz.
 #[derive(Debug, Clone, Deserialize)]
@@ -86,6 +115,8 @@ pub struct BotDraft {
     pub name: String,
     pub avatar: Avatar,
     pub agent: String,
+    #[serde(default)]
+    pub backend: Backend,
     pub model: Option<String>,
     pub effort: Option<String>,
     pub workdir: String,
@@ -95,6 +126,10 @@ pub struct BotDraft {
     pub desktop: bool,
     #[serde(default = "varsayilan_timeout")]
     pub timeout: u64,
+    #[serde(default)]
+    pub tools: Vec<String>,
+    #[serde(default = "varsayilan_butce")]
+    pub context_budget: u32,
 }
 
 #[derive(Debug)]
@@ -215,12 +250,15 @@ pub fn create(draft: BotDraft) -> Result<Bot, BotError> {
         name: dogrulanan.name,
         avatar: dogrulanan.avatar,
         agent: dogrulanan.agent,
+        backend: dogrulanan.backend,
         model: dogrulanan.model,
         effort: dogrulanan.effort,
         workdir: dogrulanan.workdir,
         preamble: dogrulanan.preamble,
         desktop: dogrulanan.desktop,
         timeout: dogrulanan.timeout,
+        tools: dogrulanan.tools,
+        context_budget: dogrulanan.context_budget,
         session_id: None,
         jobs: Vec::new(),
         created_at: now,
@@ -240,19 +278,22 @@ pub fn update(id: &str, draft: BotDraft) -> Result<Bot, BotError> {
         .find(|b| b.id == id)
         .ok_or_else(|| BotError::Yok(id.to_string()))?;
 
-    // Ajan değişirse eski oturumu sürdürmek anlamsız.
-    if bot.agent != d.agent {
+    // Ajan ya da arka uç değişirse eski oturumu sürdürmek anlamsız.
+    if bot.agent != d.agent || bot.backend != d.backend {
         bot.session_id = None;
     }
     bot.name = d.name;
     bot.avatar = d.avatar;
     bot.agent = d.agent;
+    bot.backend = d.backend;
     bot.model = d.model;
     bot.effort = d.effort;
     bot.workdir = d.workdir;
     bot.preamble = d.preamble;
     bot.desktop = d.desktop;
     bot.timeout = d.timeout;
+    bot.tools = d.tools;
+    bot.context_budget = d.context_budget;
     bot.updated_at = simdi();
     let out = bot.clone();
     write_store(&store)?;
@@ -316,8 +357,19 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
     if d.name.is_empty() {
         return Err(BotError::Gecersiz("#nameRequired".into()));
     }
-    if d.agent.is_empty() {
-        return Err(BotError::Gecersiz("#agentRequired".into()));
+    // Hangi alanın zorunlu olduğu arka uca göre değişiyor: eski yolda ajan
+    // (`agent_run`'a gidiyor), yeni yolda model (`/v1/chat/completions`'a).
+    match d.backend {
+        Backend::PcbridgeAgent => {
+            if d.agent.is_empty() {
+                return Err(BotError::Gecersiz("#agentRequired".into()));
+            }
+        }
+        Backend::YerelModel => {
+            if d.model.as_deref().map(str::trim).unwrap_or("").is_empty() {
+                return Err(BotError::Gecersiz("#modelRequired".into()));
+            }
+        }
     }
     if d.workdir.is_empty() {
         return Err(BotError::Gecersiz("#workdirRequired".into()));
@@ -327,6 +379,9 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
     }
     if d.timeout == 0 {
         d.timeout = varsayilan_timeout();
+    }
+    if d.context_budget == 0 {
+        d.context_budget = varsayilan_butce();
     }
     Ok(d)
 }
@@ -346,6 +401,8 @@ mod tests {
     #[test]
     fn eksik_alanlar_varsayilana_duser() {
         // Elle yazılmış, asgari bir bots.json satırı da okunabilmeli.
+        // **Bu test aynı zamanda göç güvencesi:** yeni alanlar `default`
+        // almazsa diskteki mevcut botlar açılışta kaybolur.
         let bot: Bot = serde_json::from_str(
             r#"{"id":"a","name":"X","avatar":"cam","agent":"claude","workdir":"/tmp"}"#,
         )
@@ -354,6 +411,71 @@ mod tests {
         assert!(!bot.desktop);
         assert!(bot.jobs.is_empty());
         assert!(bot.session_id.is_none());
+        // Arka uç alanı olmayan eski bot eski yolda kalır.
+        assert_eq!(bot.backend, Backend::PcbridgeAgent);
+        assert!(bot.tools.is_empty(), "araç filtresi boş başlar");
+        assert_eq!(bot.context_budget, 8192);
+    }
+
+    /// **Göç güvencesi, gerçek dosya üstünde.** Diskteki `bots.json` yeni
+    /// alanları taşımıyor; `#[serde(default)]` düşerse bütün botlar açılışta
+    /// kaybolur. Dosya yoksa test atlanır — CI'da diskte bot olmayabilir.
+    #[test]
+    fn diskteki_gercek_botlar_hala_okunuyor() {
+        let p = path();
+        let Ok(text) = fs::read_to_string(&p) else {
+            eprintln!("atlandı: {} yok", p.display());
+            return;
+        };
+        let store: Store = serde_json::from_str(&text)
+            .unwrap_or_else(|e| panic!("diskteki bots.json okunamadı — göç kırıldı: {e}"));
+        for b in &store.bots {
+            // Alan taşımayan eski kayıtlar varsayılana düşmeli; taşıyanlar
+            // kendi değerini korumalı. İkisi de sıfır bütçeyle açılmamalı.
+            assert!(b.context_budget > 0, "bütçe varsayılana düşmedi: {}", b.name);
+            assert!(!b.workdir.is_empty());
+        }
+        eprintln!("{} bot okundu, göç sağlam", store.bots.len());
+    }
+
+    #[test]
+    fn arka_uc_kebab_case_serilesir() {
+        assert_eq!(
+            serde_json::to_string(&Backend::YerelModel).unwrap(),
+            "\"yerel-model\""
+        );
+        assert_eq!(
+            serde_json::from_str::<Backend>("\"pcbridge-agent\"").unwrap(),
+            Backend::PcbridgeAgent
+        );
+    }
+
+    #[test]
+    fn zorunlu_alan_arka_uca_gore_degisir() {
+        let taban = |backend, agent: &str, model: Option<&str>| BotDraft {
+            name: "X".into(),
+            avatar: Avatar::Mor,
+            agent: agent.into(),
+            backend,
+            model: model.map(str::to_string),
+            effort: None,
+            workdir: "/tmp".into(),
+            preamble: String::new(),
+            desktop: false,
+            timeout: 0,
+            tools: Vec::new(),
+            context_budget: 0,
+        };
+
+        // Eski yol: ajan şart, model isteğe bağlı.
+        assert!(dogrula(taban(Backend::PcbridgeAgent, "", None)).is_err());
+        assert!(dogrula(taban(Backend::PcbridgeAgent, "claude", None)).is_ok());
+
+        // Yeni yol: ajan gereksiz, model şart.
+        assert!(dogrula(taban(Backend::YerelModel, "", None)).is_err());
+        let ok = dogrula(taban(Backend::YerelModel, "", Some("ornith"))).unwrap();
+        assert_eq!(ok.context_budget, 8192, "sıfır bütçe varsayılana düşmeli");
+        assert_eq!(ok.timeout, 1800);
     }
 
     #[test]
@@ -369,12 +491,15 @@ mod tests {
             name: "X".into(),
             avatar: Avatar::Mor,
             agent: "claude".into(),
+            backend: Backend::PcbridgeAgent,
             model: None,
             effort: None,
             workdir: "/kesinlikle/olmayan/dizin".into(),
             preamble: String::new(),
             desktop: false,
             timeout: 0,
+            tools: Vec::new(),
+            context_budget: 0,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }
@@ -385,12 +510,15 @@ mod tests {
             name: "   ".into(),
             avatar: Avatar::Mor,
             agent: "claude".into(),
+            backend: Backend::PcbridgeAgent,
             model: None,
             effort: None,
             workdir: "/tmp".into(),
             preamble: String::new(),
             desktop: false,
             timeout: 1800,
+            tools: Vec::new(),
+            context_budget: 0,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }

@@ -14,7 +14,8 @@ export type Block =
   | { t: "text"; text: string }
   | { t: "thinking"; text: string }
   | { t: "tools"; rows: ToolRow[] }
-  | { t: "raw"; text: string };
+  | { t: "raw"; text: string }
+  | { t: "summary"; text: string; dropped: number };
 
 /**
  * Olay akışını baloncuklara böler. Ardışık araç çağrıları **tek** döküm
@@ -28,14 +29,23 @@ export function toBlocks(events: JobEvent[]): Block[] {
     switch (e.kind) {
       case "text": {
         const b = son();
-        // Ajan metni parça parça gelebilir; ardışık olanları birleştir.
-        if (b?.t === "text") b.text += (b.text.endsWith("\n") ? "" : "\n") + e.text;
-        else out.push({ t: "text", text: e.text });
+        if (b?.t !== "text") {
+          out.push({ t: "text", text: e.text });
+          break;
+        }
+        // **Birleştirme kuralını olay söyler.** `delta` bir token akışının
+        // parçası: olduğu gibi eklenir, yoksa her kelime alt alta düşer.
+        // Aksi hâlde tamamlanmış bir blok ve araya satır atlanır.
+        b.text += e.delta ? e.text : (b.text.endsWith("\n") ? "" : "\n") + e.text;
         break;
       }
-      case "thinking":
-        out.push({ t: "thinking", text: e.text });
+      case "thinking": {
+        // Blok düşünme her zaman yeni baloncuk; token akışı birleştirilir.
+        const b = son();
+        if (e.delta && b?.t === "thinking") b.text += e.text;
+        else out.push({ t: "thinking", text: e.text });
         break;
+      }
       case "toolStart": {
         const b = son();
         const row: ToolRow = { id: e.id, tool: e.tool, detail: e.detail, state: "run" };
@@ -62,6 +72,10 @@ export function toBlocks(events: JobEvent[]): Block[] {
         else out.push({ t: "raw", text: e.text });
         break;
       }
+      // Özet birleştirilmez: her biri geçmişte ayrı bir denetim noktası.
+      case "summary":
+        out.push({ t: "summary", text: e.text, dropped: e.dropped });
+        break;
       // session ve finished baloncuk üretmez: durum şeridine gider.
       default:
         break;

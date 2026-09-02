@@ -237,6 +237,141 @@ döndürdü. `free -h | awk '/Mem:/…'` Türkçe yerel ayarda `Bellek:` yazdı�
 eşleşmiyor; sunucunun alt süreçlerinde `LANG` boş olduğu için normalde çalışıyor
 (ölçüldü). Bu depoda düzeltilmiyor — pcbridge'in işi.
 
+## Aşama 6 — Uygulama ajan çalıştırıcısı ✅ BİTTİ
+
+**Karar 2026-09-02.** Kullanıcının cümlesi: *"ben tool, güç verenin ayrı bir mcp
+olmasını istemiyorum. uygulamanın, mcp'nin verdiği gücü arayüz ile az kurulumla
+vermesini istiyorum. mcp kalmaya devam edecek. yani hermes gibi olacak uygulama.
+toollar kendi içinde olacak."*
+
+Ajan döngüsü artık uygulamanın içinde dönüyor. Model "şu aracı çağır" der →
+uygulama MCP'yi çağırır → sonucu modele geri verir → döngü. Kullanıcı yalnızca
+bir adres giriyor; modelin tarafında hiçbir kurulum yok.
+
+**Kabul edilen bedel:** uygulama kapanınca koşum ölür. Bu, "stdio kullanılmıyor,
+çünkü uygulama kapanınca iş de ölür" kararının bilinçli tersine çevrilmesi;
+kullanıcı 2026-09-02'de açıkça kabul etti. Yarım koşum açılışta `#appClosed`
+ile kapatılıyor.
+
+**`agent_run` yolu duruyor.** Bota `backend` alanı eklendi
+(`pcbridge-agent` | `yerel-model`); iki yürütme yolu yan yana yaşıyor.
+Yönlendirme botun arka ucuna değil **koşum kimliğinin önekine** bakıyor
+(`local-…` bizim, `%Y%m%d-%H%M%S-…` pcbridge'in) — kullanıcı arka ucu sonradan
+değiştirse bile eski geçmiş doğru yerden okunuyor.
+
+### Yeni modüller
+
+| Dosya | İş |
+|---|---|
+| `model.rs` | OpenAI-uyumlu istemci: `/v1/models`, akışlı `/v1/chat/completions`, SSE ayrıştırıcısı, `model.json` |
+| `agent.rs` | Döngü, araç yürütme, özetleme, iptal |
+| `runs.rs` | Yerel koşumun diskteki kaydı — `jobs.rs`'in ikizi |
+
+`mcp.rs` üç yerde değişti: `&'static str` araç adı kısıtı kalktı (rmcp zaten
+`String` kabul ediyordu), `list_all_tools` sonucundaki şemalar saklanıyor
+(ek ağ çağrısı yok), ve ajan için ayrı bir çağrı yüzeyi eklendi — araç hatası
+`ConnError` olarak fırlatılmıyor, **modele sonuç olarak** geri veriliyor.
+
+### Ölçüldü (2026-09-02)
+
+- **`ornith-1.5-35b-a3b` akış kipinde araç çağırıyor.** Gerçek koşum:
+  `ToolStart { tool: "fs_list", detail: "/tmp" }` → `ToolEnd { ok: true }` →
+  model sonucu okuyup Türkçe yanıt verdi. **27,9 saniye.** Test:
+  `cargo test --lib gercek_model -- --ignored`.
+- **Araç filtresi fiilen kısıtlıyor.** LM Studio'nun kendi kaydında 7 istekte
+  yalnızca `fs_list` göründü; seçilmeyen 32 araç modele **hiç gönderilmedi**.
+- **`reasoning_content` geliyor** — `delta.content`'ten ayrı bir alan,
+  `Event::Thinking`'e çevriliyor.
+- **`stream_options.include_usage` destekleniyor**, `prompt_tokens` kesin sayı
+  olarak dönüyor. Özetleme eşiği tahminle değil **bu sayıyla** tetikleniyor.
+- **`Response::chunk()` reqwest'in `stream` özelliğinin dışında**
+  (`reqwest-0.13.4/src/async_impl/response.rs:310`). SSE onunla okunuyor;
+  `stream` ve `futures-util` eklenmedi.
+- **LM Studio bu makinede Flatpak** (`ai.lmstudio.lm-studio`). Host'taki
+  `~/.lmstudio/bin/lms` **ancak GUI açıkken** çalışıyor; kapalıyken
+  "daemon is not running" diyor. Doğrulama sırası: uygulamayı aç →
+  `lms server start`.
+
+### Bağlam yönetimi — özetleme (kullanıcının seçimi)
+
+Kırpma değil özetleme seçildi. Bir önceki koşumun **ölçülen** `prompt_tokens`'ı
+bütçenin %75'ini aşınca, en eski koşumlar modele özetletilip yerlerine tek bir
+metin konuyor. Özet o koşumun `ctx.json`'ına yazılıyor ve bir **denetim
+noktası** oluyor: bir kez hesaplanır, her koşumda tekrarlanmaz.
+
+- Özet **sistem mesajının içine** giriyor. Ayrı bir `system` mesajı ya da
+  sohbetin ortasına düşen bir özet kimi sunucuda reddediliyor.
+- Kesme **koşum sınırından** yapılıyor; bir koşumun mesajları araç çağrısıyla
+  sonucunu birlikte taşıdığı için çift asla bölünmüyor. Yanıtsız bir
+  `tool_calls` sunucuyu 400 ile reddettirirdi — koşum yarıda kesilirse
+  (iptal, hata, uygulama kapanışı) eksik sonuçlar dürüstçe dolduruluyor.
+- Özetleme **başarısız olursa koşum ölmüyor**: sert kırpmaya düşülüyor ve
+  arayüz `#summaryFailed` ile bunu açıkça yazıyor.
+
+### Araç onayı — bot başına önceden (kullanıcının seçimi)
+
+Koşum sırasında onay sorulmuyor; BotForge'da bot başına araç filtresi var.
+Üç grup: **Okuma · Yazma · Masaüstü.** Yazma ve masaüstü **kapalı başlıyor**.
+Gruplama önce sunucunun `readOnlyHint`'ine, o yoksa uygulamadaki ad listesine
+bakıyor (`src/lib/tools.ts`); tanınmayan bir araç `write` sayılıyor — bilmediğimiz
+bir aracı zararsız varsaymak yanlış olurdu.
+
+Bu bir konfor özelliği değil **asıl denetim**: 33 araç küçük modeli boğuyor, ve
+güvenilmeyen metin okuyan bir botun elinde kabuk olmamalı.
+
+### Arayüzde ölçüldü (2026-09-02, gözle)
+
+Uygulama açıldı, yerel modelli bir bot kuruldu ve iki temada bakıldı:
+
+- **Bağlantı panelinde "Yerel model sunucusu" kartı**: adres yazılıp **Dene**
+  → `bağlandı · 2 model · ornith-1.5-35b-a3b, text-embedding-…`. Sayı gerçek
+  `/v1/models`'ten. `model.json` **0600** ve içinde **hiçbir sır yok**
+  (`base_url` + `has_key` yalnızca).
+- **BotForge yerel kipte**: ajan ve effort alanları kayboluyor, yerine model
+  listesi ve araç filtresi geliyor. Filtre **READ 13/13 açık, WRITE 0/10 ve
+  DESKTOP 0/10 kapalı** başlıyor. Altbilgi `chat(ornith-1.5-35b-a3b, 13 tools)`
+  diyor — `agent_run(...)` değil.
+- **Koşum**: "src-tauri/src altında kaç dosya var?" → model `fs_list`'i çağırdı
+  ve **12** dedi; doğru. Döküm baloncuğunda ✓ ikonu, fiil (`Read`, `Sessions`)
+  ve mono yol göründü.
+- **Durdurma**: koşum ortasında **Stop** → şerit kayboldu, `meta.json`
+  `status: cancelled` / `exit_code: 130`, ekranda **"stopped"** yazdı (kırmızı
+  hata baloncuğu değil). Mesaj listesi sağlam kaldı: **yanıtsız araç çağrısı
+  yok**, yani sonraki koşum 400 almaz.
+- **Yeniden açılış**: uygulama kapanıp açıldı, geçmiş `runs/` içinden aynen
+  geri geldi ve kenar çubuğu son cümleyi gösterdi.
+- **İki tema**: renkli düğme yok, renk yalnızca kimlikten (avatar) ve durumdan
+  (izin rozeti) geliyor, `Save` `--text` dolgu / `--bg` metin, köşeler 10/20.
+
+⚠️ **Ekranda yakalanan iki hata, düzeltildi:**
+
+1. **Her token alt alta düşüyordu.** `timeline.ts::toBlocks` ardışık `Text`
+   olaylarını `\n` ile birleştiriyordu — `agent_run` yolunda doğruydu (her olay
+   tam bir bloktu), ama döngü token başına olay yayıyor. `Event::Text` ve
+   `Event::Thinking` artık `delta` taşıyor ve birleştirme kuralını **olay**
+   söylüyor. Bir birim testi döngünün `delta: true` yaydığını sabitliyor.
+2. **Kenar çubuğu "." gösteriyordu.** `runs::last_line` son olaya bakıyordu;
+   token akışında o tek bir noktalama işareti. Artık sondan geriye ardışık
+   metin olayları birleştiriliyor.
+
+Ayrıca arka uç değiştirilince eski model kimliği (`sonnet`) formda kalıyordu;
+bir arka ucun modeli ötekinde hiçbir şey ifade etmediği için anahtar
+değişince sıfırlanıyor.
+
+⚠️ **`agent_run` yolu yeniden koşturulmadı.** Yönlendirme gerçek karışık veriyle
+doğrulandı — bir `local-` botu ve bir pcbridge botu yan yana, geçmişleri
+karışmadan çiziliyor — ama `agent_run` çağrısının kendisi **kota yaktığı için**
+ve kullanıcı uykuda olduğu için tetiklenmedi. Çağrının kodu değişmedi.
+
+### Kapsam dışı — bilerek
+
+- **Görüntü döndüren araçlar.** `screen_capture` `data:` URL veriyor ama araç
+  sonucundaki görüntü bloğu şimdilik `[N görüntü — bu botta gösterilemiyor]`
+  yer tutucusuna düşüyor. "Yerel modelle masaüstü sürmek" ayrı bir hedef.
+- **Paralel araç çağrısı.** Bir mesajda birden çok çağrı gelirse **sırayla**
+  yürütülüyor.
+- **Tray'e inme.** Ayrı iş; kullanıcı bu işe dahil etmedi.
+
 ---
 
 ## Doğrulama — her aşamada fiilen
@@ -250,6 +385,11 @@ cd "/home/eymistaken/Masaüstü/app/PcBridgeDesktop" && npm run tauri dev
 - **İş:** başlatılan işin `job_id`'si `job_list`'te görünmeli; ekrandaki metin
   `~/.local/state/pcbridge/jobs/<id>/out.log` ile aynı olmalı.
 - **Terminal:** açılan oturum `tmux ls` çıktısında olmalı.
+- **Yerel model:** LM Studio açık ve `lms server start` yapılmışken
+  `cargo test --lib gercek_model -- --ignored --nocapture`. Çıktıda
+  `ToolStart` → `ToolEnd { ok: true }` → `Text` sırası görünmeli.
+- **Araç filtresi:** `~/.lmstudio/server-logs/` altındaki güncel kayıtta
+  `grep -o '"name": "[a-z_]*"'` yalnızca botun seçtiği araçları göstermeli.
 - **Tema:** iki temada da ekran görüntüsü alıp **gözle** bak — hiçbir yüzey saf
   siyah/beyaz değil, hiçbir düğme renkli değil, köşeler 10/20/tam.
 - **Kontrast:** yeni renk eklendiyse oranı hesapla (AA = 4.5:1 metin).

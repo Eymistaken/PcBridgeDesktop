@@ -211,8 +211,14 @@ function hostPort(endpoint: string): string {
 function altMetin(b: Bot, s?: BotSummary): string {
   if (s?.line) return s.line;
   if (s?.running) return t("side.running");
-  if (b.jobs.length === 0)
-    return `${b.agent}${b.model ? " · " + b.model : ""} · ${t("side.noRuns")}`;
+  if (b.jobs.length === 0) {
+    // Yerel botta ajan yok; anlamlı olan model ve kaç aracı gördüğü.
+    const kimlik =
+      b.backend === "yerel-model"
+        ? `${b.model ?? "—"} · ${t("side.nTools", { n: b.tools.length })}`
+        : `${b.agent}${b.model ? " · " + b.model : ""}`;
+    return `${kimlik} · ${t("side.noRuns")}`;
+  }
   return t("side.runs", { n: b.jobs.length });
 }
 

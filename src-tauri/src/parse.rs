@@ -13,7 +13,7 @@
 //! `out.log` stdout ve stderr'i birleştirdiği için araya JSON olmayan satır
 //! karışabilir; onlar `Raw` olarak geçer, ayrıştırıcı düşmez.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -32,7 +32,7 @@ impl Kind {
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Event {
     /// Ajan oturumu açıldı — `resume_session` için kimlik buradan gelir.
@@ -41,11 +41,28 @@ pub enum Event {
         model: Option<String>,
         cwd: Option<String>,
     },
+    /// Ajanın söylediği metin.
+    ///
+    /// `delta` **bu parçanın öncekine nasıl ekleneceğini** söyler ve iki
+    /// üreticinin anlamı farklı olduğu için gerekli:
+    ///
+    /// * CLI ayrıştırıcıları (`claude_stream_json`, `agy_json`) tamamlanmış
+    ///   **bloklar** yayar — ardışık olanlar satır atlanarak birleştirilir.
+    /// * Uygulamanın kendi ajan döngüsü token akışı yayar; parçalar
+    ///   **olduğu gibi** birleştirilmeli, yoksa her kelime alt alta düşer.
+    ///
+    /// Eski kayıtlarda alan yok; `default` ile blok sayılıyorlar.
     Text {
         text: String,
+        #[serde(default)]
+        delta: bool,
     },
+    /// Ajanın düşünmesi. `delta` anlamı `Text`'teki ile aynı: token akışı
+    /// mı yoksa tamamlanmış bir blok mu.
     Thinking {
         text: String,
+        #[serde(default)]
+        delta: bool,
     },
     /// Döküm baloncuğunda bir satır başlar.
     ToolStart {
@@ -70,6 +87,16 @@ pub enum Event {
     /// Tanınmayan satır ya da `plain` çıktısı.
     Raw {
         text: String,
+    },
+    /// Bağlam özetlendi: bu olaydan **öncesi** tek bir mesajla değiştirildi.
+    ///
+    /// Yalnızca uygulamanın kendi ajan döngüsü üretir; `out.log`
+    /// ayrıştırıcıları bunu hiç yaymaz. Geçmiş yeniden kurulurken sınır
+    /// işareti olarak da kullanılıyor — özet bir kez hesaplanır.
+    Summary {
+        text: String,
+        /// Kaç mesajın yerine geçtiği.
+        dropped: u32,
     },
 }
 
@@ -103,13 +130,15 @@ fn kirp(s: &str, n: usize) -> String {
 
 /// Araç girdisinden tek satırlık ayrıntı. **Girdiden** üretilir; sonuçtan
 /// "2 eşleşme" gibi sayı çıkarmıyoruz — ölçmediğimizi yazmıyoruz.
-fn detail(tool: &str, input: &serde_json::Value) -> String {
+pub fn detail(tool: &str, input: &serde_json::Value) -> String {
     let s = |k: &str| input.get(k).and_then(|v| v.as_str());
 
-    if let Some(p) = s("file_path").or_else(|| s("notebook_path")) {
+    // `file_path` Claude Code'un, `path` pcbridge'in (`fs_read`, `fs_list`,
+    // `fs_write`). İkisi de yol; aynı kısaltmadan geçer.
+    if let Some(p) = s("file_path").or_else(|| s("notebook_path")).or_else(|| s("path")) {
         return kisa_yol(p);
     }
-    if tool == "Grep" || tool == "Glob" {
+    if tool == "Grep" || tool == "Glob" || tool == "fs_search" {
         if let Some(pat) = s("pattern") {
             let nerede = s("path").map(|p| format!(" · {}", kisa_yol(p)));
             return format!("\"{}\"{}", kirp(pat, 40), nerede.unwrap_or_default());
@@ -120,6 +149,13 @@ fn detail(tool: &str, input: &serde_json::Value) -> String {
     }
     if let Some(u) = s("url") {
         return kirp(u, 56);
+    }
+    // pcbridge: iş ve tmux araçları kimliğiyle anlaşılır.
+    if let Some(j) = s("job_id").or_else(|| s("session")) {
+        return kirp(j, 40);
+    }
+    if let Some(m) = s("message").or_else(|| s("text")).or_else(|| s("reason")) {
+        return kirp(m, 56);
     }
     if let Some(q) = s("query").or_else(|| s("prompt")).or_else(|| s("description")) {
         return kirp(q, 56);
@@ -208,6 +244,7 @@ impl Parser {
             if !r.is_empty() {
                 out.push(Event::Text {
                     text: r.to_string(),
+                    delta: false,
                 });
             }
         }
@@ -297,6 +334,7 @@ fn icerik(v: &serde_json::Value, out: &mut Vec<Event>, asistan: bool) {
                     if !t.trim().is_empty() {
                         out.push(Event::Text {
                             text: t.to_string(),
+                            delta: false,
                         });
                     }
                 }
@@ -310,6 +348,7 @@ fn icerik(v: &serde_json::Value, out: &mut Vec<Event>, asistan: bool) {
                     if !t.trim().is_empty() {
                         out.push(Event::Thinking {
                             text: t.to_string(),
+                            delta: false,
                         });
                     }
                 }
@@ -382,7 +421,7 @@ mod tests {
         assert_eq!(ev.len(), 5, "rate_limit_event atılmalı: {ev:?}");
         assert!(matches!(&ev[0], Event::Session { id, model, .. }
             if id == "s1" && model.as_deref() == Some("claude-opus-5")));
-        assert!(matches!(&ev[1], Event::Text { text } if text == "Bakıyorum."));
+        assert!(matches!(&ev[1], Event::Text { text, .. } if text == "Bakıyorum."));
         match &ev[2] {
             Event::ToolStart { id, tool, detail } => {
                 assert_eq!(id, "t1");
@@ -402,7 +441,7 @@ mod tests {
         let bos = p.push(r#"{"type":"assistant","message":{"content":[{"type":"tex"#);
         assert!(bos.is_empty(), "yarım satır olay üretmemeli");
         let ev = p.push("t\",\"text\":\"tamam\"}]}}\n");
-        assert_eq!(ev, vec![Event::Text { text: "tamam".into() }]);
+        assert_eq!(ev, vec![Event::Text { text: "tamam".into(), delta: false }]);
     }
 
     #[test]
@@ -424,7 +463,7 @@ mod tests {
             ev,
             vec![
                 Event::Session { id: "c1".into(), model: None, cwd: None },
-                Event::Text { text: "bitti".into() },
+                Event::Text { text: "bitti".into(), delta: false },
                 Event::Finished {
                     ok: true,
                     turns: Some(3),

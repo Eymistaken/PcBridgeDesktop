@@ -1,4 +1,5 @@
 import Desktop from "./Desktop";
+import ModelServer from "./ModelServer";
 import { IconCheck, IconCross } from "../ui/Icon";
 import { LANGS, t, type Lang } from "../lib/i18n";
 import type { Agent, ConnSnapshot, DesktopState, Theme } from "../lib/types";
@@ -46,6 +47,8 @@ export default function Connection({ snap, theme, onTheme, lang, onLang, desktop
           ]}
         />
       </div>
+
+      <ModelServer />
 
       <div className="card">
         <span className="h">{t("sys.agents", { n: snap.agents.length })}</span>

@@ -169,6 +169,76 @@ input:focus {
   font-weight: 500;
 }
 
+/* ── araç filtresi ───────────────────────────────────────────────── */
+/*
+ * Ayırıcı çizgi değil **yüzey kademesi**: gruplar `--field` üstünde duruyor.
+ * Seçili araç yükselen yüzeyle anlatılıyor, renkli çubukla değil.
+ */
+
+.toolset {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.toolset__grup {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
+  border-radius: 7px;
+  padding: 10px 11px;
+}
+
+.toolset__bas {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.toolset__hepsi {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.toolset__hepsi:hover,
+.toolset__hepsi[aria-pressed="true"] {
+  color: var(--text);
+}
+
+.toolset__liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.toolset__arac {
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.toolset__arac:hover {
+  color: var(--text);
+}
+
+.toolset__arac[aria-pressed="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
 /* ── kabuk yerleşimi ─────────────────────────────────────────────── */
 
 .shell {
