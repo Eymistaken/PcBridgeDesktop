@@ -161,8 +161,9 @@ uçtan uca denemek için sahte bir MCP sunucusuna yöneltmeye yarar.
 | Geçmiş | Diskteki `jobs/<id>/` kayıtlarından kuruluyor; hata ve ham stderr ayrı bloklarda |
 | Ayrıştırıcı | Diskteki **125 gerçek koşum** (37 claude · 18 agy · 70 plain) testte |
 
-⚠️ `claude` ajanı pcbridge altında şu an çalışmıyor — CLI'ın kendi OAuth
-oturumu dolmuş. `antigravity` sorunsuz; doğrulama onunla yapıldı.
+⚠️ Ajanın kendi oturumu dolmuşsa `agent_run` "Failed to authenticate" ile
+biter ve bu uygulamanın hatası **değildir** — CLI'a bir kez elle giriş yapmak
+gerekir. Doğrulama sırasında `claude` bu durumdaydı; `antigravity` ile yapıldı.
 
 ---
 

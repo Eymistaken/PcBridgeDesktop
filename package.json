@@ -31,5 +31,11 @@
   },
   "allowScripts": {
     "esbuild@0.28.2": true
+  },
+  "license": "GPL-3.0-or-later",
+  "description": "pcbridge MCP sunucusunun Tauri 2 masaüstü istemcisi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Eymistaken/PcBridgeDesktop.git"
   }
 }

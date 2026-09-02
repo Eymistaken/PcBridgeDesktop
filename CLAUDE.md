@@ -129,9 +129,9 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
   o metinden **ayrıştırılıyor** — `src-tauri/src/mcp.rs::parse_agents`, gerçek
   çıktı üstünde birim testi var. Biçim değişirse ayrıştırıcı satırı atlar,
   ajan yine listelenir; bağlantı düşmez.
-- **Tokensiz `POST /mcp` → `401`** + `www-authenticate: Bearer
-  resource_metadata="https://zorinos.tail0bbd94.ts.net/…"`. Bu OAuth işaretinin
-  peşine **düşülmüyor**; rmcp'nin `auth` (oauth2) özelliği kapalı, statik token
+- **Tokensiz `POST /mcp` → `401`** + `www-authenticate: Bearer` başlığı, içinde
+  sunucunun kendi `resource_metadata` adresi. Bu OAuth işaretinin peşine
+  **düşülmüyor**; rmcp'nin `auth` (oauth2) özelliği kapalı, statik token
   yetiyor.
 - **`rmcp` 3.2.0 API'si** (kaynaktan doğrulandı, tahmin değil):
   `StreamableHttpClientTransportConfig::with_uri(..).auth_header(token)` —
