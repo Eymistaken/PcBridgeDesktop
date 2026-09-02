@@ -22,12 +22,9 @@ pub enum SecretError {
 impl std::fmt::Display for SecretError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SecretError::NoStore => write!(
-                f,
-                "Anahtarlık bulunamadı. gnome-keyring-daemon'ın 'secrets' bileşeniyle çalıştığından emin ol."
-            ),
-            SecretError::Locked(d) => write!(f, "Anahtarlığa erişilemedi: {d}"),
-            SecretError::Other(d) => write!(f, "Anahtarlık hatası: {d}"),
+            SecretError::NoStore => write!(f, "#keyringNoStore"),
+            SecretError::Locked(d) => write!(f, "#keyringLocked:{d}"),
+            SecretError::Other(d) => write!(f, "#keyringOther:{d}"),
         }
     }
 }

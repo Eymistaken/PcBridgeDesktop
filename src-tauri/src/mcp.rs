@@ -203,10 +203,8 @@ async fn probe(uri: &str, token: &str) -> Option<ConnError> {
     match res {
         Ok(r) if r.status() == 401 || r.status() == 403 => Some(ConnError::Unauthorized),
         Ok(_) => None,
-        Err(e) if e.is_connect() => Some(ConnError::Unreachable(
-            "bağlantı reddedildi — pcbridge çalışmıyor olabilir".into(),
-        )),
-        Err(e) if e.is_timeout() => Some(ConnError::Unreachable("yanıt vermedi".into())),
+        Err(e) if e.is_connect() => Some(ConnError::Unreachable("#refused".into())),
+        Err(e) if e.is_timeout() => Some(ConnError::Unreachable("#timeout".into())),
         // Başka bir ağ hatası: rmcp'nin metnine bırak.
         Err(_) => None,
     }
@@ -430,7 +428,7 @@ impl McpState {
         let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
         let text = conn.call_text(name, args).await?;
         find_job_id(&text)
-            .ok_or_else(|| ConnError::Protocol(format!("iş kimliği okunamadı: {text}")))
+            .ok_or_else(|| ConnError::Protocol(format!("#jobIdUnreadable:{text}")))
     }
 
     pub async fn agent_run(&self, req: AgentRunRequest) -> Result<String, ConnError> {

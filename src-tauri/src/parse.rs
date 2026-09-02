@@ -50,8 +50,9 @@ pub enum Event {
     /// Döküm baloncuğunda bir satır başlar.
     ToolStart {
         id: String,
-        /// Türkçe fiil — "Okundu", "Arandı", "Çalıştırıldı"…
-        verb: String,
+        /// **Ham araç adı** — `Read`, `Grep`, `Bash`… Görünen fiile arayüz
+        /// çeviriyor (`i18n.ts::toolVerb`); ayrıştırıcının işi sunum değil.
+        tool: String,
         /// Tek satırlık mono ayrıntı (yol, desen, komut).
         detail: String,
     },
@@ -74,23 +75,6 @@ pub enum Event {
 
 /// Araç adı → döküm baloncuğundaki fiil. Bilinmeyen araç kendi adıyla geçer;
 /// uydurmuyoruz.
-fn verb(tool: &str) -> String {
-    match tool {
-        "Read" | "NotebookRead" => "Okundu",
-        "Grep" | "Glob" => "Arandı",
-        "Write" => "Yazıldı",
-        "Edit" | "MultiEdit" | "NotebookEdit" => "Düzenlendi",
-        "Bash" | "BashOutput" => "Çalıştırıldı",
-        "WebFetch" => "Getirildi",
-        "WebSearch" => "Web'de arandı",
-        "Task" | "Agent" => "Ajan",
-        "TodoWrite" => "Liste",
-        "Artifact" => "Yayımlandı",
-        other => return other.to_string(),
-    }
-    .to_string()
-}
-
 /// `a/b/c/d/e.txt` → `a/…/e.txt`. Artboard'daki
 /// `gnome-extension/…/extension.js` biçimi.
 fn kisa_yol(p: &str) -> String {
@@ -339,7 +323,7 @@ fn icerik(v: &serde_json::Value, out: &mut Vec<Event>, asistan: bool) {
                         .and_then(|x| x.as_str())
                         .unwrap_or_default()
                         .to_string(),
-                    verb: verb(name),
+                    tool: name.to_string(),
                     detail: detail(name, c.get("input").unwrap_or(&bos)),
                 });
             }
@@ -400,9 +384,9 @@ mod tests {
             if id == "s1" && model.as_deref() == Some("claude-opus-5")));
         assert!(matches!(&ev[1], Event::Text { text } if text == "Bakıyorum."));
         match &ev[2] {
-            Event::ToolStart { id, verb, detail } => {
+            Event::ToolStart { id, tool, detail } => {
                 assert_eq!(id, "t1");
-                assert_eq!(verb, "Okundu");
+                assert_eq!(tool, "Read");
                 assert_eq!(detail, "/home/…/capture.py");
             }
             o => panic!("ToolStart bekleniyordu: {o:?}"),
@@ -477,8 +461,8 @@ mod tests {
         let ev = p.push(
             "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"g\",\"name\":\"Grep\",\"input\":{\"pattern\":\"set_pointer_visible\"}}]}}\n",
         );
-        assert!(matches!(&ev[0], Event::ToolStart { verb, detail, .. }
-            if verb == "Arandı" && detail == "\"set_pointer_visible\""));
+        assert!(matches!(&ev[0], Event::ToolStart { tool, detail, .. }
+            if tool == "Grep" && detail == "\"set_pointer_visible\""));
     }
 }
 
@@ -501,7 +485,7 @@ mod json_bicimi {
 
         let t = serde_json::to_string(&Event::ToolStart {
             id: "t1".into(),
-            verb: "Okundu".into(),
+            tool: "Read".into(),
             detail: "a.rs".into(),
         })
         .unwrap();

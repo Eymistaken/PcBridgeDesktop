@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run check:i18n && tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "check:i18n": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.3.0",

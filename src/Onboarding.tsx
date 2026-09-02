@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { connect, errorText, signOut } from "./lib/ipc";
+import { t } from "./lib/i18n";
 import type { ConnError, ConnSnapshot } from "./lib/types";
 
 interface Props {
@@ -59,8 +60,7 @@ export default function Onboarding({
         </div>
 
         <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-          Sunucunun statik token'ını yapıştır. Doğrulandıktan sonra yalnızca
-          sistem anahtarlığında saklanır — dosyaya yazılmaz, ekrana basılmaz.
+          {t("welcome.blurb")}
         </p>
 
         <div className="field" style={{ height: 44 }}>
@@ -70,8 +70,8 @@ export default function Onboarding({
             spellCheck={false}
             autoComplete="off"
             value={token}
-            placeholder="Statik token"
-            aria-label="Statik token"
+            placeholder={t("welcome.token")}
+            aria-label={t("welcome.token")}
             onChange={(e) => setToken(e.target.value)}
           />
         </div>
@@ -84,7 +84,7 @@ export default function Onboarding({
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="btn-primary" type="submit" disabled={busy || !token.trim()}>
-            {busy ? "Bağlanıyor…" : "Bağlan"}
+            {busy ? t("welcome.connecting") : t("welcome.connect")}
           </button>
           {hasStoredToken && (
             <>
@@ -94,7 +94,7 @@ export default function Onboarding({
                 disabled={busy}
                 onClick={() => void attempt(undefined)}
               >
-                Kayıtlı token'la dene
+                {t("welcome.trySaved")}
               </button>
               {/* Reddedilen bir token anahtarlıkta kalırsa uygulama her
                   açılışta onu deneyip 401 alır. Silmenin yolu burada. */}
@@ -115,7 +115,7 @@ export default function Onboarding({
                   }
                 }}
               >
-                Kayıtlıyı sil
+                {t("welcome.deleteSaved")}
               </button>
             </>
           )}

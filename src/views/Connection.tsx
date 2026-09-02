@@ -1,11 +1,14 @@
 import Desktop from "./Desktop";
 import { IconCheck, IconCross } from "../ui/Icon";
+import { LANGS, t, type Lang } from "../lib/i18n";
 import type { Agent, ConnSnapshot, DesktopState, Theme } from "../lib/types";
 
 interface Props {
   snap: ConnSnapshot;
   theme: Theme;
   onTheme: (t: Theme) => void;
+  lang: Lang;
+  onLang: (l: Lang) => void;
   desktop: DesktopState;
   onDesktop: (s: DesktopState) => void;
 }
@@ -17,23 +20,23 @@ interface Props {
  * **Masaüstü izni en üstte:** bu panelin en sonuç doğuran parçası o, ve
  * durumu her açılışta gözle görünmeli.
  */
-export default function Connection({ snap, theme, onTheme, desktop, onDesktop }: Props) {
+export default function Connection({ snap, theme, onTheme, lang, onLang, desktop, onDesktop }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
       <Desktop state={desktop} onState={onDesktop} />
 
       <div className="card">
-        <span className="h">Sunucu</span>
+        <span className="h">{t("sys.server")}</span>
         <Facts
           rows={[
-            ["Uç nokta", <span className="mono">{snap.endpoint}</span>],
-            ["Araç", `${snap.toolCount}`],
+            [t("sys.endpoint"), <span className="mono">{snap.endpoint}</span>],
+            [t("sys.tools"), `${snap.toolCount}`],
             [
-              "Varsayılan ajan",
+              t("sys.defaultAgent"),
               snap.defaultAgent ? <span className="mono">{snap.defaultAgent}</span> : "—",
             ],
             [
-              "Varsayılan dizin",
+              t("sys.defaultWorkdir"),
               snap.defaultWorkdir ? (
                 <span className="mono">{snap.defaultWorkdir}</span>
               ) : (
@@ -45,12 +48,10 @@ export default function Connection({ snap, theme, onTheme, desktop, onDesktop }:
       </div>
 
       <div className="card">
-        <span className="h">Ajanlar — {snap.agents.length}</span>
+        <span className="h">{t("sys.agents", { n: snap.agents.length })}</span>
         {snap.agents.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <span style={{ fontSize: 13.5 }}>
-              Sunucu ajan listesi döndürdü ama ayrıştırılamadı.
-            </span>
+            <span style={{ fontSize: 13.5 }}>{t("sys.agentsUnparsed")}</span>
             {snap.rawAgents && (
               <pre
                 className="mono"
@@ -75,17 +76,17 @@ export default function Connection({ snap, theme, onTheme, desktop, onDesktop }:
       </div>
 
       <div className="card">
-        <span className="h">Kısayollar</span>
+        <span className="h">{t("sys.shortcuts")}</span>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {(
             [
-              ["Ctrl 1", "Botlar"],
-              ["Ctrl 2", "Terminal"],
-              ["Ctrl N", "Yeni bot · yeni oturum"],
-              ["Ctrl 0", "Bu panel"],
-              ["Enter", "Gönder"],
-              ["Shift Enter", "Satır atla"],
-              ["Esc", "Pencereyi kapat"],
+              ["Ctrl 1", t("mode.bots")],
+              ["Ctrl 2", t("mode.terminals")],
+              ["Ctrl N", t("sys.scNewBot")],
+              ["Ctrl 0", t("sys.scPanel")],
+              ["Enter", t("sys.scSend")],
+              ["Shift Enter", t("sys.scNewline")],
+              ["Esc", t("sys.scClose")],
             ] as const
           ).map(([tus, ne]) => (
             <div key={tus} style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -95,24 +96,35 @@ export default function Connection({ snap, theme, onTheme, desktop, onDesktop }:
           ))}
         </div>
         <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-          Metin alanında ve terminal bölmesinde <span className="mono">Ctrl N</span> çalışmaz —
-          her tuş yazdığın yere gider.
+          {t("sys.scHint")}
         </span>
       </div>
 
       <div className="card">
-        <span className="h">Görünüm</span>
-        <div className="seg" role="group" aria-label="Tema">
-          {(["system", "dark", "light"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={theme === t}
-              onClick={() => onTheme(t)}
-            >
-              {t === "system" ? "Sistem" : t === "dark" ? "Koyu" : "Aydınlık"}
-            </button>
-          ))}
+        <span className="h">{t("sys.appearance")}</span>
+
+        <div className="grp">
+          <span className="lbl">{t("sys.theme")}</span>
+          <div className="seg" role="group" aria-label={t("sys.theme")}>
+            {(["system", "dark", "light"] as const).map((x) => (
+              <button key={x} type="button" aria-pressed={theme === x} onClick={() => onTheme(x)}>
+                {t(x === "system" ? "sys.themeSystem" : x === "dark" ? "sys.themeDark" : "sys.themeLight")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grp">
+          <span className="lbl">{t("sys.language")}</span>
+          {/* Dil adları kendi dillerinde yazılır — "Türkçe" arayüz
+              İngilizceyken de Türkçe okunur. */}
+          <div className="seg" role="group" aria-label={t("sys.language")}>
+            {LANGS.map((l) => (
+              <button key={l} type="button" aria-pressed={lang === l} onClick={() => onLang(l)}>
+                {t(l === "en" ? "sys.langEn" : "sys.langTr")}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -203,12 +215,12 @@ function AgentBlock({ agent }: { agent: Agent }) {
       {(agent.disabled.length > 0 || agent.optIn.length > 0 || agent.note) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12 }}>
           {agent.disabled.length > 0 && (
-            <span className="muted">Engelli: {agent.disabled.join(", ")}</span>
+            <span className="muted">{t("sys.disabled", { list: agent.disabled.join(", ") })}</span>
           )}
           {agent.optIn.length > 0 && (
-            <span className="muted">Yalnızca açıkça istenirse: {agent.optIn.join(", ")}</span>
+            <span className="muted">{t("sys.optIn", { list: agent.optIn.join(", ") })}</span>
           )}
-          {agent.note && <span className="muted">Not: {agent.note}</span>}
+          {agent.note && <span className="muted">{t("sys.note", { note: agent.note })}</span>}
         </div>
       )}
     </div>

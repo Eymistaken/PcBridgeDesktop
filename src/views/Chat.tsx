@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import Avatar from "../ui/Avatar";
 import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
+import { locale, t, toolVerb } from "../lib/i18n";
 import type { Bot, Turn } from "../lib/types";
 
 interface Props {
@@ -59,7 +60,7 @@ export default function Chat({
   async function dosyaSec() {
     const secilen = await open({
       multiple: true,
-      title: "Ajana verilecek dosyalar",
+      title: t("chat.pickFiles"),
       defaultPath: bot.workdir || undefined,
     }).catch(() => null);
     if (!secilen) return;
@@ -69,9 +70,11 @@ export default function Chat({
   }
 
   function gonder() {
-    const t = text.trim();
-    if (!t || busy) return;
-    onSend(ekler.length > 0 ? `${t}\n\nEkli dosyalar:\n${ekler.join("\n")}` : t);
+    const metin = text.trim();
+    if (!metin || busy) return;
+    onSend(
+      ekler.length > 0 ? `${metin}\n\n${t("chat.attached")}\n${ekler.join("\n")}` : metin,
+    );
     setText("");
     setEkler([]);
   }
@@ -90,10 +93,9 @@ export default function Chat({
       <div className="chat">
         {turns.length === 0 && !running && (
           <div className="chat__bos">
-            <span style={{ fontSize: 14, fontWeight: 500 }}>Henüz konuşma yok</span>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{t("chat.empty")}</span>
             <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-              Aşağıya yaz. Her mesaj <span className="mono">agent_run</span> ile bir koşum başlatır
-              ve çıktı <span className="mono">out.log</span>'dan canlı akar.
+              {t("chat.emptyHint")}
             </span>
           </div>
         )}
@@ -125,8 +127,8 @@ export default function Chat({
             <button
               type="button"
               className="ib"
-              title="Durdur"
-              aria-label="Durdur"
+              title={t("chat.stop")}
+              aria-label={t("chat.stop")}
               style={{ width: 30, height: 30, background: "var(--surface)" }}
               onClick={() => onCancel(running.jobId)}
             >
@@ -146,8 +148,8 @@ export default function Chat({
                 <button
                   type="button"
                   className="ek__sil"
-                  title="Eki çıkar"
-                  aria-label={`${dosyaAdi(yol)} ekini çıkar`}
+                  title={t("chat.removeAttachment")}
+                  aria-label={t("chat.removeNamed", { name: dosyaAdi(yol) })}
                   onClick={() => setEkler((e) => e.filter((x) => x !== yol))}
                 >
                   <IconClose size={11} />
@@ -161,8 +163,8 @@ export default function Chat({
             type="button"
             className="ib"
             style={{ width: 36, height: 36, background: "var(--surface)" }}
-            title="Dosya ekle"
-            aria-label="Dosya ekle"
+            title={t("chat.attach")}
+            aria-label={t("chat.attach")}
             onClick={() => void dosyaSec()}
           >
             <IconAttach color="var(--text-muted)" />
@@ -172,8 +174,8 @@ export default function Chat({
             className="composer__text"
             rows={1}
             value={text}
-            placeholder={`${bot.name}'a yaz`}
-            aria-label={`${bot.name}'a yaz`}
+            placeholder={t("chat.write", { name: bot.name })}
+            aria-label={t("chat.write", { name: bot.name })}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               // Enter ve Ctrl+Enter gönderir; Shift+Enter satır atlar.
@@ -187,8 +189,8 @@ export default function Chat({
           <button
             type="button"
             className="ib composer__send"
-            title="Gönder"
-            aria-label="Gönder"
+            title={t("chat.send")}
+            aria-label={t("chat.send")}
             disabled={busy || !text.trim()}
             onClick={gonder}
           >
@@ -238,13 +240,13 @@ function TurnView({ turn }: { turn: Turn }) {
       ))}
 
       {kesildi ? (
-        <span className="ts">durduruldu</span>
+        <span className="ts">{t("chat.stopped")}</span>
       ) : (
         bitis &&
         !bitis.ok && (
           <div style={{ display: "flex" }}>
             <div className="bub" style={{ background: "var(--surface)", color: "var(--fail)" }}>
-              {bitis.error ?? "Koşum başarısız bitti."}
+              {bitis.error ?? t("chat.failed")}
             </div>
           </div>
         )
@@ -307,7 +309,7 @@ function BlockView({ block }: { block: Block }) {
                 color: r.state === "run" ? "var(--run)" : undefined,
               }}
             >
-              {r.state === "run" ? "Sürüyor" : r.verb}
+              {r.state === "run" ? t("chat.runningVerb") : toolVerb(r.tool)}
             </span>
             <span className="mono muted dokum__detail">{r.detail}</span>
           </div>
@@ -336,8 +338,9 @@ function saat(unix: number): string {
   const d = new Date(unix * 1000);
   const bugun = new Date();
   const ayniGun = d.toDateString() === bugun.toDateString();
-  const hhmm = d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
-  return ayniGun ? hhmm : `${d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })} ${hhmm}`;
+  const lc = locale();
+  const hhmm = d.toLocaleTimeString(lc, { hour: "2-digit", minute: "2-digit" });
+  return ayniGun ? hhmm : `${d.toLocaleDateString(lc, { day: "numeric", month: "short" })} ${hhmm}`;
 }
 
 /** `/home/eymistaken/Belgeler/X` → `~/Belgeler/X` */

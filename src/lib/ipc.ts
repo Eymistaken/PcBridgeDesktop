@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
+import { t } from "./i18n";
+
 import type {
   AuditRow,
   Avatar,
@@ -53,19 +55,42 @@ export const refresh = () => call<ConnSnapshot>("refresh");
 /** Bağlantıyı kapatır ve token'ı keyring'den siler. */
 export const signOut = () => call<void>("sign_out");
 
-/** Hata nesnesini kullanıcıya gösterilecek Türkçe cümleye çevirir. */
+/**
+ * Rust `#kod` ya da `#kod:ayrıntı` gönderiyor; sözlükte karşılığı varsa
+ * seçili dilde yazılır. **Tanınmayan metin olduğu gibi kalır** — pcbridge'in
+ * kendi cümlelerini uydurma bir çeviriyle değiştirmek yanlış olurdu.
+ */
+function kodCoz(detail: string): string {
+  if (!detail.startsWith("#")) return detail;
+  const i = detail.indexOf(":");
+  const kod = i < 0 ? detail.slice(1) : detail.slice(1, i);
+  const anahtar = `err.${kod}`;
+  const cevrilen = t(anahtar, { detail: i < 0 ? "" : detail.slice(i + 1) });
+  return cevrilen === anahtar ? detail : cevrilen;
+}
+
+/** Rust'tan düz dizge olarak gelen hata (`BotError`, `PtyError`). */
+export function detailText(e: unknown): string {
+  return kodCoz(typeof e === "string" ? e : String((e as { detail?: string })?.detail ?? e));
+}
+
+/** Hata nesnesini kullanıcıya gösterilecek cümleye çevirir. */
 export function errorText(e: ConnError): string {
   switch (e.kind) {
     case "noToken":
-      return "Token bulunamadı.";
+      return t("err.noToken");
     case "unauthorized":
-      return "Sunucu token'ı kabul etmedi (401). Doğru statik token'ı yapıştır.";
+      return t("err.unauthorized");
     case "unreachable":
-      return `Sunucuya ulaşılamıyor. pcbridge çalışıyor mu? — ${e.detail}`;
+      return t("err.unreachable", { detail: kodCoz(e.detail) });
     case "keyring":
-      return e.detail;
+      return kodCoz(e.detail);
     case "protocol":
-      return `Beklenmeyen yanıt: ${e.detail}`;
+      // Kendi ürettiğimiz kod zaten tam bir cümle; "Beklenmeyen yanıt"
+      // çerçevesi yalnızca sunucudan gelen ham metne takılır.
+      return e.detail.startsWith("#")
+        ? kodCoz(e.detail)
+        : t("err.protocol", { detail: e.detail });
   }
 }
 

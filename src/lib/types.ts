@@ -88,7 +88,7 @@ export type JobEvent =
   | { kind: "session"; id: string; model: string | null; cwd: string | null }
   | { kind: "text"; text: string }
   | { kind: "thinking"; text: string }
-  | { kind: "toolStart"; id: string; verb: string; detail: string }
+  | { kind: "toolStart"; id: string; tool: string; detail: string }
   | { kind: "toolEnd"; id: string; ok: boolean }
   | {
       kind: "finished";

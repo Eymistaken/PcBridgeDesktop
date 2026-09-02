@@ -187,7 +187,7 @@ async fn send_message(
 ) -> Result<Started, ConnError> {
     let text = text.trim().to_string();
     if text.is_empty() {
-        return Err(ConnError::Protocol("Boş mesaj gönderilmez.".into()));
+        return Err(ConnError::Protocol("#emptyMessage".into()));
     }
     let bot = bots::get(&id).map_err(|e| ConnError::Protocol(e.to_string()))?;
 

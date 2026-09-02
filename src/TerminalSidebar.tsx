@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import ConnStrip from "./ui/ConnStrip";
 import ModeSwitch from "./ui/ModeSwitch";
 import { IconPlus, IconPrompt, IconTrash } from "./ui/Icon";
+import { t } from "./lib/i18n";
 import type { DesktopState, Mode, TerminalsView } from "./lib/types";
 
 interface Props {
@@ -48,8 +49,8 @@ export default function TerminalSidebar({
         <button
           className="ib ib--filled"
           type="button"
-          title="Yeni oturum (Ctrl+N)"
-          aria-label="Yeni oturum"
+          title={t("term.newSessionTitle")}
+          aria-label={t("term.newSession")}
           onClick={() => setYeni("")}
         >
           <IconPlus />
@@ -76,8 +77,8 @@ export default function TerminalSidebar({
               className="mono"
               spellCheck={false}
               value={yeni}
-              placeholder="oturum-adi"
-              aria-label="Yeni oturum adı"
+              placeholder={t("term.sessionName")}
+              aria-label={t("term.newSessionLabel")}
               style={{ fontSize: 13 }}
               onChange={(e) => setYeni(e.target.value)}
               onKeyDown={(e) => {
@@ -91,10 +92,9 @@ export default function TerminalSidebar({
       <div className="side__list">
         {view.sessions.length === 0 && (
           <div className="side__empty">
-            <span style={{ fontSize: 13.5, fontWeight: 500 }}>Açık oturum yok</span>
+            <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("term.noSessions")}</span>
             <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-              Artıya bas. Oturum <span className="mono">tmux</span>'ta yaşar; uygulamayı
-              kapatsan da durur.
+              {t("term.noSessionsHint")}
             </span>
           </div>
         )}
@@ -106,7 +106,7 @@ export default function TerminalSidebar({
         {uzakta.length > 0 && burada.length > 0 && (
           <div style={{ padding: "14px 18px 6px" }}>
             <span className="h" style={{ letterSpacing: "0.09em" }}>
-              PC'de açık, burada değil
+              {t("term.elsewhere")}
             </span>
           </div>
         )}
@@ -124,7 +124,7 @@ export default function TerminalSidebar({
 
       <ConnStrip
         title="tmux"
-        sub={`${view.sessions.length} oturum · ${panes.length}'i burada açık`}
+        sub={`${t("term.sessionCount", { n: view.sessions.length })} · ${t("term.openHere", { n: panes.length })}`}
         ok
         desktop={desktop}
         onClick={onOpenSystem}
@@ -181,15 +181,15 @@ function SessionRow({
           )}
         </div>
         <span className="row__sub" style={{ fontSize: 12 }}>
-          {[s.command, s.attached ? "PC'de de açık" : null].filter(Boolean).join(" · ")}
+          {[s.command, s.attached ? t("term.alsoOnPc") : null].filter(Boolean).join(" · ")}
         </span>
       </div>
       <button
         type="button"
         className="ib"
         style={{ width: 26, height: 26, flex: "none" }}
-        title="Oturumu sonlandır"
-        aria-label={`${s.name} oturumunu sonlandır`}
+        title={t("term.kill")}
+        aria-label={t("term.killNamed", { name: s.name })}
         onClick={(e) => {
           e.stopPropagation();
           onKill(s.name);

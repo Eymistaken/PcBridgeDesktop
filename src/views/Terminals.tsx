@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import Term from "../ui/Term";
 import { IconClose, IconLayout } from "../ui/Icon";
 import { ptyClose } from "../lib/ipc";
+import { t } from "../lib/i18n";
 import type { TerminalsView, TmuxSession } from "../lib/types";
 
 interface Props {
@@ -12,8 +13,6 @@ interface Props {
   onPanes: (p: string[]) => void;
   onReload: () => void;
 }
-
-const SAYI_ADI = ["Bölme yok", "Tek bölme", "İki bölme", "Üç bölme", "Dört bölme"];
 
 /** Artboard'daki dört yerleşim. Üçüncüsü: solda tam, sağda ikiye bölünmüş. */
 function gridStil(n: number): React.CSSProperties {
@@ -73,17 +72,17 @@ export default function Terminals({ view, panes, onPanes, onReload }: Props) {
     <>
       <div className="main__head">
         <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          {SAYI_ADI[Math.min(panes.length, 4)]}
+          {t(`panes.${Math.min(panes.length, 4)}`)}
         </span>
         <div style={{ flexGrow: 1 }} />
-        <div className="layout" role="group" aria-label="Yerleşim">
+        <div className="layout" role="group" aria-label={t("panes.layout")}>
           {[1, 2, 3, 4].map((n) => (
             <button
               key={n}
               type="button"
               aria-pressed={panes.length === n}
-              aria-label={`${n} bölme`}
-              title={`${n} bölme`}
+              aria-label={t("panes.nPanes", { n })}
+              title={t("panes.nPanes", { n })}
               onClick={() => yerlesim(n)}
             >
               <IconLayout n={n} on={panes.length === n} />
@@ -95,10 +94,9 @@ export default function Terminals({ view, panes, onPanes, onReload }: Props) {
       <div className="grid" style={gridStil(panes.length)}>
         {panes.length === 0 && (
           <div className="chat__bos">
-            <span style={{ fontSize: 14, fontWeight: 500 }}>Açık bölme yok</span>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{t("panes.empty")}</span>
             <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-              Soldaki listeden bir oturuma tıkla ya da artıya basıp yeni bir tane aç. Her bölme
-              gerçek bir <span className="mono">tmux</span> oturumudur.
+              {t("panes.emptyHint")}
             </span>
           </div>
         )}
@@ -149,15 +147,15 @@ function Pane({
         <div style={{ flexGrow: 1 }} />
         {session?.attached && (
           <span className="muted" style={{ fontSize: 11.5 }}>
-            PC'de de açık
+            {t("term.alsoOnPc")}
           </span>
         )}
         <button
           type="button"
           className="ib"
           style={{ width: 26, height: 26 }}
-          title="Bölmeyi kapat (oturum yaşamaya devam eder)"
-          aria-label={`${name} bölmesini kapat`}
+          title={t("panes.close")}
+          aria-label={t("panes.closeNamed", { name })}
           onClick={onClose}
         >
           <IconClose />

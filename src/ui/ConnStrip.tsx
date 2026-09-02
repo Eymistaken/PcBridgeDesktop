@@ -1,4 +1,5 @@
 import { IconLock } from "./Icon";
+import { t } from "../lib/i18n";
 import type { DesktopState } from "../lib/types";
 
 interface Props {
@@ -37,7 +38,7 @@ export default function ConnStrip({ title, sub, ok, desktop, onClick, disabled }
 function DesktopBadge({ d }: { d: DesktopState }) {
   if (!d.unlocked) {
     return (
-      <span className="dbadge" title="Masaüstü kontrolü kilitli">
+      <span className="dbadge" title={t("strip.locked")}>
         <IconLock size={15} />
       </span>
     );
@@ -45,7 +46,7 @@ function DesktopBadge({ d }: { d: DesktopState }) {
   return (
     <span
       className="dbadge dbadge--on"
-      title={`Masaüstü kontrolü açık${d.reason ? ` — ${d.reason}` : ""}`}
+      title={`${t("strip.unlocked")}${d.reason ? ` — ${d.reason}` : ""}`}
     >
       <IconLock size={15} color="var(--run)" open />
       <span className="mono">{sayac(d.remaining)}</span>
@@ -53,8 +54,8 @@ function DesktopBadge({ d }: { d: DesktopState }) {
   );
 }
 
-/** `mm:ss`. Bir saati aşarsa `s dk` — saniye o ölçekte gürültü. */
+/** `mm:ss`. Bir saati aşarsa dakika — saniye o ölçekte gürültü. */
 export function sayac(sn: number): string {
-  if (sn >= 3600) return `${Math.floor(sn / 60)} dk`;
+  if (sn >= 3600) return t("strip.minutes", { n: Math.floor(sn / 60) });
   return `${Math.floor(sn / 60)}:${String(sn % 60).padStart(2, "0")}`;
 }

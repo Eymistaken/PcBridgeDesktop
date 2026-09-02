@@ -108,9 +108,9 @@ pub enum BotError {
 impl std::fmt::Display for BotError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BotError::Io(d) => write!(f, "bots.json yazılamadı/okunamadı: {d}"),
-            BotError::Bozuk(d) => write!(f, "bots.json bozuk: {d}"),
-            BotError::Yok(id) => write!(f, "bot bulunamadı: {id}"),
+            BotError::Io(d) => write!(f, "#botsIo:{d}"),
+            BotError::Bozuk(d) => write!(f, "#botsCorrupt:{d}"),
+            BotError::Yok(id) => write!(f, "#botNotFound:{id}"),
             BotError::Gecersiz(d) => write!(f, "{d}"),
         }
     }
@@ -314,19 +314,16 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
     d.agent = d.agent.trim().to_string();
 
     if d.name.is_empty() {
-        return Err(BotError::Gecersiz("Bota bir ad ver.".into()));
+        return Err(BotError::Gecersiz("#nameRequired".into()));
     }
     if d.agent.is_empty() {
-        return Err(BotError::Gecersiz("Ajan seçilmedi.".into()));
+        return Err(BotError::Gecersiz("#agentRequired".into()));
     }
     if d.workdir.is_empty() {
-        return Err(BotError::Gecersiz("Çalışma dizini boş olamaz.".into()));
+        return Err(BotError::Gecersiz("#workdirRequired".into()));
     }
     if !std::path::Path::new(&d.workdir).is_dir() {
-        return Err(BotError::Gecersiz(format!(
-            "Çalışma dizini yok: {}",
-            d.workdir
-        )));
+        return Err(BotError::Gecersiz(format!("#workdirMissing:{}", d.workdir)));
     }
     if d.timeout == 0 {
         d.timeout = varsayilan_timeout();

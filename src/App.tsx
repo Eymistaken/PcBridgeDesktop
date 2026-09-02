@@ -4,6 +4,7 @@ import Onboarding from "./Onboarding";
 import Shell from "./Shell";
 import { connect, endpoint as fetchEndpoint, hasToken } from "./lib/ipc";
 import { applyTheme, readTheme } from "./lib/theme";
+import { readLang, setActiveLang, t, writeLang, type Lang } from "./lib/i18n";
 import type { ConnError, ConnSnapshot, Theme } from "./lib/types";
 
 type Boot =
@@ -14,6 +15,24 @@ type Boot =
 export default function App() {
   const [boot, setBoot] = useState<Boot>({ s: "checking" });
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [lang, setLangState] = useState<Lang>(readLang);
+
+  /**
+   * Etkin dil **ağaç çizilmeden** yerine konur. `t` bileşen dışındaki düz
+   * yardımcılardan da çağrılıyor (`errorText`, `sayac`); bir etkiye
+   * bırakılsaydı ilk render bir tık eski dilde çizilirdi.
+   */
+  setActiveLang(lang);
+
+  const setLang = useCallback((l: Lang) => {
+    setLangState(l);
+    writeLang(l);
+  }, []);
+
+  // Ekran okuyucu ve tireleme buna bakıyor.
+  useEffect(() => {
+    document.documentElement.setAttribute("lang", lang);
+  }, [lang]);
   // Uç noktayı Rust söyler; burada kopyası tutulmaz.
   const [endpoint, setEndpoint] = useState("");
 
@@ -63,7 +82,7 @@ export default function App() {
     return (
       <div className="welcome">
         <span className="muted" style={{ fontSize: 13 }}>
-          Anahtarlık okunuyor…
+          {t("boot.keyring")}
         </span>
       </div>
     );
@@ -87,6 +106,8 @@ export default function App() {
       onSnap={(snap) => setBoot({ s: "ready", snap })}
       theme={theme}
       onTheme={setTheme}
+      lang={lang}
+      onLang={setLang}
       onAuthLost={(error) => setBoot({ s: "welcome", hasStoredToken: true, error })}
     />
   );

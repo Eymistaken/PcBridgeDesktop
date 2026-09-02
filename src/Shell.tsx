@@ -2,17 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 
 import BotForge from "./BotForge";
-import Sidebar from "./Sidebar";
+import Sidebar, { sayilar } from "./Sidebar";
 import Connection from "./views/Connection";
 import Chat from "./views/Chat";
 import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
 import { IconRefresh } from "./ui/Icon";
+import { t, type Lang } from "./lib/i18n";
 import {
   botHistory,
   botSummaries,
   cancelJob,
   deleteBot,
+  detailText,
   desktopState as fetchDesktop,
   errorText,
   listBots,
@@ -64,10 +66,12 @@ interface Props {
   onSnap: (s: ConnSnapshot) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
+  lang: Lang;
+  onLang: (l: Lang) => void;
   onAuthLost: (e: ConnError) => void;
 }
 
-export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Props) {
+export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAuthLost }: Props) {
   const [busyConn, setBusyConn] = useState(false);
   const [connError, setConnError] = useState<string>();
 
@@ -211,7 +215,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
         if (!iptal) setTurns(t);
       })
       .catch((e) => {
-        if (!iptal) setChatError(String((e as { detail?: string })?.detail ?? e));
+        if (!iptal) setChatError(detailText(e));
       });
     return () => {
       iptal = true;
@@ -370,13 +374,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
       const liste = await botlariYukle();
       if (selectedId === bot.id) setSelectedId(liste[0]?.id);
     } catch (e) {
-      setConnError(String((e as { detail?: string })?.detail ?? e));
+      setConnError(detailText(e));
     }
-  }
-
-  // Tema tek yerde uygulanıyor: App'teki etki. Burada yalnızca durum değişir.
-  function setTheme(t: Theme) {
-    onTheme(t);
   }
 
   // Süren iş: seçili botun bitmemiş son turu.
@@ -466,16 +465,18 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
         ) : (
           <>
             <div className="main__head">
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>Sistem</span>
+              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                {t("sys.title")}
+              </span>
               <span className="mono muted" style={{ fontSize: 12 }}>
-                {snap.toolCount} araç · {snap.agents.length} ajan
+                {sayilar(snap.toolCount, snap.agents.length)}
               </span>
               <div style={{ flexGrow: 1 }} />
               <button
                 className="ib"
                 type="button"
-                title="Tazele"
-                aria-label="Bağlantıyı tazele"
+                title={t("sys.refresh")}
+                aria-label={t("sys.refreshConn")}
                 disabled={busyConn}
                 onClick={() => void tazele()}
               >
@@ -501,7 +502,9 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
               <Connection
                 snap={snap}
                 theme={theme}
-                onTheme={setTheme}
+                onTheme={onTheme}
+                lang={lang}
+                onLang={onLang}
                 desktop={desktop}
                 onDesktop={setDesktop}
               />
@@ -526,19 +529,18 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
       )}
 
       {silinecek && (
-        <div className="scrim" role="dialog" aria-modal="true" aria-label="Botu sil">
+        <div className="scrim" role="dialog" aria-modal="true" aria-label={t("del.title")}>
           <div className="card" style={{ width: 420, background: "var(--bg)" }}>
-            <span style={{ fontSize: 16, fontWeight: 600 }}>“{silinecek.name}” silinsin mi?</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>{t("del.ask", { name: silinecek.name })}</span>
             <span className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
-              Bot profili gider. Koşum kayıtları diskte kalır — silinen yalnızca bu uygulamadaki
-              tanım.
+              {t("del.blurb")}
             </span>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button type="button" className="btn-quiet" onClick={() => setSilinecek(undefined)}>
-                Vazgeç
+                {t("del.cancel")}
               </button>
               <button type="button" className="btn-primary" onClick={() => void sil(silinecek)}>
-                Sil
+                {t("del.confirm")}
               </button>
             </div>
           </div>

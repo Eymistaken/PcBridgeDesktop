@@ -3,7 +3,8 @@ import type { JobEvent } from "./types";
 /** Döküm baloncuğundaki tek satır. */
 export interface ToolRow {
   id: string;
-  verb: string;
+  /** Ham araç adı; görünen fiile `i18n::toolVerb` çeviriyor. */
+  tool: string;
   detail: string;
   state: "run" | "ok" | "fail";
 }
@@ -37,7 +38,7 @@ export function toBlocks(events: JobEvent[]): Block[] {
         break;
       case "toolStart": {
         const b = son();
-        const row: ToolRow = { id: e.id, verb: e.verb, detail: e.detail, state: "run" };
+        const row: ToolRow = { id: e.id, tool: e.tool, detail: e.detail, state: "run" };
         if (b?.t === "tools") b.rows.push(row);
         else out.push({ t: "tools", rows: [row] });
         break;

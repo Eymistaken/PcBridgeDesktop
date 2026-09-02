@@ -28,9 +28,9 @@ pub enum PtyError {
 impl std::fmt::Display for PtyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PtyError::Spawn(d) => write!(f, "Terminal açılamadı: {d}"),
-            PtyError::Yok(n) => write!(f, "Bölme açık değil: {n}"),
-            PtyError::Io(d) => write!(f, "Terminal yazma hatası: {d}"),
+            PtyError::Spawn(d) => write!(f, "#ptySpawn:{d}"),
+            PtyError::Yok(n) => write!(f, "#ptyNoPane:{n}"),
+            PtyError::Io(d) => write!(f, "#ptyIo:{d}"),
             PtyError::Gecersiz(d) => write!(f, "{d}"),
         }
     }

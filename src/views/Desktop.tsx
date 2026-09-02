@@ -10,6 +10,7 @@ import {
   screenCapture,
   systemStatus,
 } from "../lib/ipc";
+import { t } from "../lib/i18n";
 import type { AuditRow, ConnError, DesktopState, Shots } from "../lib/types";
 
 /** Artboard'daki dört seçenek. Sunucu 1–120'ye kırpıyor; hepsi aralıkta. */
@@ -41,7 +42,7 @@ export default function Desktop({ state, onState }: Props) {
     try {
       const r = state.unlocked
         ? await desktopLock()
-        : await desktopUnlock(dakika, gerekce.trim() || "PcBridge Desktop'tan açıldı");
+        : await desktopUnlock(dakika, gerekce.trim() || t("desk.openedFrom"));
       onState(r.state);
       // Sunucunun kendi cümlesi: kayan kirayı en doğru o anlatıyor.
       setYanit(r.message);
@@ -55,7 +56,7 @@ export default function Desktop({ state, onState }: Props) {
   return (
     <>
       <div className="card">
-        <span className="h">Masaüstü izni</span>
+        <span className="h">{t("desk.title")}</span>
 
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
           <button
@@ -64,7 +65,7 @@ export default function Desktop({ state, onState }: Props) {
             data-on={state.unlocked ? "1" : undefined}
             role="switch"
             aria-checked={state.unlocked}
-            aria-label="Masaüstü kontrolü"
+            aria-label={t("desk.control")}
             disabled={mesgul}
             onClick={() => void cevir()}
           >
@@ -72,15 +73,14 @@ export default function Desktop({ state, onState }: Props) {
           </button>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1 }}>
             <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-              {state.unlocked ? "Masaüstü kontrolü açık" : "Masaüstü kontrolü kilitli"}
+              {state.unlocked ? t("desk.on") : t("desk.off")}
             </span>
             <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-              Açıkken ajanlar sanal klavye ve fare kullanabilir. Süre dolunca kendiliğinden
-              kapanır; ekran kilitliyken her şey reddedilir.
+              {t("desk.blurb")}
             </span>
           </div>
           {state.unlocked && (
-            <span className="geri" title="Kayan kiranın kalanı">
+            <span className="geri" title={t("desk.leaseLeft")}>
               <IconLock size={15} color="var(--run)" open />
               {sayac(state.remaining)}
             </span>
@@ -91,16 +91,16 @@ export default function Desktop({ state, onState }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5 }}>
             {state.hardRemaining > state.remaining && (
               <span className="muted">
-                Kayan kira son eylemden sonra düşüyor · sert tavan {sayac(state.hardRemaining)}
+                {t("desk.leaseNote", { hard: sayac(state.hardRemaining) })}
               </span>
             )}
-            {state.reason && <span className="muted">Gerekçe: {state.reason}</span>}
+            {state.reason && <span className="muted">{t("desk.reason", { reason: state.reason })}</span>}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="grp">
-              <span className="lbl">Süre</span>
-              <div className="seg" role="group" aria-label="İzin süresi">
+              <span className="lbl">{t("desk.duration")}</span>
+              <div className="seg" role="group" aria-label={t("desk.durationLabel")}>
                 {SURELER.map((d) => (
                   <button
                     key={d}
@@ -108,18 +108,18 @@ export default function Desktop({ state, onState }: Props) {
                     aria-pressed={dakika === d}
                     onClick={() => setDakika(d)}
                   >
-                    {d} dk
+                    {t("desk.minutes", { n: d })}
                   </button>
                 ))}
               </div>
             </div>
             <div className="grp">
-              <span className="lbl">Gerekçe · denetim kaydına yazılır</span>
+              <span className="lbl">{t("desk.reasonLabel")}</span>
               <div className="fld">
                 <input
                   value={gerekce}
-                  placeholder="ne için açılıyor"
-                  aria-label="İzin gerekçesi"
+                  placeholder={t("desk.reasonPlaceholder")}
+                  aria-label={t("desk.reasonAria")}
                   style={{ flexGrow: 1, fontSize: 13.5 }}
                   onChange={(e) => setGerekce(e.target.value)}
                 />
@@ -130,14 +130,13 @@ export default function Desktop({ state, onState }: Props) {
 
         {!state.unlocked && state.hardRemaining > 0 && (
           <span className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
-            Sert tavanda {sayac(state.hardRemaining)} kalmıştı ama kayan kira düştü —
-            pcbridge ölmüş bir izni diriltmiyor, yeniden açman gerekiyor.
+            {t("desk.expired", { hard: sayac(state.hardRemaining) })}
           </span>
         )}
 
         {!state.known && (
           <span className="muted" style={{ fontSize: 12 }}>
-            Durum dosyası okunamadı — kilitli sayılıyor.
+            {t("desk.unknown")}
           </span>
         )}
         {yanit && (
@@ -185,26 +184,26 @@ function Ekran({ unlocked }: { unlocked: boolean }) {
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span className="h" style={{ flexGrow: 1 }}>
-          Ekran
+          {t("desk.screen")}
         </span>
         <button type="button" className="btn-quiet" disabled={mesgul || !unlocked} onClick={() => void al()}>
           <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <IconScreen size={15} color="currentColor" />
-            {mesgul ? "alınıyor…" : "Görüntü al"}
+            {mesgul ? t("desk.capturing") : t("desk.capture")}
           </span>
         </button>
       </div>
 
       {!unlocked && (
         <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-          Ekran görüntüsü de izne bağlı — en gizlilik-hassas çıktı bu. İzni açmadan alınamaz.
+          {t("desk.captureGated")}
         </span>
       )}
 
       {shots && shots.shots.length > 0 && (
         <div className="shots">
           {shots.shots.map((s, i) => (
-            <img key={i} src={s.src} alt={`Ekran ${i + 1}`} />
+            <img key={i} src={s.src} alt={t("desk.screenN", { n: i + 1 })} />
           ))}
         </div>
       )}
@@ -236,11 +235,11 @@ function Durum() {
 
   return (
     <div className="card">
-      <span className="h">Bilgisayar</span>
+      <span className="h">{t("desk.computer")}</span>
       {hata && <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>}
       {metin === undefined && !hata && (
         <span className="muted" style={{ fontSize: 12.5 }}>
-          okunuyor…
+          {t("desk.reading")}
         </span>
       )}
       {metin !== undefined && <Ozet metin={metin} />}
@@ -281,7 +280,7 @@ function Ozet({ metin }: { metin: string }) {
 
     const baslik = l.match(/^\*\*(.+?)\*\*:?\s*$/);
     if (baslik) {
-      // İlk başlık kartın kendi başlığını ("Bilgisayar") tekrarlıyor; iki
+      // İlk başlık kartın kendi başlığını tekrarlıyor; iki
       // kere yazılmaz. Sonrakiler bölüm ayırıcısı olarak durur.
       if (parcalar.length === 0) return;
       parcalar.push(
@@ -357,16 +356,15 @@ function Denetim() {
 
   return (
     <div className="card">
-      <span className="h">Denetim kaydı — pcbridge</span>
+      <span className="h">{t("desk.audit")}</span>
       {rows === undefined && (
         <span className="muted" style={{ fontSize: 12.5 }}>
-          okunuyor…
+          {t("desk.reading")}
         </span>
       )}
       {rows?.length === 0 && (
         <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-          Kayıt bulunamadı. pcbridge <span className="mono">audit.log</span>'u başka bir yere
-          yazıyor olabilir.
+          {t("desk.auditEmpty")}
         </span>
       )}
       {rows && rows.length > 0 && (

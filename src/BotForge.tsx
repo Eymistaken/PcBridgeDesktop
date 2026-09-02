@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "./ui/Avatar";
-import { createBot, updateBot } from "./lib/ipc";
+import { createBot, detailText, updateBot } from "./lib/ipc";
+import { t } from "./lib/i18n";
 import { AVATARS, avatarVar } from "./lib/types";
 import type { Agent, Avatar as Tone, Bot, BotDraft } from "./lib/types";
 
@@ -76,7 +77,7 @@ export default function BotForge({
     try {
       onDone(bot ? await updateBot(bot.id, draft) : await createBot(draft));
     } catch (e) {
-      setError(typeof e === "string" ? e : String((e as { detail?: string })?.detail ?? e));
+      setError(detailText(e));
     } finally {
       setBusy(false);
     }
@@ -87,7 +88,7 @@ export default function BotForge({
       directory: true,
       multiple: false,
       defaultPath: draft.workdir || defaultWorkdir || undefined,
-      title: "Çalışma dizini",
+      title: t("forge.chooseTitle"),
     });
     if (typeof secilen === "string") setDraft((d) => ({ ...d, workdir: secilen }));
   }
@@ -97,15 +98,15 @@ export default function BotForge({
   }, ${draft.workdir || "…"}, wait_seconds=0)`;
 
   return (
-    <div className="scrim" role="dialog" aria-modal="true" aria-label={bot ? "Botu düzenle" : "Yeni bot"}>
+    <div className="scrim" role="dialog" aria-modal="true" aria-label={bot ? t("forge.edit") : t("forge.new")}>
       <div className="forge">
         <div className="forge__head">
           <span style={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.015em" }}>
-            {bot ? "Botu düzenle" : "Yeni bot"}
+            {bot ? t("forge.edit") : t("forge.new")}
           </span>
           <div style={{ flexGrow: 1 }} />
           <span className="muted" style={{ fontSize: 12.5 }}>
-            Bu uygulamada yaşar · <span className="mono">config.toml</span>'a dokunulmaz
+            {t("forge.livesHere")}
           </span>
         </div>
 
@@ -114,14 +115,14 @@ export default function BotForge({
             <Avatar tone={draft.avatar} name={draft.name || "?"} size={56} />
             <div className="grp" style={{ flexGrow: 1 }}>
               <label className="lbl" htmlFor="bot-ad">
-                Ad
+                {t("forge.name")}
               </label>
               <div className="fld" style={{ background: "var(--surface)" }}>
                 <input
                   id="bot-ad"
                   autoFocus
                   value={draft.name}
-                  placeholder="Köprü Bakımı"
+                  placeholder={t("forge.namePlaceholder")}
                   style={{ flexGrow: 1, fontWeight: 500 }}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 />
@@ -130,7 +131,7 @@ export default function BotForge({
           </div>
 
           <div className="grp">
-            <span className="lbl">İşaret</span>
+            <span className="lbl">{t("forge.mark")}</span>
             <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
               {AVATARS.map((t) => (
                 <button
@@ -154,22 +155,22 @@ export default function BotForge({
               ))}
               <div style={{ flexGrow: 1 }} />
               <span className="muted" style={{ fontSize: 11.5 }}>
-                altısı da aynı L ve C · yalnızca hue değişir
+                {t("forge.markHint")}
               </span>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 16 }}>
             <div className="grp" style={{ flexGrow: 1 }}>
-              <span className="lbl">Ajan</span>
-              <div className="seg" role="group" aria-label="Ajan">
+              <span className="lbl">{t("forge.agent")}</span>
+              <div className="seg" role="group" aria-label={t("forge.agent")}>
                 {agents.map((a) => (
                   <button
                     key={a.id}
                     type="button"
                     disabled={!a.available}
                     aria-pressed={draft.agent === a.id}
-                    title={a.available ? a.description : "PATH'te bulunamadı"}
+                    title={a.available ? a.description : t("forge.notOnPath")}
                     onClick={() => setDraft({ ...draft, agent: a.id })}
                   >
                     {a.id}
@@ -179,7 +180,7 @@ export default function BotForge({
             </div>
             <div className="grp" style={{ width: 200, flex: "none" }}>
               <label className="lbl" htmlFor="bot-model">
-                Model
+                {t("forge.model")}
               </label>
               <div className="fld">
                 <select
@@ -199,9 +200,9 @@ export default function BotForge({
           </div>
 
           <div className="grp">
-            <span className="lbl">Effort</span>
+            <span className="lbl">{t("forge.effort")}</span>
             <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-              <div className="seg" role="group" aria-label="Effort">
+              <div className="seg" role="group" aria-label={t("forge.effort")}>
                 {efforts.map((e) => (
                   <button
                     key={e}
@@ -214,11 +215,12 @@ export default function BotForge({
                 ))}
               </div>
               <span className="muted" style={{ fontSize: 11.5 }}>
-                <span className="mono">list_agents</span>'tan okundu
+                {t("forge.readFrom")}
                 {agent && agent.disabled.length > 0 && (
                   <>
                     {" · "}
-                    <span style={{ color: "var(--fail)" }}>{agent.disabled.join(", ")}</span> kapalı
+                    <span style={{ color: "var(--fail)" }}>{agent.disabled.join(", ")}</span>{" "}
+                    {t("forge.disabledSuffix")}
                   </>
                 )}
               </span>
@@ -227,7 +229,7 @@ export default function BotForge({
 
           <div className="grp">
             <label className="lbl" htmlFor="bot-dizin">
-              Çalışma dizini
+              {t("forge.workdir")}
             </label>
             <div style={{ display: "flex", gap: 10 }}>
               <div className="fld" style={{ flexGrow: 1 }}>
@@ -236,25 +238,25 @@ export default function BotForge({
                   className="mono"
                   spellCheck={false}
                   value={draft.workdir}
-                  placeholder="/home/eymistaken"
+                  placeholder="/home/…"
                   style={{ flexGrow: 1, fontSize: 13 }}
                   onChange={(e) => setDraft({ ...draft, workdir: e.target.value })}
                 />
               </div>
               <button type="button" className="fld btn-fld" onClick={() => void dizinSec()}>
-                Seç…
+                {t("forge.choose")}
               </button>
             </div>
           </div>
 
           <div className="grp">
             <label className="lbl" htmlFor="bot-yonerge">
-              Kalıcı yönerge · her prompt'un başına eklenir
+              {t("forge.preamble")}
             </label>
             <textarea
               id="bot-yonerge"
               value={draft.preamble}
-              placeholder="Türkçe cevap ver. Ölçmediğin şeyi “çalışıyor” diye yazma."
+              placeholder={t("forge.preamblePlaceholder")}
               onChange={(e) => setDraft({ ...draft, preamble: e.target.value })}
             />
           </div>
@@ -264,7 +266,7 @@ export default function BotForge({
               type="button"
               role="switch"
               aria-checked={draft.desktop}
-              aria-label="Masaüstü izni"
+              aria-label={t("forge.desktop")}
               className="tgl"
               data-on={draft.desktop ? "1" : undefined}
               onClick={() => setDraft({ ...draft, desktop: !draft.desktop })}
@@ -272,10 +274,9 @@ export default function BotForge({
               <span />
             </button>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 500 }}>Masaüstü izni</span>
+              <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("forge.desktop")}</span>
               <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                Açılırsa her koşumda <span className="mono">desktop_unlock</span> istenir —
-                sanal klavye ve fare. Süre dolunca kendiliğinden kapanır.
+                {t("forge.desktopHint")}
               </span>
             </div>
           </div>
@@ -291,7 +292,7 @@ export default function BotForge({
           </span>
           <div style={{ flexGrow: 1 }} />
           <button type="button" className="btn-quiet" onClick={onCancel} disabled={busy}>
-            Vazgeç
+            {t("forge.cancel")}
           </button>
           <button
             type="button"
@@ -299,7 +300,7 @@ export default function BotForge({
             disabled={busy || !draft.name.trim() || !draft.workdir.trim()}
             onClick={() => void kaydet()}
           >
-            {busy ? "Kaydediliyor…" : "Kaydet"}
+            {busy ? t("forge.saving") : t("forge.save")}
           </button>
         </div>
       </div>
