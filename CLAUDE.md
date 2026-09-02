@@ -103,6 +103,10 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
   statik token'ı erişim token'ı sayıyor, `tests/test_e2e.py:924` bu çağrıyı
   yapıyor. stdio **kullanılmıyor**: orada sunucuyu istemci başlatır ve uygulama
   kapanınca çalışan ajan işi de ölür.
+  ⚠️ **Bu gerekçe 2026-09-02'de bilinçli olarak terk edildi.** Uygulama ajan
+  döngüsünü kendi yürütecek ve iş uygulamayla birlikte ölecek; kullanıcı bu
+  bedeli kabul etti. Ölçüm doğru, ama artık bir yasak değil. Gerekçesi ve
+  planı **`YAPILACAKLAR.md` bölüm 1'de** (yerel dosya, depoda değil).
 - **İş çıktısı diskte:** `~/.local/state/pcbridge/jobs/<id>/` altında
   `meta.json` (durum, pid, argv, exit_code), `out.log` (stdout+stderr birleşik),
   `exit_code` (iş bitince yazılır). Canlı akış için **MCP pollanmaz**, dosya
