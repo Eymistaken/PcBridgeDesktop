@@ -86,6 +86,16 @@ işe yaramayan sayı ve rozet.
 Ayırıcı olarak çizgi değil **yüzey kademesi** kullanılır. Seçim yükselen
 yüzeyle anlatılır, renkli çubukla değil.
 
+### Tuvalden bilinçli iki sapma
+
+Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
+
+1. **Kip anahtarı kenar çubuğunun tepesinde.** Artboard ana panelin sağ
+   üstüne iki ikon düğme koyuyordu; şimdi uygulama adının altında tek bir
+   `Botlar | Terminal` anahtarı var (kayan parça, `--surface-2`).
+2. **Besteci ipucu `Ctrl ↵`.** Artboard `⌘↵` yazıyor — o bir macOS işareti,
+   bu makine Linux. `↵` duruyor: tuş adı, ikon değil.
+
 ## Ölçülmüş gerçekler
 
 - **Bağlantı:** `http://127.0.0.1:8765/mcp`, başlık
@@ -204,6 +214,74 @@ yüzeyle anlatılır, renkli çubukla değil.
   bölmemizi düşmek.
 - **PTY baytları base64 ile taşınıyor.** Kaçış dizisi ya da çok baytlı bir
   karakter parça sınırına denk gelebiliyor; dizgeye çevirmek bozardı.
+
+### Terminal çizimi — 2026-09-02'de ölçüldü
+
+- **Satır aralığı 1.0'a yakın olmak zorunda.** TUI'ler (Claude Code,
+  Antigravity) çerçevelerini `─ │ ╭ ╯` ve blok karakterleriyle çiziyor;
+  1.62'de bu karakterler hücreyi doldurmuyor ve logo ile çerçeveler kopuk
+  kopuk görünüyordu. Şimdi **1.15**.
+- **WebGL çizici yalnızca hız için değil.** `customGlyphs` kutu-çizim ve blok
+  karakterlerini hücreye tam oturacak şekilde kendi çiziyor, yazı tipinin
+  glif metriğine bırakmıyor. `@xterm/addon-webgl`; bağlam kaybolursa DOM
+  çiziciye düşülüyor.
+- **Punto tam sayı** (13). Kesirli punto hücre genişliğini kesirli yapıyor.
+- **Yazı tipi ÖNCE yüklenir, terminal SONRA kurulur.** xterm hücre
+  genişliğini `open()` anında bir kez ölçüyor. `document.fonts.ready` tek
+  başına yetmez: `@fontsource` yüz tanımları tembel, istenmemiş bir yazı tipi
+  için "bekleyen yükleme" yoktur ve `ready` hemen çözülür.
+  `document.fonts.load('13px "Geist Mono"')` isteği açıkça başlatıyor.
+- **Ölçüm:** bölme 222x45 çıktı; `COLUMNS` kadar uzunlukta bir cetvel tek
+  satıra tam sığdı, taşma ve sarma yok. tmux durum çubuğu da tam genişlikte.
+- **Yeniden boyutlandırma geciktiriliyor** (90 ms) ve yalnızca sütun/satır
+  **gerçekten değiştiyse** gönderiliyor: `ResizeObserver` pencere
+  sürüklenirken onlarca kez ateşliyor, her biri tmux'a tam yeniden çizim
+  yaptırıyordu.
+- **Tema değişimi dışarıdan izleniyor.** Bölme açık kalırken kabuk teması
+  değişebiliyor; `data-theme` niteliği ve `prefers-color-scheme` izlenip
+  `term.options.theme` yenileniyor.
+
+### Masaüstü izni — 2026-09-02'de ölçüldü
+
+- **İzin durumu MCP'de değil DİSKTE:**
+  `~/.local/state/pcbridge/desktop_unlock.json` →
+  `{"until", "hard_until", "reason", "granted", "granted_by"}`. Geri sayım
+  buradan okunuyor; saniyede bir MCP çağrısı yapılmıyor. Süre kendiliğinden
+  dolduğunda sunucu kimseye haber vermiyor — dosyayı okumaktan başka yol yok.
+- **İki sayı var, biri değil.** `until` **kayan kira**: her masaüstü
+  eyleminden sonra `unlock_idle_seconds` (bu makinede **90 sn**) ileriye
+  itiliyor, eylem gelmezse düşüyor. `hard_until` **sert tavan**.
+  "60 dakika açtım ama rozet 1:29 diyor" bundan; arayüz ikisini de gösteriyor.
+- **Ölmüş izin diriltilmiyor.** `until` geçince `touch()` hiçbir şey yapmıyor,
+  `hard_until` hâlâ ileride olsa bile. Arayüz bunu açıkça yazıyor.
+- **Kilitliyken hiçbir masaüstü aracı çalışmıyor** — `screen_capture` ve
+  `ui_dump` dahil. Yani "kilitli görünümün ekran görüntüsünü al" mümkün değil;
+  `XDG_STATE_HOME` başka bir dizine yöneltilerek ölçüldü.
+- **`audit.log` gizli veri taşımıyor:** yazılan metin değil `chars: 5` gibi
+  sayılar kaydediliyor. Bu yüzden kayıt olduğu gibi gösterilebiliyor.
+- **`screen_capture` görüntüyü `ContentBlock::Image`** ile döndürüyor
+  (`data` base64 + `mime_type`). İzin kapalıyken **hata değil**, yalnızca
+  metin dönüyor ve görüntü listesi boş kalıyor.
+
+### Arayüz — 2026-09-02'de ölçüldü
+
+- **`<html data-theme>` React durumundan türetilir.** Emirle tek yerde
+  yazılınca ikisi ayrışabiliyordu: bir kez düğme "Aydınlık" seçili görünürken
+  DOM koyu kaldı ve tekrar tıklamak düzeltmedi. `App`'teki
+  `useEffect(() => applyTheme(theme), [theme])` her render'da doğruyu geri
+  koyuyor.
+- **`color-scheme` bildirilir.** Kaydırma çubuğu, yerel denetim varsayılanları
+  ve WebView'in kendi zemini buna bakıyor; söylenmezse tokenlar koyu, çubuklar
+  aydınlık kalıyor.
+- **Genel `textarea` kuralı besteciyi bozuyordu:** `min-height: 76px`
+  (BotForge'un yönerge alanı için) besteciyi 76 px açılıyor gösteriyordu.
+  `.composer__text` bunu açıkça sıfırlıyor.
+- **`Ctrl+,` kısayolu Türkçe Q düzeninde beklenen `e.key`'i vermiyor.**
+  Rakam tuşları düzenden bağımsız — panel kısayolu **`Ctrl+0`**.
+  `e.code === "Comma"` yine de kabul ediliyor.
+- **pcbridge'in sanal faresinin tekerleği WebKitGTK'da kaydırmıyor** (ölçüldü;
+  `Tab` ile odak taşıyınca kap düzgün kaydı). Uygulamanın hatası değil,
+  otomasyonun sınırı — gerçek fareyle sorun yok.
 
 ### Kontrast tablosu — hesaplandı, tahmin değil
 

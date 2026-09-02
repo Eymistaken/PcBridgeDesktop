@@ -1,11 +1,18 @@
 import { useMemo, useState } from "react";
 
 import Avatar from "./ui/Avatar";
+import ConnStrip from "./ui/ConnStrip";
+import ModeSwitch from "./ui/ModeSwitch";
 import { IconPencil, IconPlus, IconSearch, IconTrash } from "./ui/Icon";
-import type { Bot, BotSummary, ConnSnapshot } from "./lib/types";
+import type { Bot, BotSummary, ConnSnapshot, DesktopState, Mode } from "./lib/types";
 
 interface Props {
   snap: ConnSnapshot;
+  mode: Mode;
+  onMode: (m: Mode) => void;
+  desktop: DesktopState;
+  /** Şeride basınca sistem paneli — bağlantı, masaüstü izni, denetim kaydı. */
+  onOpenSystem: () => void;
   bots: Bot[];
   summaries: Record<string, BotSummary>;
   selectedId?: string;
@@ -13,13 +20,16 @@ interface Props {
   onNew: () => void;
   onEdit: (bot: Bot) => void;
   onDelete: (bot: Bot) => void;
-  onRefresh: () => void;
   refreshing: boolean;
   connError?: string;
 }
 
 export default function Sidebar({
   snap,
+  mode,
+  onMode,
+  desktop,
+  onOpenSystem,
   bots,
   summaries,
   selectedId,
@@ -27,7 +37,6 @@ export default function Sidebar({
   onNew,
   onEdit,
   onDelete,
-  onRefresh,
   refreshing,
   connError,
 }: Props) {
@@ -51,9 +60,13 @@ export default function Sidebar({
     <div className="side">
       <div className="side__head">
         <span className="side__title">pcbridge</span>
-        <button className="ib ib--filled" type="button" title="Yeni bot" aria-label="Yeni bot" onClick={onNew}>
+        <button className="ib ib--filled" type="button" title="Yeni bot (Ctrl+N)" aria-label="Yeni bot" onClick={onNew}>
           <IconPlus />
         </button>
+      </div>
+
+      <div className="side__modes">
+        <ModeSwitch mode={mode} onMode={onMode} />
       </div>
 
       <div className="side__search">
@@ -121,7 +134,9 @@ export default function Sidebar({
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  {s?.running && <span className="dot" style={{ background: "var(--run)" }} />}
+                  {s?.running && (
+                    <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
+                  )}
                   <span className="row__sub">{altMetin(b, s)}</span>
                 </div>
               </div>
@@ -160,27 +175,19 @@ export default function Sidebar({
         })}
       </div>
 
-      <button
-        className="side__conn"
-        type="button"
-        onClick={onRefresh}
-        disabled={refreshing}
-        title="Bağlantıyı tazele"
-      >
-        <span className="dot" style={{ background: connError ? "var(--fail)" : "var(--ok)" }} />
-        <span style={{ display: "flex", flexDirection: "column", gap: 1, flexGrow: 1, minWidth: 0 }}>
-          <span className="mono" style={{ fontSize: 12 }}>
-            {hostPort(snap.endpoint)}
-          </span>
-          <span className="row__sub" style={{ fontSize: 11.5 }}>
-            {connError
-              ? connError
-              : refreshing
-                ? "tazeleniyor…"
-                : `${snap.toolCount} araç · ${snap.agents.length} ajan`}
-          </span>
-        </span>
-      </button>
+      <ConnStrip
+        title={hostPort(snap.endpoint)}
+        sub={
+          connError
+            ? connError
+            : refreshing
+              ? "tazeleniyor…"
+              : `${snap.toolCount} araç · ${snap.agents.length} ajan`
+        }
+        ok={!connError}
+        desktop={desktop}
+        onClick={onOpenSystem}
+      />
     </div>
   );
 }

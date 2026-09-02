@@ -4,8 +4,7 @@ Kurallar, tasarım kanunu ve ölçülmüş gerçekler **[CLAUDE.md](CLAUDE.md)'d
 yeni oturumda önce onu oku. Bu dosya yalnızca **ne yapılacağını** ve **bitiş
 ölçütünü** taşır.
 
-Durum: **Aşama 1, 2, 3 ve 4 bitti ve ölçüldü.** Sıradaki iş **Aşama 5** —
-kullanıcı açıkça "geç" demeden başlanmaz.
+Durum: **Beş aşamanın hepsi bitti ve ölçüldü.** Yol haritası tamam.
 
 ---
 
@@ -199,7 +198,7 @@ kendi çizmesi gibi, o da tmux'un kendi arayüzü; kapatılmıyor.
 
 ---
 
-## Aşama 5 — Masaüstü izni + cila  ⬅ SIRADAKİ · kullanıcı "geç" demeden başlama
+## Aşama 5 — Masaüstü izni + cila ✅ BİTTİ
 
 1. `desktop_unlock` / `desktop_lock` için görünür süre anahtarı ve geri sayım.
    Kenar çubuğu şeridinde durum. **Kapalı başlar.**
@@ -208,6 +207,34 @@ kendi çizmesi gibi, o da tmux'un kendi arayüzü; kapatılmıyor.
 
 **Bitiş ölçütü:** izin açılıp kapanıyor, geri sayım doğru, süre dolunca
 kendiliğinden kapanıyor ve arayüz bunu gösteriyor.
+
+### Ölçüldü (2026-09-02)
+
+| Ölçüm | Nasıl |
+|---|---|
+| Uygulamadan **kilitleme** | Anahtara basıldı → `desktop_unlock.json` `{"until": 0, "hard_until": 0}` oldu, `audit.log`'a aynı saniyede `desktop_lock was_remaining=89` düştü |
+| Uygulamadan **açma** | Formda "5 dk" + gerekçe `ISARET-ACILIS-UYGULAMADAN` → gerçek durum dosyasında `hard_until − granted = 300 sn` ve aynı gerekçe |
+| Geri sayım | Bilinen bir durum dosyasıyla: `remaining` 50→28→0, `hardRemaining` 15:00→14:38; ikisi de dosyadaki değerlerle birebir |
+| **Süre dolması** | İzin kendiliğinden düştü, anahtar kendiliğinden kapandı ve panel "kayan kira düştü, yeniden açman gerekiyor" dedi |
+| Ekran önizlemesi | İki monitör de kart içinde çizildi; izin kapalıyken düğme kapalı ve gerekçe metni görünüyor |
+| `system_status` | Markdown ayrıştırıldı: alanlar, disk ve GPU blokları, açık terminaller. Boş değer `—` gösteriliyor |
+| Denetim kaydı | `audit.log` kuyruğu canlı akıyor; reddedilen çağrılar ayrı renkte |
+| Kısayollar | `Ctrl 1/2/0`, `Ctrl N`, `Esc` fiilen basıldı ve çalıştı |
+| Tema | Koyu ↔ aydınlık ↔ sistem; her birinde kip değiştirilip geri gelindi, tema korundu |
+
+Bu aşamada kullanıcı isteğiyle eklenenler:
+
+- **Kip anahtarı kenar çubuğunun tepesine taşındı** (`Botlar | Terminal`,
+  kayan parçalı). Ana paneldeki iki ikon düğme kaldırıldı — geçiş tek yerde.
+- **Terminal görünümü düzeltildi** (aşağıdaki "Terminal çizimi" bölümü).
+- **Besteci**: ek düğmesi çalışıyor, çok satırlı, ipucu `Ctrl ↵`.
+- **Devinim**: giriş animasyonları + kayan kip parçası,
+  `prefers-reduced-motion` saygılı.
+
+⚠️ pcbridge'de görülen: `system_status` bir kez `- bellek:` satırını **boş**
+döndürdü. `free -h | awk '/Mem:/…'` Türkçe yerel ayarda `Bellek:` yazdığı için
+eşleşmiyor; sunucunun alt süreçlerinde `LANG` boş olduğu için normalde çalışıyor
+(ölçüldü). Bu depoda düzeltilmiyor — pcbridge'in işi.
 
 ---
 

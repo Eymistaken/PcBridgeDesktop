@@ -1,18 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import ConnStrip from "./ui/ConnStrip";
+import ModeSwitch from "./ui/ModeSwitch";
 import { IconPlus, IconPrompt, IconTrash } from "./ui/Icon";
-import type { TerminalsView } from "./lib/types";
+import type { DesktopState, Mode, TerminalsView } from "./lib/types";
 
 interface Props {
   view: TerminalsView;
   panes: string[];
+  mode: Mode;
+  onMode: (m: Mode) => void;
+  desktop: DesktopState;
+  /** Ctrl+N: değer artınca yeni oturum alanı açılır. */
+  newSignal: number;
+  onOpenSystem: () => void;
   onOpen: (name: string) => void;
   onNew: (name: string) => void;
   onKill: (name: string) => void;
 }
 
-export default function TerminalSidebar({ view, panes, onOpen, onNew, onKill }: Props) {
+export default function TerminalSidebar({
+  view,
+  panes,
+  mode,
+  onMode,
+  desktop,
+  newSignal,
+  onOpenSystem,
+  onOpen,
+  onNew,
+  onKill,
+}: Props) {
   const [yeni, setYeni] = useState<string>();
+
+  // İlk kuruluşta açılmasın: yalnızca sayaç ARTINCA.
+  useEffect(() => {
+    if (newSignal > 0) setYeni("");
+  }, [newSignal]);
 
   const burada = view.sessions.filter((s) => panes.includes(s.name));
   const uzakta = view.sessions.filter((s) => !panes.includes(s.name));
@@ -20,16 +44,20 @@ export default function TerminalSidebar({ view, panes, onOpen, onNew, onKill }: 
   return (
     <div className="side">
       <div className="side__head">
-        <span className="side__title">Terminaller</span>
+        <span className="side__title">pcbridge</span>
         <button
           className="ib ib--filled"
           type="button"
-          title="Yeni oturum"
+          title="Yeni oturum (Ctrl+N)"
           aria-label="Yeni oturum"
           onClick={() => setYeni("")}
         >
           <IconPlus />
         </button>
+      </div>
+
+      <div className="side__modes">
+        <ModeSwitch mode={mode} onMode={onMode} />
       </div>
 
       {yeni !== undefined && (
@@ -94,17 +122,13 @@ export default function TerminalSidebar({ view, panes, onOpen, onNew, onKill }: 
         )}
       </div>
 
-      <div className="side__conn" style={{ cursor: "default" }}>
-        <span className="dot" style={{ background: "var(--ok)" }} />
-        <span style={{ display: "flex", flexDirection: "column", gap: 1, flexGrow: 1, minWidth: 0 }}>
-          <span className="mono" style={{ fontSize: 12 }}>
-            tmux
-          </span>
-          <span className="row__sub" style={{ fontSize: 11.5 }}>
-            {view.sessions.length} oturum · {panes.length}'i burada açık
-          </span>
-        </span>
-      </div>
+      <ConnStrip
+        title="tmux"
+        sub={`${view.sessions.length} oturum · ${panes.length}'i burada açık`}
+        ok
+        desktop={desktop}
+        onClick={onOpenSystem}
+      />
     </div>
   );
 }

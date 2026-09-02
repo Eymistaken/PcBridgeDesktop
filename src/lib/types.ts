@@ -172,3 +172,38 @@ export interface PtyData {
 }
 
 export type Mode = "agents" | "terminals";
+
+// ─────────────────────────── masaüstü izni ───────────────────────────
+
+/** Rust tarafındaki `desktop::DesktopState` ile birebir. */
+export interface DesktopState {
+  unlocked: boolean;
+  /** Kayan kiranın kalanı, saniye. */
+  remaining: number;
+  /** Sert tavanın kalanı. `remaining`'den büyükse ikisi de gösterilir. */
+  hardRemaining: number;
+  reason: string | null;
+  grantedAt: number | null;
+  /** Durum dosyası okunabildi mi. Okunamadıysa **kilitli** sayılır. */
+  known: boolean;
+}
+
+/** `desktop_unlock` / `desktop_lock` yanıtı: sunucunun cümlesi + gerçek durum. */
+export interface DesktopReply {
+  state: DesktopState;
+  message: string;
+}
+
+export interface AuditRow {
+  ts: string;
+  event: string;
+  detail: string;
+  denied: boolean;
+  error: boolean;
+}
+
+export interface Shots {
+  shots: { src: string }[];
+  /** Sunucunun metin yanıtı — izin kapalıyken ret gerekçesi burada. */
+  note: string;
+}

@@ -605,20 +605,90 @@ pre.well {
   padding: 14px 32px 22px;
 }
 
+/* Besteci büyüyebilir: çok satırlı prompt ajan işinde sık. 9999px yarıçap
+ * yükseklik arttıkça stadyuma dönüşür — üç köşe değerinden sapma yok. */
 .composer__box {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
-  height: 52px;
-  padding: 0 8px;
+  min-height: 52px;
+  padding: 8px;
   border-radius: 9999px;
   background: var(--field);
 }
 
-.composer__box input {
+.composer__text {
   flex-grow: 1;
   min-width: 0;
+  /* Genel `textarea` kuralı 76px min-height veriyor (BotForge'un yönerge
+   * alanı için). Besteci tek satır başlamalı; açıkça sıfırlanıyor. */
+  min-height: 0;
+  font: inherit;
   font-size: 14px;
+  line-height: 20px;
+  color: inherit;
+  border: 0;
+  padding: 8px 0;
+  margin: 0;
+  background: none;
+  resize: none;
+  overflow-y: auto;
+  max-height: 168px;
+  user-select: text;
+  /* Yükseklik JS'te ölçülüyor; kaydırma çubuğu yeri hesabı bozmasın. */
+  scrollbar-width: thin;
+}
+
+.composer__text:focus {
+  outline: none;
+}
+
+.composer__hint {
+  font-size: 11.5px;
+  flex: none;
+  padding-bottom: 9px;
+}
+
+/* ek listesi — dosya kopyalanmıyor, YOLU gönderiliyor */
+.ekler {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+
+.ek {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  max-width: 240px;
+  animation: girisYukari 0.16s ease both;
+}
+
+.ek__ad {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ek__sil {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background-color 0.12s ease;
+}
+
+.ek__sil:hover {
+  background: var(--surface-2);
 }
 
 .composer__send {
@@ -747,4 +817,242 @@ pre.well {
 .pane .xterm .xterm-viewport {
   background: transparent !important;
   scrollbar-width: thin;
+}
+
+/* ── kip anahtarı ────────────────────────────────────────────────── */
+
+.side__modes {
+  flex: none;
+  padding: 0 12px 10px;
+}
+
+/* Seçim yükselen yüzeyle anlatılıyor; kayan parça iki kip arasındaki bağı
+ * gösteriyor. İç yarıçap dış − dolgu = 10 − 3 = 7. */
+.modesw {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+}
+
+.modesw__thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 4.5px);
+  border-radius: 7px;
+  background: var(--surface-2);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.modesw[data-mode="terminals"] .modesw__thumb {
+  transform: translateX(calc(100% + 3px));
+}
+
+.modesw > button {
+  /* Kayan parçanın üstünde kalsın. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  transition: color 0.16s ease;
+}
+
+.modesw > button:hover {
+  color: var(--text);
+}
+
+.modesw > button[aria-pressed="true"] {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ── masaüstü izni ───────────────────────────────────────────────── */
+
+/* Şeritteki rozet. Kilitliyken sessiz, açıkken --run: izin açık olduğu
+ * sürece kullanıcı bunu kaçırmamalı. */
+.dbadge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.dbadge--on {
+  color: var(--run);
+}
+
+/* Panel başlığındaki geri sayım. */
+.geri {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--run);
+  font-variant-numeric: tabular-nums;
+}
+
+.shots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shots img {
+  width: 100%;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  display: block;
+  animation: girisSoluk 0.2s ease both;
+}
+
+.durum__blok {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  max-height: 200px;
+}
+
+/* denetim kaydı — yoğun, tek satırlık kayıtlar */
+.audit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.audit__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11.5px;
+  padding: 2px 0;
+  min-width: 0;
+}
+
+.audit__ts {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit__ev {
+  flex: none;
+  width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit__d {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── devinim ─────────────────────────────────────────────────────── */
+
+/* Hepsi GİRİŞ devinimi. Hover'da zıplama ya da ölçeklenme yok — yasak
+ * olan o; bir şeyin ilk belirişini yumuşatmak arayüzü okunur yapıyor. */
+
+@keyframes girisYukari {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes girisSoluk {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes girisAsagi {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Süren işin noktası: durum bilgisi, süs değil. */
+@keyframes nabiz {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.dot--pulse {
+  animation: nabiz 1.6s ease-in-out infinite;
+}
+
+.bub,
+.ts {
+  animation: girisYukari 0.18s ease both;
+}
+
+.jobstrip {
+  animation: girisAsagi 0.2s ease both;
+}
+
+.scrim {
+  animation: girisSoluk 0.14s ease both;
+}
+
+.scrim > .forge,
+.scrim > .card {
+  animation: girisYukari 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Kip değişimi: `key` değişince .main yeniden kurulur ve bu oynar. */
+.main {
+  animation: girisSoluk 0.16s ease both;
+}
+
+.pane {
+  animation: girisSoluk 0.18s ease both;
+}
+
+/* Sistem panelindeki kartlar sırayla belirsin — hepsi aynı anda değil. */
+.main__body .card {
+  animation: girisYukari 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Tuş rozeti — yükselen yüzey, çerçeve değil. */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  flex: none;
 }

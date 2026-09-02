@@ -12,6 +12,11 @@
  */
 
 :root {
+  /* Motora hangi şemada olduğumuzu SÖYLE. Kaydırma çubuğu, yerel denetim
+   * varsayılanları ve WebView'in kendi zemini buna bakıyor; söylemezsen
+   * tokenlar koyu, çubuklar aydınlık kalıyor. */
+  color-scheme: dark;
+
   /* zeminler */
   --bg: #151618;
   --bg-side: #0f0f11;
@@ -56,6 +61,7 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
+    color-scheme: light;
     --bg: #f8f8fa;
     --bg-side: #f1f2f4;
     --field: #ebedef;
@@ -82,7 +88,12 @@
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #f8f8fa;
   --bg-side: #f1f2f4;
   --field: #ebedef;

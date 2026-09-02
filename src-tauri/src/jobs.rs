@@ -356,8 +356,10 @@ mod tests {
         m.exit_code = Some(0);
         assert!(m.bitti(), "exit_code yazıldıysa bitmiştir");
 
-        let mut m2 = JobMeta::default();
-        m2.status = Some("cancelled".into());
+        let m2 = JobMeta {
+            status: Some("cancelled".into()),
+            ..Default::default()
+        };
         assert!(m2.bitti());
     }
 

@@ -7,12 +7,13 @@ import Connection from "./views/Connection";
 import Chat from "./views/Chat";
 import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
-import { IconRefresh, IconTerminal } from "./ui/Icon";
+import { IconRefresh } from "./ui/Icon";
 import {
   botHistory,
   botSummaries,
   cancelJob,
   deleteBot,
+  desktopState as fetchDesktop,
   errorText,
   listBots,
   refresh as refreshConn,
@@ -22,7 +23,6 @@ import {
   terminals as loadTerminals,
   tmuxKill,
 } from "./lib/ipc";
-import { applyTheme } from "./lib/theme";
 import type {
   Avatar,
   Bot,
@@ -30,6 +30,7 @@ import type {
   ChunkPayload,
   ConnError,
   ConnSnapshot,
+  DesktopState,
   Mode,
   StatusPayload,
   TerminalsView,
@@ -104,6 +105,44 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
     }
   }, []);
 
+  /**
+   * Masaüstü izni. Kaynak **disk**, MCP değil: süre kendiliğinden dolduğunda
+   * sunucu kimseye haber vermiyor, bir de dosya okumak ağ çağrısından ucuz.
+   * Açıkken saniyede bir okunur (geri sayım akıcı olsun), kapalıyken seyrek.
+   */
+  const [desktop, setDesktop] = useState<DesktopState>({
+    unlocked: false,
+    remaining: 0,
+    hardRemaining: 0,
+    reason: null,
+    grantedAt: null,
+    known: false,
+  });
+
+  useEffect(() => {
+    let iptal = false;
+    let t: ReturnType<typeof setTimeout>;
+    const tik = () => {
+      void fetchDesktop()
+        .then((s) => {
+          if (iptal) return;
+          setDesktop(s);
+          t = setTimeout(tik, s.unlocked ? 1000 : 4000);
+        })
+        .catch(() => {
+          if (!iptal) t = setTimeout(tik, 4000);
+        });
+    };
+    tik();
+    return () => {
+      iptal = true;
+      clearTimeout(t);
+    };
+  }, []);
+
+  /** Ctrl+N kenar çubuğundaki "yeni oturum" alanını açsın diye artan sayaç. */
+  const [yeniSinyal, setYeniSinyal] = useState(0);
+
   const terminalleriYukle = useCallback(async () => {
     try {
       setTview(await loadTerminals());
@@ -112,14 +151,25 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
     }
   }, []);
 
-  // Terminal kipine ilk geçişte listeyi çek.
+  /**
+   * Terminal kipinde oturum listesi. İlk geçişte çekilir, sonra 10 saniyede
+   * bir tazelenir: bölme başlığındaki "çalışan program" aksi hâlde bölme
+   * açıldığı andaki değerde donup kalıyor (`bash` yazarken içeride `agy`
+   * çalışıyor). Kip terminal değilken zamanlayıcı hiç kurulmaz.
+   */
   useEffect(() => {
-    if (mode === "terminals") void terminalleriYukle();
+    if (mode !== "terminals") return;
+    void terminalleriYukle();
+    const t = setInterval(() => void terminalleriYukle(), 10000);
+    return () => clearInterval(t);
   }, [mode, terminalleriYukle]);
 
   // Olay dinleyicileri seçili botu görebilsin diye ref'te tutuyoruz.
   const seciliRef = useRef<string | undefined>(undefined);
   seciliRef.current = selectedId;
+  // Kısayol dinleyicisi bir kez kuruluyor; güncel kipi ref'ten okur.
+  const modeRef = useRef<Mode>(mode);
+  modeRef.current = mode;
 
   const secili = bots.find((b) => b.id === selectedId);
 
@@ -194,6 +244,55 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
       void Promise.all(abonelikler).then((fns) => fns.forEach((f) => f()));
     };
   }, [ozetleriYukle]);
+
+  /**
+   * Klavye kısayolları. Metin alanındayken **hiçbiri çalışmaz** — Ctrl+N
+   * yazarken bir pencere açması sinir bozucu olurdu. Terminal bölmesi de
+   * bir metin alanı sayılır: her tuş tmux'a gitmeli.
+   */
+  useEffect(() => {
+    const yaziliyor = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      const ad = el.tagName;
+      return (
+        ad === "INPUT" ||
+        ad === "TEXTAREA" ||
+        el.isContentEditable ||
+        !!el.closest?.(".xterm")
+      );
+    };
+
+    const tus = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setForge(undefined);
+        setSilinecek(undefined);
+        return;
+      }
+      if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+      if (e.key === "1") {
+        e.preventDefault();
+        setMode("agents");
+      } else if (e.key === "2") {
+        e.preventDefault();
+        setMode("terminals");
+      } else if (e.key === "0" || e.code === "Comma") {
+        // Rakam tuşları klavye düzeninden bağımsız; `,` Türkçe Q'da başka
+        // bir yere düşüyor ve `e.key` beklenen değeri vermiyor (ölçüldü).
+        // `code` ile virgül yine de kabul ediliyor.
+        e.preventDefault();
+        setSelectedId(undefined);
+        setMode("agents");
+      } else if (e.key === "n" || e.key === "N") {
+        if (yaziliyor(e.target)) return;
+        e.preventDefault();
+        if (modeRef.current === "terminals") setYeniSinyal((n) => n + 1);
+        else void suggestAvatar().then((tone) => setForge({ tone }));
+      }
+    };
+    window.addEventListener("keydown", tus);
+    return () => window.removeEventListener("keydown", tus);
+  }, [setMode]);
 
   async function tazele() {
     setBusyConn(true);
@@ -275,8 +374,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
     }
   }
 
+  // Tema tek yerde uygulanıyor: App'teki etki. Burada yalnızca durum değişir.
   function setTheme(t: Theme) {
-    applyTheme(t);
     onTheme(t);
   }
 
@@ -292,6 +391,14 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
         <TerminalSidebar
           view={tview}
           panes={panes}
+          mode={mode}
+          onMode={setMode}
+          desktop={desktop}
+          newSignal={yeniSinyal}
+          onOpenSystem={() => {
+            setSelectedId(undefined);
+            setMode("agents");
+          }}
           onOpen={(name) => {
             if (!panes.includes(name)) setPanes([...panes, name]);
           }}
@@ -310,13 +417,12 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
               .catch((e) => setConnError(errorText(e as ConnError)));
           }}
         />
-        <div className="main">
+        <div className="main" key="terminals">
           <Terminals
             view={tview}
             panes={panes}
             onPanes={setPanes}
             onReload={() => void terminalleriYukle()}
-            onToAgents={() => setMode("agents")}
           />
         </div>
       </div>
@@ -327,6 +433,10 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
     <div className="shell">
       <Sidebar
         snap={snap}
+        mode={mode}
+        onMode={setMode}
+        desktop={desktop}
+        onOpenSystem={() => setSelectedId(undefined)}
         bots={bots}
         summaries={summaries}
         selectedId={selectedId}
@@ -334,12 +444,11 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
         onNew={() => void suggestAvatar().then((tone) => setForge({ tone }))}
         onEdit={(bot) => setForge({ bot, tone: bot.avatar })}
         onDelete={setSilinecek}
-        onRefresh={() => void tazele()}
         refreshing={busyConn}
         connError={connError}
       />
 
-      <div className="main">
+      <div className="main" key="agents">
         {secili ? (
           <Chat
             bot={secili}
@@ -353,25 +462,15 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
             error={chatError}
             onSend={(t) => void gonder(t)}
             onCancel={(j) => void durdur(j)}
-            onToTerminals={() => setMode("terminals")}
           />
         ) : (
           <>
             <div className="main__head">
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>Bağlantı</span>
+              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>Sistem</span>
               <span className="mono muted" style={{ fontSize: 12 }}>
-                bot seçili değil
+                {snap.toolCount} araç · {snap.agents.length} ajan
               </span>
               <div style={{ flexGrow: 1 }} />
-              <button
-                className="ib"
-                type="button"
-                title="Terminal kipi"
-                aria-label="Terminal kipine geç"
-                onClick={() => setMode("terminals")}
-              >
-                <IconTerminal />
-              </button>
               <button
                 className="ib"
                 type="button"
@@ -399,7 +498,13 @@ export default function Shell({ snap, onSnap, theme, onTheme, onAuthLost }: Prop
                   {connError}
                 </div>
               )}
-              <Connection snap={snap} theme={theme} onTheme={setTheme} />
+              <Connection
+                snap={snap}
+                theme={theme}
+                onTheme={setTheme}
+                desktop={desktop}
+                onDesktop={setDesktop}
+              />
             </div>
           </>
         )}

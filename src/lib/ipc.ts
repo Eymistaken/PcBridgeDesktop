@@ -1,12 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  AuditRow,
   Avatar,
   Bot,
   BotDraft,
   BotSummary,
   ConnError,
   ConnSnapshot,
+  DesktopReply,
+  DesktopState,
+  Shots,
   TerminalsView,
   Turn,
 } from "./types";
@@ -110,3 +114,21 @@ export const ptyClose = (session: string) => call<void>("pty_close", { session }
 
 /** Oturumu **sonlandırır** — geri dönüşü yok. */
 export const tmuxKill = (session: string) => call<string>("tmux_kill", { session });
+
+// ────────────────────────── masaüstü izni ──────────────────────────
+
+/** Geri sayımın kaynağı: diskteki `desktop_unlock.json`. MCP pollanmaz. */
+export const desktopState = () => call<DesktopState>("desktop_state");
+
+export const desktopUnlock = (minutes: number, reason: string) =>
+  call<DesktopReply>("desktop_unlock", { minutes, reason });
+
+export const desktopLock = () => call<DesktopReply>("desktop_lock");
+
+/** pcbridge denetim kaydının kuyruğu, eskiden yeniye. */
+export const auditTail = (n: number) => call<AuditRow[]>("audit_tail", { n });
+
+export const systemStatus = () => call<string>("system_status");
+
+/** İzin kapalıyken `shots` boş döner ve `note` gerekçeyi taşır. */
+export const screenCapture = () => call<Shots>("screen_capture");

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Onboarding from "./Onboarding";
 import Shell from "./Shell";
 import { connect, endpoint as fetchEndpoint, hasToken } from "./lib/ipc";
-import { readTheme } from "./lib/theme";
+import { applyTheme, readTheme } from "./lib/theme";
 import type { ConnError, ConnSnapshot, Theme } from "./lib/types";
 
 type Boot =
@@ -16,6 +16,16 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(readTheme);
   // Uç noktayı Rust söyler; burada kopyası tutulmaz.
   const [endpoint, setEndpoint] = useState("");
+
+  /**
+   * `<html data-theme>` **durumdan türetilir.** Tek yerde emirle yazılınca
+   * ikisi ayrışabiliyordu: bir kez React "aydınlık" derken DOM koyu kaldı
+   * (ölçüldü) — düğme seçili görünüyor ama ekran değişmiyor. Buradaki etki
+   * her render'da doğruyu geri koyuyor, yani ayrışma kendini onarıyor.
+   */
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const start = useCallback(async () => {
     try {

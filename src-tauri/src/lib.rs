@@ -1,4 +1,5 @@
 mod bots;
+mod desktop;
 mod jobs;
 mod mcp;
 mod parse;
@@ -6,8 +7,9 @@ mod pty;
 mod secrets;
 
 use bots::{Bot, BotDraft, BotError};
+use desktop::{AuditRow, DesktopState};
 use jobs::{JobMeta, Watchers};
-use mcp::{AgentRunRequest, ConnError, ConnSnapshot, McpState};
+use mcp::{AgentRunRequest, ConnError, ConnSnapshot, McpState, Shots};
 use parse::Event;
 use pty::{PtyError, Ptys, TmuxSession};
 use serde::Serialize;
@@ -265,7 +267,11 @@ async fn terminals(
     }
 
     Ok(TerminalsView {
-        raw: if sessions.is_empty() && !text.contains("oturum yok") {
+        // Ham metin yalnızca **ayrıştırıcı tökezlediyse** gösterilir: tablo
+        // işareti var ama satır çıkmadıysa. "Acik tmux oturumu yok." bir
+        // hata değil, boş durum — kenar çubuğu onu zaten kendi cümlesiyle
+        // anlatıyor, altına bir de sunucunun cümlesini basmak gürültü.
+        raw: if sessions.is_empty() && text.contains('|') {
             Some(text)
         } else {
             None
@@ -325,6 +331,69 @@ async fn tmux_kill(
     state.tmux_kill(session).await
 }
 
+// ───────────────────────── masaüstü izni ─────────────────────────
+
+/// Geri sayımın kaynağı. **MCP'ye sorulmuyor:** izin durumu diskte
+/// (`desktop_unlock.json`) ve saniyede bir dosya okumak, saniyede bir
+/// ağ çağrısı yapmaktan hem ucuz hem doğru — süre kendiliğinden dolduğunda
+/// sunucu kimseye haber vermiyor.
+#[tauri::command]
+fn desktop_state() -> DesktopState {
+    desktop::read_state()
+}
+
+/// pcbridge'in denetim kaydının kuyruğu — ne yapıldığı ve neyin
+/// reddedildiği. Dosyanın tamamı okunmaz.
+#[tauri::command]
+fn audit_tail(n: usize) -> Vec<AuditRow> {
+    desktop::audit_tail(n.clamp(1, 500))
+}
+
+/// Sunucunun cevabı **ve** ondan sonraki gerçek durum. İkisi de lazım:
+/// metin kayan kirayı kullanıcının diliyle anlatıyor, durum ise ölçülmüş
+/// gerçek — sunucu istenen dakikayı kırpmış olabilir.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopReply {
+    state: DesktopState,
+    message: String,
+}
+
+/// İzni açar.
+#[tauri::command]
+async fn desktop_unlock(
+    state: tauri::State<'_, McpState>,
+    minutes: u32,
+    reason: String,
+) -> Result<DesktopReply, ConnError> {
+    let message = state.desktop_unlock(minutes, reason).await?;
+    Ok(DesktopReply {
+        state: desktop::read_state(),
+        message,
+    })
+}
+
+#[tauri::command]
+async fn desktop_lock(state: tauri::State<'_, McpState>) -> Result<DesktopReply, ConnError> {
+    let message = state.desktop_lock().await?;
+    Ok(DesktopReply {
+        state: desktop::read_state(),
+        message,
+    })
+}
+
+#[tauri::command]
+async fn system_status(state: tauri::State<'_, McpState>) -> Result<String, ConnError> {
+    state.system_status().await
+}
+
+/// Önizleme için ekran görüntüsü. `scale` en uzun kenar; tam çözünürlük
+/// IPC'den geçirmek için gereksiz büyük.
+#[tauri::command]
+async fn screen_capture(state: tauri::State<'_, McpState>) -> Result<Shots, ConnError> {
+    state.screen_capture(1100).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -354,6 +423,12 @@ pub fn run() {
             pty_resize,
             pty_close,
             tmux_kill,
+            desktop_state,
+            desktop_unlock,
+            desktop_lock,
+            audit_tail,
+            system_status,
+            screen_capture,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri uygulaması çalıştırılamadı");

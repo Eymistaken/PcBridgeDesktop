@@ -196,3 +196,51 @@ export function IconLayout({ n, on }: { n: number; on: boolean }) {
     </span>
   );
 }
+
+/** Besteci ek düğmesi — ataç. Dosya seçme yerel iletişim kutusundan gelir. */
+export function IconAttach({ size = 17, color = "var(--text-muted)", strokeWidth = 1.7 }: IconProps) {
+  return svg(size, <path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" />, {
+    stroke: color,
+    strokeWidth,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  });
+}
+
+/** Masaüstü izni — kilit. Kapalıyken kapalı, açıkken açık asma. */
+export function IconLock({
+  size = 16,
+  color = "var(--text-muted)",
+  strokeWidth = 1.7,
+  open = false,
+}: IconProps & { open?: boolean }) {
+  return svg(
+    size,
+    <>
+      <rect x="4" y="9" width="12" height="8" rx="2.5" />
+      <path d={open ? "M7 9V6.5a3 3 0 0 1 5.8-1.1" : "M7 9V6.5a3 3 0 0 1 6 0V9"} />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Ekran görüntüsü. */
+export function IconScreen({ size = 16, color = "var(--text-muted)", strokeWidth = 1.7 }: IconProps) {
+  return svg(
+    size,
+    <>
+      <rect x="2.5" y="4" width="15" height="10" rx="2" />
+      <path d="M7 17h6" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Denetim kaydı — üst üste satırlar. */
+export function IconList({ size = 16, color = "var(--text-muted)", strokeWidth = 1.7 }: IconProps) {
+  return svg(size, <path d="M4 6h12M4 10h12M4 14h8" />, {
+    stroke: color,
+    strokeWidth,
+    strokeLinecap: "round",
+  });
+}

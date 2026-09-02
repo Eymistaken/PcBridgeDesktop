@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import Term from "../ui/Term";
-import { IconBot, IconClose, IconLayout } from "../ui/Icon";
+import { IconClose, IconLayout } from "../ui/Icon";
 import { ptyClose } from "../lib/ipc";
 import type { TerminalsView, TmuxSession } from "../lib/types";
 
@@ -11,7 +11,6 @@ interface Props {
   panes: string[];
   onPanes: (p: string[]) => void;
   onReload: () => void;
-  onToAgents: () => void;
 }
 
 const SAYI_ADI = ["Bölme yok", "Tek bölme", "İki bölme", "Üç bölme", "Dört bölme"];
@@ -40,7 +39,7 @@ function gridStil(n: number): React.CSSProperties {
   }
 }
 
-export default function Terminals({ view, panes, onPanes, onReload, onToAgents }: Props) {
+export default function Terminals({ view, panes, onPanes, onReload }: Props) {
   const byName = useMemo(
     () => Object.fromEntries(view.sessions.map((s) => [s.name, s])),
     [view.sessions],
@@ -91,15 +90,6 @@ export default function Terminals({ view, panes, onPanes, onReload, onToAgents }
             </button>
           ))}
         </div>
-        <button
-          className="ib"
-          type="button"
-          title="Ajan kipi"
-          aria-label="Ajan kipine geç"
-          onClick={onToAgents}
-        >
-          <IconBot />
-        </button>
       </div>
 
       <div className="grid" style={gridStil(panes.length)}>

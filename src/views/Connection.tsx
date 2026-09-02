@@ -1,19 +1,27 @@
+import Desktop from "./Desktop";
 import { IconCheck, IconCross } from "../ui/Icon";
-import type { Agent, ConnSnapshot, Theme } from "../lib/types";
+import type { Agent, ConnSnapshot, DesktopState, Theme } from "../lib/types";
 
 interface Props {
   snap: ConnSnapshot;
   theme: Theme;
   onTheme: (t: Theme) => void;
+  desktop: DesktopState;
+  onDesktop: (s: DesktopState) => void;
 }
 
 /**
- * Bot seçili değilken ana panelin kalıcı görünümü. Aşama 3'te bot seçilince
- * yerini sohbete bırakır, seçim kalkınca geri gelir.
+ * Sistem paneli: bot seçili değilken ana panelin kalıcı görünümü. Kenar
+ * çubuğunun dibindeki şerit buraya getiriyor.
+ *
+ * **Masaüstü izni en üstte:** bu panelin en sonuç doğuran parçası o, ve
+ * durumu her açılışta gözle görünmeli.
  */
-export default function Connection({ snap, theme, onTheme }: Props) {
+export default function Connection({ snap, theme, onTheme, desktop, onDesktop }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
+      <Desktop state={desktop} onState={onDesktop} />
+
       <div className="card">
         <span className="h">Sunucu</span>
         <Facts
@@ -64,6 +72,32 @@ export default function Connection({ snap, theme, onTheme }: Props) {
         ) : (
           snap.agents.map((a) => <AgentBlock key={a.id} agent={a} />)
         )}
+      </div>
+
+      <div className="card">
+        <span className="h">Kısayollar</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {(
+            [
+              ["Ctrl 1", "Botlar"],
+              ["Ctrl 2", "Terminal"],
+              ["Ctrl N", "Yeni bot · yeni oturum"],
+              ["Ctrl 0", "Bu panel"],
+              ["Enter", "Gönder"],
+              ["Shift Enter", "Satır atla"],
+              ["Esc", "Pencereyi kapat"],
+            ] as const
+          ).map(([tus, ne]) => (
+            <div key={tus} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <span className="kbd">{tus}</span>
+              <span style={{ fontSize: 13 }}>{ne}</span>
+            </div>
+          ))}
+        </div>
+        <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
+          Metin alanında ve terminal bölmesinde <span className="mono">Ctrl N</span> çalışmaz —
+          her tuş yazdığın yere gider.
+        </span>
       </div>
 
       <div className="card">

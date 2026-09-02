@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "../ui/Avatar";
-import { IconCheck, IconCross, IconPlus, IconSend, IconStop, IconTerminal } from "../ui/Icon";
+import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import type { Bot, Turn } from "../lib/types";
 
@@ -14,7 +15,6 @@ interface Props {
   error?: string;
   onSend: (text: string) => void;
   onCancel: (jobId: string) => void;
-  onToTerminals: () => void;
 }
 
 export default function Chat({
@@ -25,21 +25,55 @@ export default function Chat({
   error,
   onSend,
   onCancel,
-  onToTerminals,
 }: Props) {
   const [text, setText] = useState("");
+  const [ekler, setEkler] = useState<string[]>([]);
   const dip = useRef<HTMLDivElement>(null);
+  const alan = useRef<HTMLTextAreaElement>(null);
 
   // Yeni içerik gelince dibe kay.
   useEffect(() => {
     dip.current?.scrollIntoView({ block: "end" });
   }, [turns, running]);
 
+  // Bot değişince yarım kalan metin ve ekler karışmasın.
+  useEffect(() => {
+    setText("");
+    setEkler([]);
+  }, [bot.id]);
+
+  // Yazdıkça büyüyen alan. Önce sıfırla, sonra ölç: aksi hâlde küçülmez.
+  useEffect(() => {
+    const el = alan.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+  }, [text]);
+
+  /**
+   * Ek = **yol**, kopya değil. Ajan aynı makinede çalışıyor; dosyayı bir
+   * yere yüklemenin anlamı yok, mutlak yolu vermek yeter — ajan kendi
+   * `Read` aracıyla açar. Yollar prompt'a görünür biçimde ekleniyor:
+   * kullanıcı ne gönderdiğini kendi baloncuğunda okuyabilsin.
+   */
+  async function dosyaSec() {
+    const secilen = await open({
+      multiple: true,
+      title: "Ajana verilecek dosyalar",
+      defaultPath: bot.workdir || undefined,
+    }).catch(() => null);
+    if (!secilen) return;
+    const yollar = Array.isArray(secilen) ? secilen : [secilen];
+    setEkler((eski) => [...eski, ...yollar.filter((y) => !eski.includes(y))]);
+    alan.current?.focus();
+  }
+
   function gonder() {
     const t = text.trim();
     if (!t || busy) return;
-    onSend(t);
+    onSend(ekler.length > 0 ? `${t}\n\nEkli dosyalar:\n${ekler.join("\n")}` : t);
     setText("");
+    setEkler([]);
   }
 
   return (
@@ -51,15 +85,6 @@ export default function Chat({
           {[bot.model, bot.effort, kisaltEv(bot.workdir)].filter(Boolean).join(" · ")}
         </span>
         <div style={{ flexGrow: 1 }} />
-        <button
-          className="ib"
-          type="button"
-          title="Terminal kipi"
-          aria-label="Terminal kipine geç"
-          onClick={onToTerminals}
-        >
-          <IconTerminal />
-        </button>
       </div>
 
       <div className="chat">
@@ -88,7 +113,7 @@ export default function Chat({
       {running && (
         <div className="jobstrip">
           <div className="jobstrip__box">
-            <span className="dot" style={{ background: "var(--run)" }} />
+            <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
             <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {running.label}
             </span>
@@ -112,26 +137,53 @@ export default function Chat({
       )}
 
       <div className="composer">
+        {ekler.length > 0 && (
+          <div className="ekler">
+            {ekler.map((yol) => (
+              <span key={yol} className="ek" title={yol}>
+                <IconAttach size={13} color="var(--text-muted)" />
+                <span className="mono ek__ad">{dosyaAdi(yol)}</span>
+                <button
+                  type="button"
+                  className="ek__sil"
+                  title="Eki çıkar"
+                  aria-label={`${dosyaAdi(yol)} ekini çıkar`}
+                  onClick={() => setEkler((e) => e.filter((x) => x !== yol))}
+                >
+                  <IconClose size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="composer__box">
-          <button type="button" className="ib" style={{ width: 36, height: 36, background: "var(--surface)" }} title="Ek" disabled>
-            <IconPlus color="var(--text-muted)" strokeWidth={1.8} />
+          <button
+            type="button"
+            className="ib"
+            style={{ width: 36, height: 36, background: "var(--surface)" }}
+            title="Dosya ekle"
+            aria-label="Dosya ekle"
+            onClick={() => void dosyaSec()}
+          >
+            <IconAttach color="var(--text-muted)" />
           </button>
-          <input
+          <textarea
+            ref={alan}
+            className="composer__text"
+            rows={1}
             value={text}
             placeholder={`${bot.name}'a yaz`}
             aria-label={`${bot.name}'a yaz`}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              // ⌘/Ctrl + Enter gönderir; düz Enter da gönderir.
+              // Enter ve Ctrl+Enter gönderir; Shift+Enter satır atlar.
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 gonder();
               }
             }}
           />
-          <span className="mono muted" style={{ fontSize: 11.5, flex: "none" }}>
-            ⌘↵
-          </span>
+          <span className="mono muted composer__hint">Ctrl ↵</span>
           <button
             type="button"
             className="ib composer__send"
@@ -146,6 +198,12 @@ export default function Chat({
       </div>
     </>
   );
+}
+
+/** `/home/x/rapor.md` → `rapor.md` */
+function dosyaAdi(yol: string): string {
+  const i = yol.lastIndexOf("/");
+  return i < 0 ? yol : yol.slice(i + 1);
 }
 
 /**
@@ -236,7 +294,10 @@ function BlockView({ block }: { block: Block }) {
             {r.state === "ok" && <IconCheck />}
             {r.state === "fail" && <IconCross />}
             {r.state === "run" && (
-              <span className="dot" style={{ background: "var(--run)", margin: "0 3.5px" }} />
+              <span
+                className="dot dot--pulse"
+                style={{ background: "var(--run)", margin: "0 3.5px" }}
+              />
             )}
             <span
               style={{

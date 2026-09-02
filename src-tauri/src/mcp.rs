@@ -95,6 +95,22 @@ pub struct AgentRunRequest {
     pub timeout: u64,
 }
 
+/// Tek ekran görüntüsü. `src` doğrudan `<img src>`'e verilebilen `data:` URL'i.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shot {
+    pub src: String,
+}
+
+/// `screen_capture` yanıtı. İzin kapalıyken `shots` **boş** gelir ve
+/// `note` sunucunun ret gerekçesini taşır — bu bir hata değil, bir cevap.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shots {
+    pub shots: Vec<Shot>,
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", content = "detail", rename_all = "camelCase")]
 pub enum ConnError {
@@ -276,12 +292,13 @@ impl Conn {
         })
     }
 
-    /// Bir aracı çağırıp metin yanıtını döndürür.
-    async fn call_text(
+    /// Bir aracı çağırıp **ham** yanıtı döndürür. Görüntü bloğu gibi metin
+    /// olmayan içerik lazım olduğunda gerekiyor.
+    async fn call_tool_raw(
         &self,
         name: &'static str,
         args: serde_json::Map<String, serde_json::Value>,
-    ) -> Result<String, ConnError> {
+    ) -> Result<CallToolResult, ConnError> {
         let mut params = CallToolRequestParams::new(name);
         if !args.is_empty() {
             params = params.with_arguments(args);
@@ -294,7 +311,16 @@ impl Conn {
         if res.is_error.unwrap_or(false) {
             return Err(ConnError::Protocol(scrub(extract_text(&res), &self.token)));
         }
-        Ok(extract_text(&res))
+        Ok(res)
+    }
+
+    /// Bir aracı çağırıp metin yanıtını döndürür.
+    async fn call_text(
+        &self,
+        name: &'static str,
+        args: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<String, ConnError> {
+        Ok(extract_text(&self.call_tool_raw(name, args).await?))
     }
 
     async fn snapshot(&self, token: &str) -> Result<ConnSnapshot, ConnError> {
@@ -460,6 +486,63 @@ impl McpState {
         let mut a = serde_json::Map::new();
         a.insert("job_id".into(), job_id.into());
         conn.call_text("job_cancel", a).await
+    }
+
+    // ───────────────────────── masaüstü izni ─────────────────────────
+
+    /// Süreli izni **açar.** Geri sayım bundan sonra diskten okunur; bu çağrı
+    /// yalnızca kapıyı aralar. `minutes` sunucuda 1–120'ye kırpılıyor.
+    pub async fn desktop_unlock(&self, minutes: u32, reason: String) -> Result<String, ConnError> {
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        let mut a = serde_json::Map::new();
+        a.insert("minutes".into(), minutes.into());
+        if !reason.trim().is_empty() {
+            a.insert("reason".into(), reason.into());
+        }
+        conn.call_text("desktop_unlock", a).await
+    }
+
+    /// İzni **erken kapatır.** Süre zaten dolmuşsa da çağrılabilir; sunucu
+    /// "zaten kapaliydi" der.
+    pub async fn desktop_lock(&self) -> Result<String, ConnError> {
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        conn.call_text("desktop_lock", serde_json::Map::new()).await
+    }
+
+    pub async fn system_status(&self) -> Result<String, ConnError> {
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        conn.call_text("system_status", serde_json::Map::new())
+            .await
+    }
+
+    /// Ekran görüntüsü. **İzin kapalıyken sunucu reddediyor** — yanıtta
+    /// görüntü yerine yalnızca metin döner ve `shots` boş kalır.
+    pub async fn screen_capture(&self, scale: u32) -> Result<Shots, ConnError> {
+        let guard = self.inner.lock().await;
+        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+        let mut a = serde_json::Map::new();
+        a.insert("monitor".into(), "all".into());
+        a.insert("scale".into(), scale.into());
+        a.insert("include_pointer".into(), true.into());
+        let res = conn.call_tool_raw("screen_capture", a).await?;
+        Ok(Shots {
+            note: extract_text(&res),
+            shots: res
+                .content
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Image(img) => Some(Shot {
+                        // `data:` URL'i burada kuruluyor: frontend'in base64'ü
+                        // yeniden çözüp Blob kurmasına gerek yok.
+                        src: format!("data:{};base64,{}", img.mime_type, img.data),
+                    }),
+                    _ => None,
+                })
+                .collect(),
+        })
     }
 
     pub async fn disconnect(&self) {
