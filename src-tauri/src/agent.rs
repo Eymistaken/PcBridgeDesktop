@@ -702,6 +702,10 @@ pub async fn tur_dongusu(
     // "Bütçe yetmiyor" koşum başına **bir kez** söylenir; her turda bir
     // baloncuk basmak sohbeti boğardı ve söylenecek yeni bir şey yok.
     let mut butce_uyarildi = false;
+    // Modelin **en son baktığı** ekran(lar). `mouse` kapısı buna bakıyor;
+    // koşum boyunca taşınıyor çünkü model bir görüntüyü alıp birkaç tur
+    // sonra tıklayabiliyor.
+    let mut ekranlar: Vec<Kutu> = Vec::new();
 
     loop {
         tur += 1;
@@ -813,7 +817,8 @@ pub async fn tur_dongusu(
         // Araçlar **sırayla** yürütülür: `McpState` zaten tek mutex'in
         // arkasında ve sıralı yürütme hata ayıklamayı okunur tutuyor.
         for tc in &cagrilar {
-            let sonuc = arac_calistir(kayit, mcp, &baglam_kapi, tc, force).await;
+            let sonuc =
+                arac_calistir(kayit, mcp, &baglam_kapi, tc, force, &mut ekranlar).await;
             let mut msg = Message::tool(sonuc.metin, tc.id.clone());
             msg.images = sonuc.gorseller;
 
@@ -926,6 +931,7 @@ async fn arac_calistir(
     kapi: &Kapi<'_>,
     tc: &ToolCall,
     force_when_busy: bool,
+    ekranlar: &mut Vec<Kutu>,
 ) -> crate::mcp::AracSonuc {
     let (mut args, arg_hata) = match tc.args() {
         Ok(a) => (a, None),
@@ -933,6 +939,7 @@ async fn arac_calistir(
     };
 
     force_ekle(&mut args, &tc.function.name, force_when_busy);
+    olcek_ekle(&mut args, &tc.function.name);
     let detail =
         crate::parse::detail(&tc.function.name, &serde_json::Value::Object(args.clone()));
 
@@ -975,6 +982,29 @@ async fn arac_calistir(
         };
     }
 
+    // **Güvenlik kapıları.** İkisi de gerçek bir veri kaybından sonra kondu
+    // (2026-09-04): model ofseti unutup masaüstüne tıkladı, sonra `ctrl+a` +
+    // `delete` ile bütün masaüstünü çöpe attı. Kapılar izinden **sonra**
+    // çalışıyor: kullanıcı "serbest" dese bile bu ikisi sorulmaz, engellenir.
+    if let Some(red) = tehlike_kapisi(mcp, &tc.function.name, &args, ekranlar).await {
+        // **Engelleme sessiz kalmaz.** Kullanıcı botunun ne yapmaya
+        // çalıştığını görmeli; araç sonucunu yalnızca model görüyor.
+        kayit.olay(&[
+            Event::Raw {
+                text: format!("⛔ {red}"),
+            },
+            Event::ToolEnd {
+                id: tc.id.clone(),
+                ok: false,
+            },
+        ]);
+        return crate::mcp::AracSonuc {
+            metin: red,
+            hata: true,
+            gorseller: Vec::new(),
+        };
+    }
+
     let sonuc = match mcp.call_for_agent(tc.function.name.clone(), args).await {
         Ok(r) => r,
         // Bağlantı hatası aracın hatası değil; yine de modele söylenir ki
@@ -986,11 +1016,57 @@ async fn arac_calistir(
         },
     };
 
+    // Model hangi ekrana baktığını burada söylüyor; bir sonraki `mouse`
+    // çağrısı bunun dışına düşerse ofseti unutmuş demektir.
+    if tc.function.name == "screen_capture" && !sonuc.hata {
+        let yeni = ekran_kutulari(&sonuc.metin);
+        if !yeni.is_empty() {
+            *ekranlar = yeni;
+        }
+    }
+
     kayit.olay(&[Event::ToolEnd {
         id: tc.id.clone(),
         ok: !sonuc.hata,
     }]);
     sonuc
+}
+
+/// İki kapı: yanlış ekrana tıklama ve odağı bilinmeyen silme.
+///
+/// `Some(metin)` dönerse çağrı **hiç yapılmaz** ve metin modele sonuç olarak
+/// verilir. Reddin gerekçesi açıkça yazılıyor: model bunu bir arıza sanıp
+/// aynı çağrıyı yinelemesin, ne yapması gerektiğini bilsin.
+async fn tehlike_kapisi(
+    mcp: &crate::mcp::McpState,
+    tool: &str,
+    args: &serde_json::Map<String, serde_json::Value>,
+    ekranlar: &[Kutu],
+) -> Option<String> {
+    if tool == "mouse" {
+        if let Some((x, y)) = ekran_disinda(ekranlar, args) {
+            let liste = ekranlar
+                .iter()
+                .map(|k| format!("({}, {}) → ({}, {})", k.x, k.y, k.x + k.w, k.y + k.h))
+                .collect::<Vec<_>>()
+                .join(" ve ");
+            return Some(format!(
+                "Engellendi: ({x}, {y}) son baktığın ekranın dışında.                  Son `screen_capture` şurayı gösteriyordu: {liste}.                  Görüntüde okuduğun x/y'ye o ekranın **ofsetini eklemeyi                  unuttun**. Ofseti ekleyip yeniden dene; başka bir ekrana                  tıklaman gerekiyorsa önce oranın görüntüsünü al."
+            ));
+        }
+        return None;
+    }
+
+    if tool == "keyboard" {
+        let keys = args.get("keys").and_then(serde_json::Value::as_str).unwrap_or("");
+        if crate::tools::silme_tusu_mu(keys) && masaustu_odakta(mcp).await {
+            return Some(
+                "Engellendi: odak **masaüstünde** ve bu tuş orada dosya siler.                  Yazmak istediğin yere (adres çubuğu, metin kutusu) önce                  tıkla ve `window_list` ile odağın oraya geçtiğini doğrula,                  sonra tekrar dene."
+                    .to_string(),
+            );
+        }
+    }
+    None
 }
 
 /// İsteme giden bağlamın dökümü — **karakter cinsinden, sayarak.**
@@ -1050,6 +1126,109 @@ fn dokum_olc(mesajlar: &[Message], araclar: &[model::ToolDef]) -> runs::Dokum {
 fn force_ekle(args: &mut serde_json::Map<String, serde_json::Value>, tool: &str, ac: bool) {
     if ac && crate::tools::force_alir(tool) {
         args.insert("force".into(), serde_json::Value::Bool(true));
+    }
+}
+
+/// Bir ekranın global tuvaldeki yeri. `screen_capture` yanıtından okunur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Kutu {
+    pub x: i64,
+    pub y: i64,
+    pub w: i64,
+    pub h: i64,
+}
+
+impl Kutu {
+    fn icerir(&self, x: i64, y: i64) -> bool {
+        x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
+    }
+}
+
+/// `screen_capture` yanıtındaki `… 1920x1080 @ (1920, 0) → …` satırlarından
+/// modelin **gördüğü** ekranların global dikdörtgenlerini çıkarır.
+///
+/// Biçim değişirse liste boş döner ve kapı sessizce açık kalır: bir
+/// ayrıştırma kusurunun modeli çalışamaz hale getirmesi, kapının önlediği
+/// hatadan daha kötü olurdu.
+fn ekran_kutulari(metin: &str) -> Vec<Kutu> {
+    let mut out = Vec::new();
+    for satir in metin.lines() {
+        let Some(i) = satir.find("@ (") else { continue };
+        let Some(j) = satir[i..].find(')') else { continue };
+        let mut p = satir[i + 3..i + j].split(',').map(|s| s.trim().parse::<i64>());
+        let (Some(Ok(x)), Some(Ok(y))) = (p.next(), p.next()) else { continue };
+        let Some(boyut) = satir[..i].trim_end().rsplit(' ').next() else { continue };
+        let mut b = boyut.split('x').map(|s| s.trim().parse::<i64>());
+        let (Some(Ok(w)), Some(Ok(h))) = (b.next(), b.next()) else { continue };
+        if w > 0 && h > 0 {
+            out.push(Kutu { x, y, w, h });
+        }
+    }
+    out
+}
+
+/// Modelin `mouse` çağrısı, **baktığı** ekranın dışına mı düşüyor?
+///
+/// ⚠️ **Gerçek bir veri kaybından geliyor.** Model dört tıklamayı doğru
+/// yaptıktan sonra (`x=2028…2030`) ofseti unutup `x=250` yazdı; Chrome
+/// sağdaki ekranda olduğu için tıklama **masaüstüne** düştü ve ardından
+/// gönderdiği `ctrl+a` + `delete` bütün masaüstünü çöpe attı.
+///
+/// Kontrolün dayanağı modelin kendi seçimi: son `screen_capture` hangi
+/// ekran(lar)ı döndürdüyse, tıklama orada olmalı. Model iki ekranı birden
+/// istediyse kutular tuvalin tamamını kapsar ve kapı hiçbir şeye takılmaz —
+/// doğrusu da bu.
+fn ekran_disinda(kutular: &[Kutu], args: &serde_json::Map<String, serde_json::Value>) -> Option<(i64, i64)> {
+    if kutular.is_empty() {
+        return None;
+    }
+    let sayi = |ad: &str| args.get(ad).and_then(serde_json::Value::as_i64);
+    for (ax, ay) in [("x", "y"), ("to_x", "to_y")] {
+        let (Some(x), Some(y)) = (sayi(ax), sayi(ay)) else { continue };
+        if !kutular.iter().any(|k| k.icerir(x, y)) {
+            return Some((x, y));
+        }
+    }
+    None
+}
+
+/// Odak masaüstünde mi? `window_list`'in `▸` ile işaretlediği satıra bakar.
+///
+/// Ölçüldü (2026-09-04): masaüstünün boş bir yerine tıklandığında odak
+/// `gjs — Desktop Icons 2` oluyor. Yani olay anında bu sorgu doğru yanıtı
+/// verebilirdi.
+///
+/// **Bilinmiyorsa `false` döner.** Sorgu başarısızsa modeli durdurmak,
+/// olmayan bir tehlike için çalışmayı kesmek olurdu; asıl kapı `ekran_disinda`.
+async fn masaustu_odakta(mcp: &crate::mcp::McpState) -> bool {
+    let Ok(r) = mcp
+        .call_for_agent("window_list".to_string(), serde_json::Map::new())
+        .await
+    else {
+        return false;
+    };
+    r.metin
+        .lines()
+        .filter(|l| l.trim_start().starts_with('▸'))
+        .any(|l| l.contains("Desktop Icons"))
+}
+
+/// Ekran görüntüsünü **tam çözünürlükte** ister — `force_ekle`'nin ikizi.
+///
+/// **Ölçek hesabı modelden istenmez.** pcbridge'in varsayılanı uzun kenarı
+/// 1280 piksele indiriyor; bu makinede 1920x1080'lik bir monitör modele 0.667
+/// ölçekle gidiyor ve model gördüğü her noktayı `ofset + piksel / 0.667` ile
+/// çevirmek zorunda kalıyor. Ölçülen koşumlarda bu hesap tutmadı: model
+/// defalarca yanlış yere tıkladı ve bir görev hedefe **bir tıklama** kala tur
+/// tavanına çarptı. `scale = 0` ile ölçek 1.000 oluyor ve görüntüde okunan
+/// piksel doğrudan koordinat.
+///
+/// **Modelin açık seçimi ezilmez:** `scale` zaten verilmişse dokunulmuyor.
+/// Model bilerek küçük bir görüntü isteyebilir (genel bakış, bağlam tasarrufu)
+/// ve o kararı elinden almak, çözdüğümüzün yerine başka bir sorun koyardı.
+fn olcek_ekle(args: &mut serde_json::Map<String, serde_json::Value>, tool: &str) {
+    if crate::tools::olcek_alir(tool) && !args.contains_key("scale") {
+        args.insert("scale".into(), serde_json::Value::from(0));
     }
 }
 
@@ -1213,11 +1392,11 @@ fn masaustu_ipuclari(force: bool) -> String {
     // sorunu çözdürmeye çalışmak olurdu — ölçülen koşumda model tam bunun
     // için iki tur ve 42 saniye harcamıştı.
     let kapi = if force {
-        "         - **Kullanıcı makinedeyken de eylemlerin çalışır.** Kullanıcı bu \
+        "- **Kullanıcı makinedeyken de eylemlerin çalışır.** Kullanıcı bu \
            botta beklemeyi kapattı; uygulama gereken araçlara `force`'u kendisi \
            ekliyor. Sen `force` yazma, \"kullanıcı aktif\" diye bekleme.\n"
     } else {
-        "         - **Kullanıcı klavye/fareyi kullanıyorsa eylem reddedilir.** Aracın \
+        "- **Kullanıcı klavye/fareyi kullanıyorsa eylem reddedilir.** Aracın \
            böyle bir seçeneği varsa (`force`) onu kullan; her seferinde \
            baştan denemek tur harcar.\n"
     };
@@ -1227,12 +1406,28 @@ fn masaustu_ipuclari(force: bool) -> String {
            izin ortada kaybolabilir; araç \"kilitli\" derse şaşırma, yeniden aç \
            ve kaldığın yerden devam et.\n\
          {kapi}\
-         - **Koordinatlar bütün ekranlar için tektir**, monitör başına değil. \
-           Ekran görüntüsü küçültülmüş gelebilir; ondan piksel sayıp koordinat \
-           uydurma. Monitör konumlarını `screen_info` söyler.\n\
          - **Önce `ui_dump` dene, sonra ekran görüntüsü.** Ağaç öğeyi adıyla \
-           verir ve ıskalamaz; koordinat tahmini son çare. Ağaç boş dönerse \
-           (bazı uygulamalar vermiyor) ekran görüntüsüne düş.\n\
+           verir ve `ui_click` ıskalayamaz; koordinat tahmini son çare. Ağaç \
+           boş dönerse (Chrome ve Electron uygulamaları vermiyor) ekran \
+           görüntüsüne düş.\n\
+         - **`screen_capture`'ı her zaman `monitor` vererek çağır** \
+           (`monitor: \"2\"` gibi). Bu makinede **iki** ekran var; \
+           `monitor` vermezsen ikisinin görüntüsü birden gelir ve hangi \
+           resme baktığını karıştırırsın — ölçüldü, en sık yapılan hata bu. \
+           İşin hangi ekranda olduğunu `window_list` ve `screen_info` \
+           söyler.\n\
+         - **`mouse`'a GLOBAL koordinat ver.** Görüntüde okuduğun x'e o \
+           ekranın ofsetini **ekle**: yanıtta `@ (1920, 0)` diye yazan sayı \
+           odur. Soldaki ekranın ofseti `(0, 0)`, sağdakinin `(1920, 0)`. \
+           Yani sağ ekranın görüntüsünde gördüğün `x=120` aslında \
+           `x=2040`'tır.\n\
+         - **Görüntü sana tam çözünürlükte geliyor**; ölçeği uygulama \
+           ayarlıyor, `scale` yazmana gerek yok. Ölçek 1.000, yani çarpan \
+           hesabı yok — yalnızca ofset toplaman gerekiyor.\n\
+         - **Aynı noktaya iki kez tıklayıp aynı ekranı gördüysen dur.** \
+           Üçüncü kez deneme; koordinatın yanlış demektir. Ofseti yeniden \
+           hesapla, ya da başka bir yol seç: `ui_dump`, klavye \
+           (`keyboard`), adres çubuğu, ya da kullanıcıya sor.\n\
          - Bir uygulamayı açmak için `window_focus` kullan; kapalıysa açar.\n"
     )
 }
@@ -3093,6 +3288,119 @@ mod tests {
         assert!(!s.contains("listende **yok**"), "{s}");
     }
 
+    /// `screen_capture`'ın **gerçek** yanıtından ekran dikdörtgeni okunuyor.
+    #[test]
+    fn ekran_kutulari_gercek_yanittan_okunur() {
+        let tek = "**2 · DP-1 (birincil)** · 1920x1080 @ (1920, 0) → 1920x1080 (olcek 1.000)\n  \
+                   /home/x/.local/state/pcbridge/shots/a.png\n";
+        assert_eq!(
+            ekran_kutulari(tek),
+            vec![Kutu { x: 1920, y: 0, w: 1920, h: 1080 }]
+        );
+
+        let iki = "**1 · DP-2** · 1920x1080 @ (0, 0) → 1920x1080 (olcek 1.000)\n\
+                   **2 · DP-1 (birincil)** · 1920x1080 @ (1920, 0) → 1920x1080 (olcek 1.000)\n";
+        assert_eq!(ekran_kutulari(iki).len(), 2);
+
+        // Tanınmayan biçim kapıyı sessizce kapatmaz.
+        assert!(ekran_kutulari("bambaşka bir metin").is_empty());
+    }
+
+    /// ⚠️ **Bu test gerçek bir veri kaybını sabitliyor.**
+    ///
+    /// Koşum `local-1a06900af3e-99da36`: model sağdaki ekranın görüntüsünü
+    /// aldı, dört tıklamayı doğru yaptı (`x=2028…2030`), sonra ofseti unutup
+    /// `x=250` yazdı. Tıklama masaüstüne düştü ve ardından gelen
+    /// `ctrl+a` + `delete` kullanıcının bütün masaüstünü çöpe attı.
+    #[test]
+    fn ofseti_unutulmus_tiklama_engellenir() {
+        let sag = vec![Kutu { x: 1920, y: 0, w: 1920, h: 1080 }];
+        let tikla = |x: i64, y: i64| {
+            let mut m = serde_json::Map::new();
+            m.insert("action".into(), "click".into());
+            m.insert("x".into(), x.into());
+            m.insert("y".into(), y.into());
+            m
+        };
+
+        // Olayın kendisi: ofset yok → yakalanıyor.
+        assert_eq!(ekran_disinda(&sag, &tikla(250, 34)), Some((250, 34)));
+
+        // Aynı koşumun doğru tıklamaları geçiyor.
+        for x in [2028, 2030, 2027] {
+            assert_eq!(ekran_disinda(&sag, &tikla(x, 95)), None, "x={x} doğruydu");
+        }
+
+        // Model iki ekranı birden istediyse tuvalin tamamı meşru.
+        let ikisi = vec![
+            Kutu { x: 0, y: 0, w: 1920, h: 1080 },
+            Kutu { x: 1920, y: 0, w: 1920, h: 1080 },
+        ];
+        assert_eq!(ekran_disinda(&ikisi, &tikla(250, 34)), None);
+
+        // Henüz hiç görüntü alınmadıysa kapı **açık**: dayanağımız yok.
+        assert_eq!(ekran_disinda(&[], &tikla(250, 34)), None);
+
+        // Koordinatsız eylemler (scroll) kapıya takılmaz.
+        let mut kaydir = serde_json::Map::new();
+        kaydir.insert("action".into(), "scroll".into());
+        kaydir.insert("scroll_amount".into(), (-3).into());
+        assert_eq!(ekran_disinda(&sag, &kaydir), None);
+    }
+
+    /// Sürüklemenin **varış** noktası da denetleniyor.
+    #[test]
+    fn suruklemenin_hedefi_de_denetlenir() {
+        let sag = vec![Kutu { x: 1920, y: 0, w: 1920, h: 1080 }];
+        let mut m = serde_json::Map::new();
+        m.insert("action".into(), "drag".into());
+        m.insert("x".into(), 2000.into());
+        m.insert("y".into(), 500.into());
+        m.insert("to_x".into(), 300.into());
+        m.insert("to_y".into(), 500.into());
+        assert_eq!(ekran_disinda(&sag, &m), Some((300, 500)));
+    }
+
+    /// Ekran görüntüsü tam çözünürlükte isteniyor, ama model ısrar ederse
+    /// onun seçimi kalıyor.
+    #[test]
+    fn olcek_yalnizca_screen_capture_a_ve_model_susmussa_eklenir() {
+        let arg = |tool: &str, model_olcegi: Option<i64>| {
+            let mut m = serde_json::Map::new();
+            m.insert("monitor".into(), "1".into());
+            if let Some(o) = model_olcegi {
+                m.insert("scale".into(), o.into());
+            }
+            olcek_ekle(&mut m, tool);
+            m
+        };
+
+        // Model `scale` vermemiş: tam çözünürlük konuyor.
+        assert_eq!(
+            arg("screen_capture", None).get("scale"),
+            Some(&serde_json::json!(0)),
+            "ölçek hesabı modelden istenmiyor"
+        );
+
+        // **Modelin açık seçimi ezilmiyor.**
+        assert_eq!(
+            arg("screen_capture", Some(640)).get("scale"),
+            Some(&serde_json::json!(640))
+        );
+
+        // Başka hiçbir araç bu argümanı kabul etmiyor; göndermek onu bozardı.
+        assert!(!arg("mouse", None).contains_key("scale"));
+        assert!(!arg("ui_click", None).contains_key("scale"));
+        assert!(!arg("desktop_unlock", None).contains_key("scale"));
+        assert!(!arg("shell_run", None).contains_key("scale"));
+
+        // Modelin kendi argümanları duruyor.
+        assert_eq!(
+            arg("screen_capture", None).get("monitor"),
+            Some(&serde_json::json!("1"))
+        );
+    }
+
     /// `force` **uygulamanın koyduğu** bir argüman ve yalnızca alanı gerçekten
     /// kabul eden araçlara konuyor.
     #[test]
@@ -3147,7 +3455,16 @@ mod tests {
         // İki dalda da ortak bilgiler duruyor.
         for s in [&kapali, &acik] {
             assert!(s.contains("boşta kalınca düşer"), "{s}");
-            assert!(s.contains("bütün ekranlar için tektir"), "{s}");
+            assert!(s.contains("her zaman `monitor` vererek"), "{s}");
+            // Girinti: `kapi` ayrı bir literal ve `format!`'ın `\` ile
+            // sarılmış satırlarıyla aynı hizada başlamalı. Bir kez 9 boşlukla
+            // başlayıp modele eğri bir liste gitmişti.
+            for satir in s.lines().filter(|l| l.trim_start().starts_with("- ")) {
+                assert!(
+                    !satir.starts_with(' '),
+                    "madde girintili başlıyor: {satir:?}"
+                );
+            }
         }
     }
 
@@ -3160,7 +3477,11 @@ mod tests {
             let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d, false);
             assert!(s.contains("boşta kalınca düşer"), "{s}");
             assert!(s.contains("force"), "{s}");
-            assert!(s.contains("bütün ekranlar için tektir"), "{s}");
+            assert!(s.contains("her zaman `monitor` vererek"), "{s}");
+            // Ölçek hesabı modelden istenmiyor: uygulama `scale`'i kendisi
+            // koyuyor (`olcek_ekle`) ve prompt bunu açıkça söylüyor.
+            assert!(s.contains("tam çözünürlükte"), "{s}");
+            assert!(!s.contains("küçültülmüş gelebilir"), "eski ölçek uyarısı kalmamalı: {s}");
             assert!(s.contains("ui_dump"), "{s}");
         }
         // Masaüstü aracı olmayan bota bu bilgiler gereksiz.

@@ -81,6 +81,49 @@ pub fn force_alir(name: &str) -> bool {
     FORCE_ALIR.contains(&name)
 }
 
+/// `scale` argümanını **gerçekten kabul eden** araçlar.
+///
+/// **Ölçüldü** (2026-09-03, `pcbridge/tools.py:1354`): yalnızca
+/// `screen_capture`'ın imzasında `scale: int | None` var ve `0` "tam
+/// çözünürlük" demek. Liste `FORCE_ALIR` gibi dar tutuluyor: masaüstü
+/// grubundaki ötekilere böyle bir argüman göndermek çağrıyı bozardı.
+///
+/// **Neden zorluyoruz:** varsayılan `screenshot_scale_long_edge` bu makinede
+/// 1280, yani 1920x1080'lik bir monitör modele **0.667 ölçekle** geliyor ve
+/// model her tıklama için `global = ofset + round(piksel / 0.667)` hesabı
+/// yapmak zorunda kalıyor. Ölçülen bir koşumda hedefe bir tıklama kala tur
+/// tavanına çarpıldı; hesabı ortadan kaldırmak modelden istemekten ucuz.
+const OLCEK_ALIR: &[&str] = &["screen_capture"];
+
+/// Bu araca tam çözünürlük (`scale = 0`) argümanı eklenebilir mi?
+pub fn olcek_alir(name: &str) -> bool {
+    OLCEK_ALIR.contains(&name)
+}
+
+/// Odak yanlış yerdeyken **veri kaybettiren** tuşlar.
+///
+/// ⚠️ **Gerçek bir olaydan geliyor** (2026-09-04, `local-1a06900af3e-99da36`):
+/// model adres çubuğuna tıkladığını sanıp monitör ofsetini unuttu
+/// (`mouse click x=250`, oysa Chrome sağdaki ekranda ve ofset `1920`),
+/// tıklama **masaüstüne** düştü, ardından gönderdiği `ctrl+a` bütün masaüstü
+/// ikonlarını seçti ve `delete` hepsini çöpe attı. Kullanıcının bütün kod
+/// dizinleri masaüstündeydi; elle durdurup geri aldı.
+///
+/// `backspace` **bilerek listede değil**: metin alanlarında olağan ve
+/// masaüstünde bir şey silmiyor. Liste dar tutuluyor ki kapı gerçekten
+/// tehlikeli olanı yakalasın, her tuşta bir pencere sorgusu yapmasın.
+const SILME_TUSLARI: &[&str] = &["delete"];
+
+/// Bu tuş dizisi bir **silme** eylemi mi? (`"shift+delete"` → evet)
+///
+/// Dizi `+` ile ayrılıyor (`ctrl+a`, `shift+delete`); parçalar tek tek
+/// karşılaştırılıyor ki `delete` içeren başka bir ad yanlışlıkla eşleşmesin.
+pub fn silme_tusu_mu(keys: &str) -> bool {
+    keys.split('+')
+        .map(|p| p.trim().to_ascii_lowercase())
+        .any(|p| SILME_TUSLARI.contains(&p.as_str()))
+}
+
 /// Bir aracın grubu.
 ///
 /// Masaüstü **ada göre** belirlenir ve sunucunun ipucundan önce gelir:
@@ -186,6 +229,40 @@ mod tests {
         // Masaüstü dışı hiçbir araç almaz.
         assert!(!force_alir("shell_run"));
         assert!(!force_alir("fs_write"));
+    }
+
+    /// `scale` alan araçlar da masaüstü grubunun alt kümesi.
+    ///
+    /// Liste bilerek tek üyeli: ölçüldü ki pcbridge'in masaüstü araçlarından
+    /// yalnızca `screen_capture` böyle bir alan taşıyor.
+    #[test]
+    fn olcek_alanlar_masaustunun_alt_kumesi() {
+        for ad in OLCEK_ALIR {
+            assert!(MASAUSTU.contains(ad), "{ad} masaüstü grubunda değil");
+        }
+        assert!(olcek_alir("screen_capture"));
+        // `force` alan yedi aracın hiçbirinde `scale` yok.
+        for ad in FORCE_ALIR {
+            assert!(!olcek_alir(ad), "{ad} `scale` almaz");
+        }
+        assert!(!olcek_alir("ui_dump"));
+        assert!(!olcek_alir("shell_run"));
+    }
+
+    /// Silme kapısı yalnızca gerçekten silen tuşu tanır.
+    #[test]
+    fn silme_tusu_dar_taninir() {
+        assert!(silme_tusu_mu("delete"));
+        assert!(silme_tusu_mu("Delete"));
+        assert!(silme_tusu_mu("shift+delete"), "kalıcı silme de yakalanmalı");
+        assert!(silme_tusu_mu("ctrl+shift+Delete"));
+        // Olağan tuşlar geçer; kapı her `keyboard` çağrısını yavaşlatmamalı.
+        assert!(!silme_tusu_mu("ctrl+a"));
+        assert!(!silme_tusu_mu("enter"));
+        assert!(!silme_tusu_mu("ctrl+l"));
+        assert!(!silme_tusu_mu("backspace"), "metin alanında olağan");
+        // Adın içinde geçmesi yetmez, parça olarak eşleşmeli.
+        assert!(!silme_tusu_mu("deletex"));
     }
 
     #[test]

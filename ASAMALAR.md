@@ -695,6 +695,125 @@ cd "/home/eymistaken/Masaüstü/app/PcBridgeDesktop" && npm run tauri dev
 - **Sızıntı:** `grep -ri "<token parçası>"` uygulama loglarında ve
   `~/.config/pcbridge-desktop/` altında **hiçbir şey** bulmamalı.
 
+## Aşama 10 — Dışa aktarma, düşünce kutusu, koordinat isabeti ✅ BİTTİ
+
+*2026-09-03.* Kullanıcı Aşama 9'un dışa aktarma tuşunu denedi: **hiçbir şey
+olmuyordu.** Yanında iki küçük arayüz kusuru ve bir büyük soru vardı —
+*"yerel model masaüstünde **asla** doğru yere basamıyor, arka planda bir şey
+öğeleri etiketleyip koordinatları hazır veremez mi?"*
+
+### Dışa aktarma: bir yıl gizlenmiş bir izin reddi
+
+`capabilities/default.json` yalnızca `dialog:allow-open` taşıyordu.
+`save()` **ayrı** bir izin ister (`dialog:allow-save`) ve reddediliyordu — ama
+çağrının sonundaki `.catch(() => null)` reddi **iptalden ayırmadan** yutuyor,
+`if (!yol) return` de sessizce dönüyordu. `open()` çalıştığı için (ataç, dizin
+seçme) tuşun ölü olduğu fark edilmedi.
+
+Ders CLAUDE.md'de: **iptali `null` ile bildiren bir API'de `catch` yalnızca
+gerçek hatayı gizler.** İzin eklendi, `catch` kaldırıldı; hata artık ekranda.
+
+### Düşünce kutusu: iki ayrı hata, tek görüntü
+
+- **Bomboş kutu.** `agent.rs` tur sonunda yalnızca süreyi taşıyan metinsiz bir
+  `thinking` olayı yayıyor. `timeline.ts` onu ancak son blok düşünceyse
+  birleştiriyordu; araya bir `text` girmişse kendine **boş bir kutu** açıyordu.
+  Diskteki gerçek kayıtlar üstünde ölçüldü: **34 boş kutu → 0.** Düzeltme ön
+  yüzde, çünkü eski `events.jsonl`'ler o olayları hâlâ taşıyor.
+- **Açınca daralma.** İki sebep üst üste binmişti: 121 dolu düşünce bloğunun
+  **120'si** sonunda satır sonu taşıyor (`trim()`), ve kapalı kutu sabit üç
+  satırken açık kutu `height: auto` idi — üç satırdan kısa bir düşünceyi açmak
+  onu küçültüyordu (bloğun **60'ı** bu durumda). `--acik`'a aynı ölçüde
+  `min-height` kondu; kapalı hâlin sabit yüksekliği korundu.
+
+### Koordinat: sorun modelin gözü değil, aritmetiği
+
+Kullanıcı etiketleme (Set-of-Mark) önerdi. Ölçüm daha basit bir şey söyledi:
+**modelden imkânsıza yakın bir hesap isteniyormuş.**
+
+`screen_capture`'ın iki varsayılanı birden aleyhe çalışıyordu — `monitor="all"`
+(monitör başına ayrı görüntü) ve `scale` boşken uzun kenar **1280** (yani
+1920x1080 ekran **0.667 ölçekle**). Model her tıklamada
+`global = ofset + round(piksel / 0.667)` hesabını, iki görüntüden hangisine
+baktığını da takip ederek yapmak zorundaydı. Üstelik `mouse`'un **`monitor`
+argümanı** vardı ve hiçbir yerde anlatılmıyordu.
+
+`agent.rs::olcek_ekle`, `force_ekle`'nin ikizi olarak `scale = 0`'ı uygulamanın
+kendisi koyuyor. Uçtan uca ölçüldü: model `screen_capture`'ı **boş argümanla**
+(`{}`) çağırdı, pcbridge `1920x1080 (olcek 1.000)` döndürdü.
+
+**Modelin açık seçimi ezilmiyor:** `scale` zaten verilmişse dokunulmuyor.
+
+#### Prompt, araç yanıtıyla yarışamaz
+
+İlk yazılan prompt *"`mouse`'a `monitor` ver, görüntüdeki x/y'yi olduğu gibi
+yaz"* diyordu. Ama `screen_capture`'ın **kendi yanıtı** şunu söylüyor:
+*"`mouse` aracina **global** koordinati verin, `monitor` parametresi olmadan."*
+
+Ölçüm: model 9 `mouse` çağrısının **hiçbirinde** `monitor` kullanmadı ve
+`screen_capture`'ı 8 kez `{}` ile çağırdı. Promptu değil, elindeki araç
+yanıtını dinledi. Prompt yanıtla uyumlu hâle getirildi ve temiz bağlamlı yeni
+bir botla ölçüldü:
+
+| | Çelişen prompt | Uyumlu prompt |
+|---|---|---|
+| `screen_capture` | 8 çağrı, hepsi `{}` | hepsi `{"monitor":"2"}` |
+| İlk dört `mouse` x | `120` (×3, **yanlış ekran**), `2480` | `2028`, `2030`, `2027`, `2028` |
+| İlk hamle | doğrudan tıklama | önce `screen_info` |
+
+Model hesabı açıkça yazdı: *"Görüntü koordinatı: x≈108, y≈102 → global:
+x=2028, y=102"*.
+
+### Ama prompt yetmedi — ve bedeli ağır oldu
+
+⚠️ **Aynı koşum, beşinci tıklama.** Model ofseti unuttu:
+
+```
+mouse    {"action":"click","x":250,"y":34}   ← Chrome sağ ekranda, ofset yok
+keyboard {"action":"key","keys":"ctrl+a"}    ← masaüstündeki her şey seçildi
+keyboard {"action":"key","keys":"delete"}    ← hepsi çöpe
+```
+
+Model adres çubuğuna yazdığını **sanıyordu**. Kullanıcının bütün kod dizinleri
+masaüstündeydi; elle durdurup çöpten geri aldı. `shift+delete` olsaydı kalıcı
+olurdu.
+
+**Kondu — `agent.rs::tehlike_kapisi`, iki kapı:**
+
+- **`mouse` son görüntünün dışına düşemez.** `screen_capture` yanıtından
+  ekranın global dikdörtgeni okunup saklanıyor; sonraki `mouse` çağrısının
+  x/y'si (sürüklemede `to_x`/`to_y` de) dışarıdaysa çağrı **hiç yapılmıyor**.
+  Model iki ekranı birden istediyse kapı hiçbir şeye takılmaz. Henüz görüntü
+  alınmadıysa kapı **açık**: dayanaksız engellemek modeli çalışamaz hale
+  getirirdi.
+- **Odak masaüstündeyken silme tuşu geçmez.** `window_list` sorulup odağa
+  bakılıyor; ölçüldü ki masaüstüne tıklandığında odak `gjs — Desktop Icons 2`
+  oluyor, yani sorgu olay anında doğru yanıtı verirdi.
+
+İkisi de **izin kipinden bağımsız** — kullanıcı "serbest" dese bile sorulmaz,
+engellenir — ve red **sessiz değil**: modele ne yapması gerektiğini anlatan
+bir metin, kullanıcıya sohbette bir `⛔` satırı gidiyor.
+
+Testler gerçek olayın koordinatlarını sabitliyor
+(`ofseti_unutulmus_tiklama_engellenir`): `x=250` engellenmeli, aynı koşumun
+doğru `x=2028…2030` değerleri geçmeli. Kapı devre dışı bırakılınca test
+kırmızıya dönüyor — bakıldı.
+
+#### Chrome'un ağacı — ölçüldü, çalıştı, ama kullanılmıyor
+
+`ui_dump`'ın Chrome'da boş dönmesinin sebebi bulundu:
+`org.a11y.Status.ScreenReaderEnabled` `false` ve Chrome render ağacını hiç
+kurmuyor. Bayrak açılınca ağaç **anında** doldu — 609 düğüm, 282'si eylemli,
+sayfa içeriği dahil, tarama 0,1 sn.
+
+⚠️ **Ama kullanıcı istemedi.** Açıkken "baş ütülüyor" dedi; bayrak `false`'a
+geri alındı ve uygulamaya böyle bir anahtar **konmadı.** Model Chrome'da ekran
+görüntüsüne düşmeye devam edecek — `scale = 0` işi bu yüzden daha da önemli.
+
+**Set-of-Mark yazılmadı.** Gerekçesi YAPILACAKLAR.md'de: AT-SPI'ın konuştuğu
+yerde `ui_click` zaten ıskalamıyor, konuşmadığı yerde (Chrome, Electron)
+etiketlerin koordinatını verecek bir kaynak yok.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

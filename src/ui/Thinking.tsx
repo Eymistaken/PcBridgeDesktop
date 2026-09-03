@@ -33,6 +33,11 @@ export default function Thinking({ text, ms, live }: Props) {
   const kaydirilan = useRef<HTMLDivElement>(null);
   const govde = useRef<HTMLDivElement>(null);
 
+  // **Baştaki ve sondaki boşluk kırpılır.** Model düşüncesini sık sık `\n\n`
+  // ile bitiriyor; kırpılmayınca kapalı kutunun üç satırının bir kısmı boş
+  // kalıyor ve kutuyu açmak onu **daraltıyordu**.
+  const metin = text.trim();
+
   // Kapalı kutuda son satırları göster: içeriği yukarı kaydır. `translateY`
   // üstünde geçiş var, o yüzden yeni token gelince satırlar zıplamıyor akıyor.
   //
@@ -61,14 +66,20 @@ export default function Thinking({ text, ms, live }: Props) {
     gozcu.observe(ic);
     gozcu.observe(kap);
     return () => gozcu.disconnect();
-  }, [text, acik]);
+  }, [metin, acik]);
 
   // Açıkken dibe yapış — akış sürerken okunan yer sonu olmalı.
   useEffect(() => {
     const kap = kaydirilan.current;
     if (!kap || !acik || !live) return;
     kap.scrollTop = kap.scrollHeight;
-  }, [text, acik, live]);
+  }, [metin, acik, live]);
+
+  // **Boş düşünce hiç çizilmez.** `toBlocks` artık metinsiz olaydan blok
+  // üretmiyor, ama diskteki eski `events.jsonl` kayıtları o olayları hâlâ
+  // taşıyor; bu satır eski sohbetleri de düzeltiyor. Hook'lardan sonra
+  // dönülüyor: erken çıkış hook sırasını bozardı.
+  if (!metin) return null;
 
   return (
     <div style={{ display: "flex" }}>
@@ -94,7 +105,7 @@ export default function Thinking({ text, ms, live }: Props) {
           className={acik ? "dusunce__kuyu dusunce__kuyu--acik" : "dusunce__kuyu"}
         >
           <div ref={govde} className="dusunce__metin">
-            {text}
+            {metin}
           </div>
         </div>
       </div>

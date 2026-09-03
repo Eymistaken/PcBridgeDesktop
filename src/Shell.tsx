@@ -565,12 +565,15 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       .toISOString()
       .slice(0, 19)
       .replace(/[:T]/g, "")}.json`;
-    const yol = await save({
-      defaultPath: ad,
-      filters: [{ name: "JSON", extensions: ["json"] }],
-    }).catch(() => null);
-    if (!yol) return;
     try {
+      // **`save()` bir `catch` ile susturulmaz.** İptalde zaten `null` dönüyor;
+      // yutulan tek şey gerçek hataydı — izin listesinde `dialog:allow-save`
+      // yokken çağrı reddediliyor ve tuş hiçbir iz bırakmadan ölü görünüyordu.
+      const yol = await save({
+        defaultPath: ad,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!yol) return;
       setChatError(t("chat.exported", { path: await exportBot(bot.id, yol) }));
     } catch (e) {
       setChatError(detailText(e));

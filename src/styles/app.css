@@ -1250,9 +1250,14 @@ pre.well {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
 }
 
-/* Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor. */
+/* Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor.
+ *
+ * **`min-height` kapalı hâlin ölçüsüyle aynı.** Kapalı kutu sabit üç satır;
+ * `height: auto` tek başınayken üç satırdan kısa bir düşünceyi açmak kutuyu
+ * **daraltıyordu** — kullanıcı "genişletince daralıyor" diye bildirdi. */
 .dusunce__kuyu--acik {
   height: auto;
+  min-height: calc(3 * 1.55 * 13px);
   max-height: 40vh;
   overflow-y: auto;
   mask-image: none;

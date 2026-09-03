@@ -13,16 +13,24 @@ derse **başka bir şey sormadan** şunu yap:
    sor** — A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona
    yapılabilir, B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş
    istiyor ve `backend: "yerel-model"` botları için hiç gerekmiyor.
-3. **Açık kalan iki uç:**
+3. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
+   "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
+   veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
+   serbest, **bot koşumu başlatmak değil.** Bu kısıt kullanıcı kaldırana
+   kadar geçerli.
+4. **Açık kalan üç uç:**
    - Tur içi özetleme **gerçek modelle sınanmadı** (Aşama 8'de LM Studio
      kapalıydı). İlk fırsatta bütçesi kasten küçük bir botla uzun bir koşum
      yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
    - Markdown çözümleyicisinin **birim testi yok**; projede JS test koşucusu
      yok ve eklemek ayrı bir karar. Doğrulama iki temada gözle yapıldı.
-4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **dokuz aşama da bitti.**
+   - Aşama 10'un koordinat düzeltmesi **bir koşumda** ölçüldü. Masaüstü
+     isabeti hâlâ zayıfsa sıradaki adım Set-of-Mark; gerekçesi ve neden
+     bugün yazılmadığı YAPILACAKLAR.md'de.
+5. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
-5. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+6. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -59,6 +67,15 @@ gerçek terminal ızgarası.
 - **Tavan ve izin aynı kuyruğu kullanır.** Tur tavanı sorusu için ikinci bir
   bekleme makinesi kurulmadı: `Runs.bekleyen`, `answer_permission` ve
   `PermAsk` ikisini de taşıyor, `IzinIstegi.kind` ayırıyor.
+- **Modelin koordinatına güvenilmez; uygulama doğrular.** Yerel model
+  masaüstünde bir kez ofseti unuttu, tıklama komşu ekrandaki **masaüstüne**
+  düştü, ardından gönderdiği `ctrl+a` + `delete` kullanıcının bütün masaüstünü
+  çöpe attı — ve orada bütün kod dizinleri duruyordu. `agent.rs::tehlike_kapisi`
+  iki şeyi engelliyor: son `screen_capture`'ın **dışına** düşen `mouse`
+  çağrısı, ve odak masaüstündeyken gönderilen **silme** tuşu. İkisi de izin
+  kipinden **bağımsız**: kullanıcı "serbest" dese bile sorulmaz, engellenir.
+  Bir prompt satırı bunun yerine geçmez — model aynı koşumda dört kez doğru
+  yapıp beşincide unuttu.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"
@@ -372,6 +389,31 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
   `Tab` ile odak taşıyınca kap düzgün kaydı). Uygulamanın hatası değil,
   otomasyonun sınırı — gerçek fareyle sorun yok.
 
+### Arayüz — 2026-09-03'te ölçüldü (Aşama 10)
+
+- ⚠️ **Bir eklenti çağrısını `catch` ile susturmak tuşu ölü gösterir.**
+  Dışa aktarma tuşu hiçbir şey yapmıyordu: `capabilities/default.json`
+  yalnızca `dialog:allow-open` taşıyordu, `save()` **ayrı** bir izin
+  (`dialog:allow-save`) istiyor ve reddediliyordu — ama çağrının sonundaki
+  `.catch(() => null)` reddi **iptalden ayırmadan** yutuyor, `if (!yol)
+  return` da sessizce dönüyordu. `open()` çalıştığı için (ataç, dizin seçme)
+  fark bir yıl gözden kaçtı. **Ders:** iptali `null` ile bildiren bir API'de
+  `catch` yalnızca gerçek hatayı gizler. Tauri eklentisinin her komutu ayrı
+  izin ister; birini kullanıp ötekini eklememek sessiz bir ölüm.
+- **Metinsiz `thinking` olayı kendine kutu açıyordu.** `agent.rs` tur sonunda
+  yalnızca süreyi taşıyan bir olay yayıyor; `timeline.ts` onu ancak son blok
+  düşünceyse birleştiriyordu, araya bir `text` girmişse ekrana **bomboş** bir
+  "Thought for 1,5 s" kutusu koyuyordu. Diskteki gerçek kayıtlar üstünde
+  ölçüldü: **34 boş kutu → 0**. Düzeltme ön yüzde, çünkü eski
+  `events.jsonl`'ler o olayları hâlâ taşıyor.
+- **121 dolu düşünce bloğunun 120'si sonunda satır sonu taşıyor.** Kapalı
+  kutunun üç satırının bir kısmı boşa gidiyordu; `Thinking` artık metni bir
+  kez `trim()` ediyor.
+- **Kapalı üç satır sabit, açık `height: auto` idi** — üç satırdan kısa bir
+  düşünceyi açmak kutuyu **daraltıyordu** (ölçüldü: 121 bloğun 60'ı bu
+  durumda). `.dusunce__kuyu--acik` artık aynı ölçüde `min-height` taşıyor;
+  kapalı hâlin sabit yüksekliği korundu.
+
 ### Yerel model yolu — 2026-09-02'de ölçüldü
 
 - **LM Studio bu makinede Flatpak** (`ai.lmstudio.lm-studio` 0.4.23).
@@ -481,6 +523,120 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
 - **Ölçekli ekran görüntüsünden koordinat hesaplamak model için tuzak.**
   Bir koşum yanlış pencereye tıkladı, birçoğunda uzun uzun ölçek çarpanı
   hesabı yapıldı. `scale=0` (tam çözünürlük) ile isabet belirgin arttı.
+  ✅ **Artık ölçeği model seçmiyor** — bkz. bir alt bölüm.
+
+### Koordinat isabeti — 2026-09-03'te ölçüldü (Aşama 10)
+
+Kullanıcı "model **asla** doğru yere basamıyor" dedi. Tek bir hata değil;
+modelden imkânsıza yakın bir hesap isteniyormuş.
+
+- **`screen_capture`'ın iki varsayılanı birden aleyhe çalışıyor**
+  (`pcbridge/tools.py:1341`): `monitor="all"` → her monitör için **ayrı**
+  görüntü, ve `scale` boşken `screenshot_scale_long_edge` (kaynakta **1280**)
+  → 1920x1080'lik bir ekran modele **0.667 ölçekle** gidiyor. Model her
+  tıklamada `global = ofset + round(piksel / 0.667)` hesabını, iki görüntüden
+  hangisine baktığını da takip ederek yapmak zorundaydı.
+- **`mouse`'un `monitor` argümanı var** ve hiçbir yerde anlatılmıyordu:
+  *"Treat x/y as coordinates inside this monitor instead of…"*. Tek monitör
+  isteyip aynı monitörle tıklamak **ofset toplamayı da** sıfırlıyor.
+- **Ölçek artık modelden istenmiyor.** `agent.rs::olcek_ekle`, `force_ekle`'nin
+  ikizi: `screen_capture` çağrısına uygulama `scale = 0` koyuyor. Liste
+  `tools.rs::OLCEK_ALIR` — **tek üyeli**, çünkü ölçüldü ki masaüstü
+  grubundaki öteki dokuz aracın imzasında böyle bir alan yok.
+  **Modelin açık seçimi ezilmiyor:** `scale` zaten verilmişse dokunulmuyor.
+- **Model görüntüyü gerçekten görüyor.** LM Studio `/api/v0/models`:
+  `ornith-1.5-35b-a3b` → `type: "vlm"`, `arch: "qwen35moe"`,
+  `loaded_context_length: 200192`. Yani sorun körlük değil, aritmetik.
+- ⚠️ **Sistem promptu pcbridge'in araç yanıtıyla çelişirse model yanıtı
+  seçiyor.** İlk denemede prompt *"`mouse`'a `monitor` ver, görüntüdeki x/y'yi
+  olduğu gibi yaz"* diyordu; `screen_capture`'ın **kendi yanıtı** ise
+  *"`mouse` aracina **global** koordinati verin, `monitor` parametresi
+  olmadan"*. Ölçülen koşumda model 9 `mouse` çağrısının **hiçbirinde**
+  `monitor` kullanmadı ve `screen_capture`'ı 8 kez `{}` ile çağırdı — yani
+  promptu değil, elindeki araç yanıtını dinledi. Prompt yanıtla **uyumlu**
+  hâle getirildi: "her zaman `monitor` vererek **yakala**" (tek görüntü) ama
+  "`mouse`'a **global** ver, ofseti ekle".
+  **Ders:** araç yanıtı modele daha yakın ve daha somut; prompt onunla
+  yarışamaz, ancak onu tamamlayabilir.
+- **Ofset hatası ölçüldü, sonra düzeltildiği ölçüldü.** İki koşum, aynı
+  makine, aynı model, tek fark sistem promptu:
+
+  | | Çelişen prompt | Uyumlu prompt |
+  |---|---|---|
+  | `screen_capture` argümanı | 8 çağrının **hepsi** `{}` | hepsi `{"monitor":"2"}` |
+  | `mouse` x değerleri | `120` (×3, **yanlış ekran**), `2480` | `2028`, `2030`, `2027` — **hepsi doğru ekranda** |
+  | İlk hamle | doğrudan tıklamaya girişti | önce `screen_info` |
+
+  İkinci koşumda model hesabı **açıkça yazdı**: *"Görüntü koordinatı: x≈108,
+  y≈102 → global: x=2028, y=102"*. Ofset toplama sorunu ortadan kalktı;
+  kalan hata **piksel hassasiyeti** (hedefi birkaç piksel ıskalamak), ki bu
+  çok daha küçük ve farklı bir sorun.
+- ⚠️ **Prompt ekran düzenini sabit yazıyor** ("iki ekran", "sağdakinin ofseti
+  `(1920, 0)`"). Somutluk **işe yarayan şeyin ta kendisi** ama başka bir
+  makinede yanlış olur. Doğrusu `screen_info`'yu koşum başında okuyup gömmek;
+  YAPILACAKLAR.md'de.
+
+#### Yanlış tıklamanın bedeli — 2026-09-04'te yaşandı
+
+⚠️ **Prompt bir güvenlik katmanı değil.** Uyumlu promptla yapılan koşumda
+(`local-1a06900af3e-99da36`) model dört tıklamayı **doğru** yaptı
+(`x=2028, 2030, 2027, 2028`), sonra beşincide ofseti unuttu:
+
+```
+mouse   {"action":"click","x":250,"y":34}   ← Chrome sağ ekranda, ofset yok
+keyboard {"action":"key","keys":"ctrl+a"}   ← masaüstündeki her şey seçildi
+keyboard {"action":"key","keys":"delete"}   ← hepsi çöpe
+```
+
+Modelin kendi anlatımı: *"Adres çubuğu yaklaşık x=250, y=34 konumunda."* →
+*"Adres çubuğu seçili. Tümünü temizleyip doğru URL'i yazayım."* Yani model
+adres çubuğuna yazdığını **sanıyordu**. Kullanıcının bütün kod dizinleri
+masaüstündeydi; elle durdurdu ve çöpten geri aldı. `shift+delete`
+olsaydı kalıcı olurdu.
+
+**Kondu — `agent.rs::tehlike_kapisi`, iki kapı:**
+
+- **`mouse` son görüntünün dışına düşemez.** `screen_capture` yanıtındaki
+  `… @ (1920, 0) …` satırlarından ekranın global dikdörtgeni okunuyor
+  (`ekran_kutulari`) ve saklanıyor; sonraki `mouse` çağrısının x/y'si (ve
+  sürüklemede `to_x`/`to_y`) o dikdörtgenin dışındaysa çağrı **hiç
+  yapılmıyor**. Model iki ekranı birden istediyse kutular tuvalin tamamını
+  kapsar ve kapı hiçbir şeye takılmaz. **Henüz görüntü alınmadıysa kapı
+  açık** — dayanağımız yok, ve dayanaksız engellemek modeli çalışamaz
+  hale getirirdi.
+- **Odak masaüstündeyken silme tuşu geçmez.** `keys` içinde `delete` varsa
+  `window_list` sorulup odağa bakılıyor. Ölçüldü: masaüstünün boş bir yerine
+  tıklandığında odak `gjs — Desktop Icons 2` oluyor, yani sorgu olay anında
+  doğru yanıtı verirdi. `backspace` **bilerek listede değil**: metin
+  alanlarında olağan, masaüstünde bir şey silmiyor.
+
+İkisi de **izin kipinden bağımsız** ve red **sessiz değil**: modele ne
+yapması gerektiğini anlatan bir metin, kullanıcıya sohbette bir `⛔` satırı
+gidiyor. Reddin gerekçesi yazılı olmasaydı model çağrıyı arıza sanıp
+yineleyecekti — bu daha önce ölçüldü.
+
+#### Chrome'un erişilebilirlik ağacı — ölçüldü ama **kullanılmıyor**
+
+- **`ui_dump`'ın Chrome'da boş dönmesinin sebebi bulundu:**
+  `org.a11y.Status.ScreenReaderEnabled` **`false`**. Chrome `frame`'i
+  "1 çocuk" bildiriyor ama çocuk `None` — render ağacı hiç kurulmuyor.
+  `toolkit-accessibility` (yani `IsEnabled`) zaten `true` ve **yetmiyor**.
+- Bayrak `true` yapılınca ağaç **anında doluyor**: 609 düğüm, 282'si eylemli,
+  adres çubuğu ve sayfa içeriği dahil (YouTube video başlıkları okundu),
+  tarama **0,1 sn**. Yani teknik yol çalışıyor.
+- ⚠️ **Ama kapalı kalıyor.** Kullanıcı açıkken "baş ütülüyor" dedi ve
+  kapatılmasını istedi; bayrak `false`'a geri alındı ve uygulamaya böyle bir
+  anahtar **konmadı**. Bu yüzden model Chrome'da ekran görüntüsüne düşmeye
+  devam edecek — `scale = 0` işi bu yüzden daha da önemli.
+- **Electron (Vesktop) bayrak açıkken bile ağacını vermedi.** Chromium
+  tabanlı olması yetmiyor.
+- **AT-SPI'ın `get_extents`'i sanıldığından iyi.** pcbridge "güvenilmez" diye
+  koordinatı hiç döndürmüyor (`uitree.py` modül başlığı, 2026-08-02); ölçüldü
+  ki gerçek uygulamalarda doğru — `pcbridge-desktop`'un "Kapat" düğmesi
+  `@(1442,47) 32x24`, gnome-shell iki monitörü `@(0,0)` ve `@(1920,0)` ile
+  ayırıyor. Bozuk düğümler `INT_MIN` (`-2147483648`) ile geliyor, yani
+  **ayıklanabilir**. Set-of-Mark etiketleme bir gün yazılırsa koordinat
+  kaynağı burası olur.
 
 ### Bağlam ve özetleme — 2026-09-03'te ölçüldü
 

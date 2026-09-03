@@ -46,9 +46,26 @@ export function toBlocks(events: JobEvent[]): Block[] {
           b.text += e.text;
           // Kapanış olayı: metinsiz, yalnızca süreyi taşıyor.
           if (e.ms !== undefined) b.ms = e.ms;
-        } else {
-          out.push({ t: "thinking", text: e.text, ms: e.ms });
+          break;
         }
+        // **Metinsiz olay kendine kutu açmaz.** Tur sonundaki kapanış olayı
+        // (`agent.rs`) yalnızca süreyi taşıyor; araya bir `text` bloğu
+        // girmişse `son()` artık düşünce değil ve eski kod ekrana bomboş bir
+        // "Thought for 1,5 s" kutusu koyuyordu. Süre, geriye doğru bulunan son
+        // düşünce bloğunun başlığına yazılır.
+        if (e.text === "") {
+          if (e.ms !== undefined) {
+            for (let i = out.length - 1; i >= 0; i--) {
+              const g = out[i];
+              if (g.t === "thinking") {
+                g.ms = e.ms;
+                break;
+              }
+            }
+          }
+          break;
+        }
+        out.push({ t: "thinking", text: e.text, ms: e.ms });
         break;
       }
       case "toolStart": {
