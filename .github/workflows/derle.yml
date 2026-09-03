@@ -80,14 +80,24 @@ jobs:
 
       - run: npm ci
 
+      # `src-tauri/target` önbellekten geliyor ve `bundle/` dizini önceki
+      # koşumun paketlerini de taşıyor. Silinmezse `*.deb` globu eskiyi de
+      # toplar: v0.2.0 yayınına bir kez `…_0.1.0_amd64.deb` sızdı (ölçüldü,
+      # 2026-09-03). Derleme önbelleği (`release/deps`) duruyor, yalnızca
+      # paketler siliniyor.
+      - name: Eski paketleri sil
+        run: rm -rf src-tauri/target/release/bundle
+
       - name: Derle
         run: npm run tauri build
 
       # Tauri paket adını `productName`'den kuruyor, o da boşluk taşıyor
-      # ("Pcbridge Desktop_0.1.0_amd64.AppImage"). İndirme bağlantısında
+      # ("Pcbridge Desktop_0.2.0_amd64.AppImage"). İndirme bağlantısında
       # boşluk hoş değil; kopyalarken tireye çeviriyoruz.
       - name: Paketleri topla
         id: p
+        env:
+          V: ${{ steps.s.outputs.surum }}
         run: |
           set -euo pipefail
           mkdir -p cikti
@@ -95,7 +105,13 @@ jobs:
           for f in src-tauri/target/release/bundle/appimage/*.AppImage \
                    src-tauri/target/release/bundle/deb/*.deb; do
             [ -e "$f" ] || continue
-            cp "$f" "cikti/$(basename "$f" | tr ' ' '-')"
+            ad="$(basename "$f" | tr ' ' '-')"
+            # Yayın etiketiyle dosya adının ayrışması sessizce olmasın.
+            case "$ad" in
+              *"_${V}_"*) ;;
+              *) echo "::error::Sürümü tutmayan paket: $ad (beklenen $V)"; exit 1 ;;
+            esac
+            cp "$f" "cikti/$ad"
             bulunan=$((bulunan + 1))
           done
           if [ "$bulunan" -eq 0 ]; then
