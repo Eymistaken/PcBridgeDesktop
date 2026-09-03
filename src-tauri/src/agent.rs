@@ -52,7 +52,14 @@ const BUTCE_YETMIYOR: &str = "#budgetTooSmall";
 pub trait Kayit: Send + Sync {
     fn olay(&self, events: &[Event]);
     fn mesaj(&self, msgs: &[Message]);
-    fn ctx(&self, ctx: runs::RunCtx);
+    /// Bu koşumun ölçülen `prompt_tokens`'ı.
+    fn ctx_tokens(&self, prompt_tokens: u64);
+    /// Özet denetim noktası — **başka bir koşuma** yazılır (`hedef`).
+    ///
+    /// İki yazıcı bilerek ayrı: tek bir `write_ctx` ikisini de taşıyınca tur
+    /// döngüsünün koşum sonundaki token yazması, aynı koşumun başında konmuş
+    /// denetim noktasını siliyordu.
+    fn ctx_ozet(&self, hedef: &str, ozet: Option<String>, dusen: u32);
 }
 
 // ─────────────────────────── izin kapısı ───────────────────────────
@@ -195,8 +202,11 @@ impl Kayit for AppKayit {
     fn mesaj(&self, msgs: &[Message]) {
         runs::append_messages(&self.run_id, msgs);
     }
-    fn ctx(&self, ctx: runs::RunCtx) {
-        runs::write_ctx(&self.run_id, &ctx);
+    fn ctx_tokens(&self, prompt_tokens: u64) {
+        runs::write_ctx_tokens(&self.run_id, prompt_tokens);
+    }
+    fn ctx_ozet(&self, hedef: &str, ozet: Option<String>, dusen: u32) {
+        runs::write_ctx_summary(hedef, ozet, dusen);
     }
 }
 
@@ -462,25 +472,21 @@ async fn kos(
     // Geçmiş + gerekiyorsa özetleme.
     let (mut ozet, mut gecmis_msg) = gecmis(&bot);
     if ozetleme_gerek(&bot) {
-        if let Ok((yeni_ozet, dusen, korunan)) =
-            ozetle(&base_url, &model_id, &bot, &ozet, &gecmis_msg).await
-        {
-            let basarisiz = yeni_ozet.is_empty();
-            kayit.ctx(runs::RunCtx {
-                prompt_tokens: 0,
-                summary: Some(yeni_ozet.clone()),
-                dropped: dusen,
-            });
+        if let Ok(o) = ozetle(&base_url, &model_id, &bot, &ozet, &gecmis_msg).await {
+            let basarisiz = o.ozet.is_empty();
+            // İşaret **korunan pencerenin ilk koşumuna** gidiyor, bu koşuma
+            // değil: `gecmis` işaretten itibarenini taşıyor.
+            kayit.ctx_ozet(&o.hedef, Some(o.ozet.clone()), o.dusen);
             kayit.olay(&[Event::Summary {
                 text: if basarisiz {
                     OZET_BASARISIZ.to_string()
                 } else {
-                    yeni_ozet.clone()
+                    o.ozet.clone()
                 },
-                dropped: dusen,
+                dropped: o.dusen,
             }]);
-            ozet = if basarisiz { None } else { Some(yeni_ozet) };
-            gecmis_msg = korunan;
+            ozet = if basarisiz { None } else { Some(o.ozet) };
+            gecmis_msg = o.korunan;
         }
         else {
             // Özetleme koşumu düşürmez: geçmiş olduğu gibi gönderilir. Ama
@@ -621,11 +627,7 @@ pub async fn tur_dongusu(
         kayit.mesaj(&[yanit]);
 
         if cagrilar.is_empty() {
-            kayit.ctx(runs::RunCtx {
-                prompt_tokens: son_prompt_tokens,
-                summary: None,
-                dropped: 0,
-            });
+            kayit.ctx_tokens(son_prompt_tokens);
             return Sonuc {
                 ok: true,
                 turlar: tur,
@@ -973,18 +975,35 @@ fn ozetleme_gerek_in(kok: &std::path::Path, bot: &Bot) -> bool {
     kullanilan > 0 && kullanilan as f64 > bot.context_budget as f64 * OZET_ESIGI
 }
 
-/// Eski turları modele özetletir.
+/// Bir özetleme denemesinin sonucu.
 ///
-/// Dönüş: `(özet, düşen mesaj sayısı, korunan mesajlar)`. Özet boş dizgeyse
-/// özetleme başarısız olmuş ve **sert kırpmaya** düşülmüştür — eski mesajlar
-/// yine de atılır, çünkü bağlamı taşıran şey onlardı.
+/// `ozet` boş dizgeyse özetleme başarısız olmuş ve **sert kırpmaya**
+/// düşülmüştür — eski mesajlar yine de atılır, çünkü bağlamı taşıran şey
+/// onlardı.
+#[derive(Debug)]
+pub struct Ozetleme {
+    pub ozet: String,
+    /// Kaç mesaj özetin içine girip listeden düştü.
+    pub dusen: u32,
+    /// Özetin **kapsamadığı**, olduğu gibi taşınan mesajlar.
+    pub korunan: Vec<Message>,
+    /// Denetim noktasının yazılacağı koşum: korunan pencerenin **ilk** koşumu.
+    ///
+    /// `gecmis_in` işareti taşıyan koşumdan **itibaren** mesajları alıyor.
+    /// İşaret yeni koşuma konursa korunan pencere bir sonraki koşumda sessizce
+    /// düşer; pencerenin başına konunca özet + korunan koşumlar birlikte geri
+    /// gelir.
+    pub hedef: String,
+}
+
+/// Eski turları modele özetletir.
 async fn ozetle(
     base_url: &str,
     model_id: &str,
     bot: &Bot,
     onceki_ozet: &Option<String>,
     gecmis_msg: &[Message],
-) -> Result<(String, u32, Vec<Message>), ModelError> {
+) -> Result<Ozetleme, ModelError> {
     ozetle_in(&runs::runs_dir(), base_url, model_id, bot, onceki_ozet, gecmis_msg).await
 }
 
@@ -996,7 +1015,7 @@ async fn ozetle_in(
     bot: &Bot,
     onceki_ozet: &Option<String>,
     gecmis_msg: &[Message],
-) -> Result<(String, u32, Vec<Message>), ModelError> {
+) -> Result<Ozetleme, ModelError> {
     let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
     if yerel.len() <= KORUNAN_KOSUM {
         return Err(ModelError::Protocol("özetlenecek koşum yok".into()));
@@ -1009,6 +1028,11 @@ async fn ozetle_in(
     for r in korunan_ids.iter().rev() {
         korunan.extend(runs::messages_in(kok, r));
     }
+    // Korunan pencerenin ilk koşumu — işaret oraya gidiyor.
+    let hedef = korunan_ids
+        .last()
+        .map(|r| (**r).clone())
+        .expect("KORUNAN_KOSUM > 0 ve yerel.len() ondan büyük");
 
     let dusen = gecmis_msg.len().saturating_sub(korunan.len());
     if dusen == 0 {
@@ -1083,7 +1107,12 @@ async fn ozetle_in(
         .trim()
         .to_string();
 
-    Ok((ozet, dusen as u32, korunan))
+    Ok(Ozetleme {
+        ozet,
+        dusen: dusen as u32,
+        korunan,
+        hedef,
+    })
 }
 
 #[cfg(test)]
@@ -1133,9 +1162,13 @@ mod tests {
         fn mesaj(&self, msgs: &[Message]) {
             self.mesajlar.lock().unwrap().extend_from_slice(msgs);
         }
-        fn ctx(&self, ctx: runs::RunCtx) {
-            self.ctxler.lock().unwrap().push(ctx);
+        fn ctx_tokens(&self, prompt_tokens: u64) {
+            self.ctxler.lock().unwrap().push(runs::RunCtx {
+                prompt_tokens,
+                ..Default::default()
+            });
         }
+        fn ctx_ozet(&self, _hedef: &str, _ozet: Option<String>, _dusen: u32) {}
     }
 
     /// Her isteği kaydeden ve önceden kararlaştırılmış yanıtı veren kapı.
@@ -1297,6 +1330,52 @@ mod tests {
         let (ozet, msgs) = gecmis_in(&k, &b);
         assert!(ozet.is_none(), "boş özet metin olarak taşınmamalı");
         assert_eq!(msgs.len(), 6, "kesme yine de uygulanmalı");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    /// **Denetim noktası, koşum başarıyla bitince de yerinde durur.**
+    ///
+    /// Yaşanmış olan: `kos` özetten sonra `ctx.json`'a işareti yazıyor, aynı
+    /// koşum bitince tur döngüsü aynı dosyaya `summary: None` yazıyordu
+    /// (`fs::write`, birleştirme yok). Sonraki koşum işareti bulamayıp bütün
+    /// geçmişi yeniden yüklüyor, eşik yine aşılıyor ve özetleme her koşumda
+    /// bir model turu harcayarak yeniden çalışıyordu.
+    ///
+    /// Diskte hiç gözlenmedi çünkü özet taşıyan tek gerçek koşum iptal
+    /// edilmişti (`exit_code: 130`) ve token yazmasına hiç ulaşılmamıştı.
+    #[test]
+    fn ozet_isareti_kosum_bitince_de_durur() {
+        let k = std::env::temp_dir().join(format!("pcbd-isaret-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // Altı koşum: 0-2 özetlendi, 3-4 korundu, 5 az önce koştu.
+        let ids = sahte_kosumlar(&k, 6);
+        let mut b = bot("");
+        b.jobs = ids.clone();
+
+        // `kos`'un yaptığı: işaret **korunan pencerenin ilk koşumuna**.
+        runs::write_ctx_summary_in(&k, &ids[3], Some("ilk üç koşumun özeti".into()), 6);
+        // `tur_dongusu`'nün koşum bitince yaptığı: kendi koşumuna token.
+        runs::write_ctx_tokens_in(&k, &ids[5], 4096);
+
+        let (ozet, msgs) = gecmis_in(&k, &b);
+        assert_eq!(
+            ozet.as_deref(),
+            Some("ilk üç koşumun özeti"),
+            "işaret koşum bitince silinmemeli"
+        );
+        assert_eq!(msgs.len(), 6, "korunan 3. ve 4. koşum + yeni 5. koşum kalmalı");
+        assert!(
+            msgs[0].content.as_deref().unwrap().starts_with("3. soru"),
+            "geçmiş korunan pencerenin başından başlamalı: {:?}",
+            msgs[0].content
+        );
+
+        // Eşik hâlâ **son** koşumun ölçülen sayısına bakıyor.
+        b.context_budget = 4096;
+        assert!(ozetleme_gerek_in(&k, &b), "4096 > 4096·0.75");
 
         let _ = std::fs::remove_dir_all(&k);
     }
@@ -1612,26 +1691,33 @@ mod tests {
         let (onceki, msgs) = gecmis_in(&k, &b);
         assert_eq!(msgs.len(), 8);
 
-        let (ozet, dusen, korunan) = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs)
+        let o = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs)
             .await
             .expect("özetleme çağrısı kurulmalı");
 
-        eprintln!("--- özet ---\n{ozet}\n--- {dusen} mesaj düştü, {} korundu ---", korunan.len());
+        eprintln!(
+            "--- özet ---\n{}\n--- {} mesaj düştü, {} korundu, işaret {} ---",
+            o.ozet,
+            o.dusen,
+            o.korunan.len(),
+            o.hedef
+        );
 
-        assert!(!ozet.trim().is_empty(), "özet boş döndü — sert kırpmaya düşüldü");
-        assert_eq!(dusen, 4, "ilk iki koşumun 4 mesajı düşmeli");
-        assert_eq!(korunan.len(), 4, "son iki koşum korunmalı");
+        assert!(!o.ozet.trim().is_empty(), "özet boş döndü — sert kırpmaya düşüldü");
+        assert_eq!(o.dusen, 4, "ilk iki koşumun 4 mesajı düşmeli");
+        assert_eq!(o.korunan.len(), 4, "son iki koşum korunmalı");
         assert!(
-            korunan[0].content.as_deref().unwrap().starts_with("Kaç aşama"),
+            o.korunan[0].content.as_deref().unwrap().starts_with("Kaç aşama"),
             "korunanlar koşum sınırından başlamalı: {:?}",
-            korunan[0].content
+            o.korunan[0].content
         );
         // Özet konuşmanın somut bilgisini taşımalı; yalnızca "konuştular"
         // demesi işe yaramaz.
-        let kucuk = ozet.to_lowercase();
+        let kucuk = o.ozet.to_lowercase();
         assert!(
             kucuk.contains("pcbridge") || kucuk.contains("rust"),
-            "özet somut bilgiyi korumalı: {ozet}"
+            "özet somut bilgiyi korumalı: {}",
+            o.ozet
         );
 
         let _ = std::fs::remove_dir_all(&k);
@@ -2027,12 +2113,16 @@ mod tests {
         // Taban geçildi ve model çağrısına gidildi. Sunucu kapalı olduğu için
         // özet boş döndü — bu bir hata değil, belgelenmiş sert kırpma yolu:
         // özetleme başarısız olsa da koşum ölmüyor.
-        let (ozet, dusen, korunan) = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs)
+        let o = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs)
             .await
             .expect("taban geçilmeliydi, çağrı denenmeliydi");
-        assert!(ozet.is_empty(), "sunucu kapalıyken özet boş olmalı");
-        assert_eq!(dusen, 2, "uzun koşumun iki mesajı düşmeli");
-        assert_eq!(korunan.len(), 4, "son iki koşum korunmalı");
+        assert!(o.ozet.is_empty(), "sunucu kapalıyken özet boş olmalı");
+        assert_eq!(o.dusen, 2, "uzun koşumun iki mesajı düşmeli");
+        assert_eq!(o.korunan.len(), 4, "son iki koşum korunmalı");
+        // İşaret **korunan pencerenin ilk koşumuna** gidiyor, en sonuncuya
+        // değil: `gecmis_in` işaretten itibarenini taşıdığı için ancak böyle
+        // olursa korunan iki koşum sonraki koşumda da geçmişte kalır.
+        assert_eq!(o.hedef, "local-taban-0001", "hedef korunan pencerenin başı olmalı");
 
         let _ = std::fs::remove_dir_all(&k);
     }

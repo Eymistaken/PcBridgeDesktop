@@ -298,8 +298,38 @@ pub(crate) fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
         .unwrap_or_default()
 }
 
-pub fn write_ctx(id: &str, ctx: &RunCtx) {
-    write_ctx_in(&runs_dir(), id, ctx)
+/// Yalnızca ölçülen token sayısını günceller, `summary`/`dropped`'a dokunmaz.
+///
+/// **Bu ayrım bir hatayı kapatıyor.** `write_ctx` dosyanın tamamını
+/// değiştiriyor; tur döngüsü koşumun sonunda `summary: None` taşıyan bir
+/// `RunCtx` yazınca, aynı koşumun başında konmuş **özet denetim noktası**
+/// siliniyordu. Sonraki koşum geçmişin tamamını yeniden yükler, eşik yine
+/// aşılır ve özetleme her seferinde bir model turu harcayarak yeniden çalışır.
+/// İki yazıcı ayrı olunca üzerine yazmak yapısal olarak imkânsız.
+pub fn write_ctx_tokens(id: &str, prompt_tokens: u64) {
+    write_ctx_tokens_in(&runs_dir(), id, prompt_tokens)
+}
+
+pub(crate) fn write_ctx_tokens_in(kok: &Path, id: &str, prompt_tokens: u64) {
+    let mut ctx = read_ctx_in(kok, id);
+    ctx.prompt_tokens = prompt_tokens;
+    write_ctx_in(kok, id, &ctx);
+}
+
+/// Yalnızca denetim noktasını yazar, ölçülen token sayısına dokunmaz.
+///
+/// Hedef **özetin kapsamadığı en eski koşum**: `gecmis` denetim noktasını
+/// bulduğu koşumdan itibaren mesajları taşıyor, yani korunan pencere ancak
+/// işaret o pencerenin başındaysa geri gelir.
+pub fn write_ctx_summary(id: &str, summary: Option<String>, dropped: u32) {
+    write_ctx_summary_in(&runs_dir(), id, summary, dropped)
+}
+
+pub(crate) fn write_ctx_summary_in(kok: &Path, id: &str, summary: Option<String>, dropped: u32) {
+    let mut ctx = read_ctx_in(kok, id);
+    ctx.summary = summary;
+    ctx.dropped = dropped;
+    write_ctx_in(kok, id, &ctx);
 }
 
 pub(crate) fn write_ctx_in(kok: &Path, id: &str, ctx: &RunCtx) {
@@ -526,5 +556,36 @@ mod tests {
         let j = serde_json::to_string(&e).unwrap();
         assert!(j.contains("\"kind\":\"summary\""), "{j}");
         assert_eq!(serde_json::from_str::<Event>(&j).unwrap(), e);
+    }
+
+    /// **İki yazıcı birbirinin üstüne yazmaz.**
+    ///
+    /// Bu ayrım bir hatayı kapatıyor: tek bir `write_ctx` hem token'ı hem
+    /// özeti taşıyordu ve tur döngüsü koşumun sonunda `summary: None` yazınca
+    /// aynı koşumun başında konmuş denetim noktası siliniyordu. Sonraki koşum
+    /// geçmişin tamamını yeniden yükler, eşik yine aşılır ve özetleme her
+    /// koşumda bir model turu harcayarak yeniden çalışırdı.
+    #[test]
+    fn ctx_yazicilari_birbirinin_ustune_yazmaz() {
+        let k = std::env::temp_dir().join(format!("pcbd-ctx-yaz-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // Önce işaret, sonra token: işaret durmalı.
+        write_ctx_summary_in(&k, "local-a", Some("önceki konuşmanın özeti".into()), 4);
+        write_ctx_tokens_in(&k, "local-a", 5000);
+        let c = read_ctx_in(&k, "local-a");
+        assert_eq!(c.prompt_tokens, 5000);
+        assert_eq!(c.summary.as_deref(), Some("önceki konuşmanın özeti"));
+        assert_eq!(c.dropped, 4);
+
+        // Ters sıra da bozmamalı: token, sonra işaret.
+        write_ctx_tokens_in(&k, "local-b", 1234);
+        write_ctx_summary_in(&k, "local-b", Some("özet".into()), 2);
+        let c = read_ctx_in(&k, "local-b");
+        assert_eq!(c.prompt_tokens, 1234, "işaret yazması token'ı sıfırlamamalı");
+        assert_eq!(c.summary.as_deref(), Some("özet"));
+
+        let _ = std::fs::remove_dir_all(&k);
     }
 }
