@@ -4,7 +4,7 @@ Kurallar, tasarım kanunu ve ölçülmüş gerçekler **[CLAUDE.md](CLAUDE.md)'d
 yeni oturumda önce onu oku. Bu dosya yalnızca **ne yapılacağını** ve **bitiş
 ölçütünü** taşır.
 
-Durum: **Sekiz aşamanın hepsi bitti ve ölçüldü.** Bu dosya artık yapılacak
+Durum: **Dokuz aşamanın hepsi bitti ve ölçüldü.** Bu dosya artık yapılacak
 iş listesi değil, **bitmiş işin kaydı**.
 
 ---
@@ -585,6 +585,91 @@ ilk koşumuna gidiyor.
 - Tur içi özetlemenin gerçek modelle ölçümü: LM Studio bu oturumda kapalıydı.
   Sahte sunucuyla uçtan uca sınandı (`butce_tur_icinde_dolunca_ozetlenir`);
   gerçek model doğrulaması **açık kalan tek uç**.
+
+---
+
+## Aşama 9 — Arayüz cilası ve terminal çizicisi ✅ BİTTİ
+
+*2026-09-03.* Kullanıcı Aşama 8'i denedikten sonra on beş maddelik bir liste
+verdi. On dördü arayüz işiydi; biri gerçek bir hataydı ve **uygulamanın en
+eski varsayımlarından birini** yıktı.
+
+### Terminal: "harf bir basım geç geliyor"
+
+Belirti: bir harfe basılınca hiçbir şey olmuyor, **bir sonraki tuşa basılana
+kadar o harf asla belirmiyor.** Genel tepki de hantal.
+
+**İlk tur yanlış yere baktı.** Üç katman ölçüldü, hepsi temiz çıktı, ve
+"uygulamanın hattı temiz" denip şüphe GTK girdi yöntemine (ölü tuşlu
+`tr+intl` düzeni + ibus) yönlendirildi. Kullanıcı aynı düzenle GNOME Terminal
+ve Kitty'de hiç gecikme olmadığını söyleyince o hipotez düştü.
+
+**Hatanın sebebi:** tarayıcı ölçümü **Chromium**'da yapılmıştı. Uygulama
+WebKitGTK. Grafik yolunu ilgilendiren bir ölçüm asıl motorda yapılmadıkça
+hiçbir şey söylemez.
+
+**Gerçek sebep `@xterm/addon-webgl`:** WebKitGTK'da bağlam kuruluyor,
+`readPixels` doğru değer veriyor, `isContextLost()` false — **ama kare
+sunulmuyor.** Ekran ancak bir girdi olayı tam yeniden çizim tetikleyince
+güncelleniyor.
+
+Kanıt: aynı sayfa, aynı 1,5 saniye, hiçbir girdi olayı olmadan alınan
+**gerçek widget görüntüsü** (`WebKit2.WebView.get_snapshot`) — WebGL açıkken
+tuval bomboş, kapalıyken yazı yerinde. JS'ten piksel okumak WebGL tuvalinde
+güvenilmez (çizim tamponu sunumdan sonra siliniyor), o yüzden snapshot.
+
+Addon kaldırıldı, `customGlyphs` `Terminal` seçeneği olarak açıldı.
+**İki gerekçesi de düştü:** 2000 satır DOM çizicide 46 ms, WebGL'de 43 ms
+(ölçülebilir fark yok) ve kutu-çizim karakterleri DOM çizicide de hücreye tam
+oturuyor — TUI çerçevesi çizdirilip görüntüsüne bakıldı, köşeler birleşiyor.
+
+### Kurulan şey
+
+- **Markdown** (`lib/markdown.ts` + `ui/Markdown.tsx`) — model kalın yazmaya,
+  liste ve tablo kurmaya çalışıyordu; ham `**` ekranda duruyordu. Kütüphane
+  değil odaklı çözümleyici: bu depo kendi açılır listesini de yazdı ve bir
+  markdown kütüphanesi otuz küsur geçişli bağımlılık getiriyor. Çözümleyici
+  **React öğesi** üretiyor, HTML dizgesi değil — `dangerouslySetInnerHTML`
+  hiç yok.
+- **Sohbet JSON dışa aktarma** (`export_bot`) — hata bildirmek için. Dosyada
+  sır yok.
+- **Üretim hızı** — koşarken anlık (son üç saniyenin kayan penceresi, `~`
+  ile), bitince ölçülmüş ortalama (`RunCtx.completionTokens` / `genMs`).
+  Süreye araç çalıştırma dahil değil; ölçülen şey modelin kendi hızı.
+- **Yerel/bulut ve kaynak** — adresten okunuyor; `pcbridge-agent` yolunda
+  ajanın adı.
+- **Kilit rozeti düğme oldu** — tek tıkla masaüstü iznini aç/kapat. Süre
+  seçimi panelde kaldı; sık yapılan şey "şimdi aç"tı ve üç tıklamaydı.
+- **Köşeler yumuşadı** (10 → 12, iç içe 7 → 9), açılır yüzeylere renksiz
+  gölge, model·bağlam düğmesi sağa, sohbet ve besteci aynı ölçüde (860px).
+- **`Ctrl ↵` ipucu kalktı** — yanlıştı, gönderen tuş düz Enter.
+- **Silme ikonu kırmızı değil** — kanunda renk durumdan gelir, `--fail`
+  "başarısız oldu" demek; silme bir eylem.
+- **tmux durum çubuğu kapalı**, oturuma özgü (`-t`), sunucuya değil.
+
+### Ölçülenler
+
+| Katman | Ölçüm | Sonuç |
+|---|---|---|
+| PTY + tmux yankısı, `Ptys`'in deseniyle | 0,1–0,3 ms | temiz |
+| Tauri `emit` (arka plan) → `listen` | 0–1 ms | temiz |
+| WebKitGTK `requestAnimationFrame`, boşta | 62 fps | temiz |
+| WebKitGTK'da WebGL bağlamı | kuruluyor, `readPixels` doğru | **sunmuyor** |
+| xterm `write` → DOM çizici | 50 ms'de ekranda | temiz |
+| 2000 satır verim: DOM / WebGL | 46 ms / 43 ms | fark yok |
+
+- Markdown çözümleyicisinde bir hata bulundu ve düzeltildi: iç içe liste
+  sıralı listeyi ikiye bölüyor, numaralar 1'den yeniden başlıyordu.
+- 119 Rust testi, 0 clippy uyarısı, `tsc` temiz, i18n iki sözlükte de tam.
+- Bileşenler iki temada da çizdirilip gözle bakıldı.
+
+### Yapılmayan
+
+- **`escape-time 500`** tmux **sunucu** ayarı; ESC ile başlayan her diziyi
+  (ok tuşları, Alt bileşimleri, TUI'lerde ESC) yarım saniye geciktiriyor.
+  Kullanıcının bütün oturumlarını etkilediği için dokunulmadı.
+- Markdown çözümleyicisinin birim testi. Projede JS test koşucusu yok ve
+  eklemek ayrı bir karar; doğrulama iki temada gözle yapıldı.
 
 ---
 

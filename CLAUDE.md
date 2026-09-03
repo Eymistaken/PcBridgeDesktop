@@ -13,11 +13,13 @@ derse **başka bir şey sormadan** şunu yap:
    sor** — A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona
    yapılabilir, B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş
    istiyor ve `backend: "yerel-model"` botları için hiç gerekmiyor.
-3. **Açık kalan tek ölçüm:** tur içi özetleme gerçek modelle sınanmadı
-   (Aşama 8'de LM Studio kapalıydı). İlk fırsatta bütçesi kasten küçük bir
-   botla uzun bir koşum yapılıp `job://compacting` ve `Devam et.` yolu
-   görülmeli.
-4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **sekiz aşama da bitti.**
+3. **Açık kalan iki uç:**
+   - Tur içi özetleme **gerçek modelle sınanmadı** (Aşama 8'de LM Studio
+     kapalıydı). İlk fırsatta bütçesi kasten küçük bir botla uzun bir koşum
+     yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
+   - Markdown çözümleyicisinin **birim testi yok**; projede JS test koşucusu
+     yok ve eklemek ayrı bir karar. Doğrulama iki temada gözle yapıldı.
+4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **dokuz aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
 5. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
@@ -609,6 +611,73 @@ aydınlık temada üç durum rengi — hiçbiri **`--surface-2` üstünde kullan
 **Avatar harfi** (`--bg` rengiyle, hue'dan bağımsız): 360 hue'nun hepsi
 hesaplandı — koyu temada en düşük **4.62**, aydınlıkta **4.88**, AA altına
 düşen hue yok.
+
+## Nasıl ölçülür — bu depoda işe yarayan dört yöntem
+
+"Ölçmediğini çalışıyor diye yazma" kuralının pratiği. Aşama 9'da dört gerçek
+hata bu yollarla bulundu; her biri uygulamayı açıp elle denemekten hızlı.
+
+### 1. Tarayıcı ölçümü **WebKitGTK'da** yapılır, Chromium'da değil
+
+⚠️ **Bir kez yanlış yere baktırdı.** Tarayıcı bölmesi Chromium; uygulama
+WebKitGTK. Grafik yolunu, CSS desteğini, çizici davranışını ilgilendiren
+hiçbir ölçüm Chromium'da yapılamaz — WebGL çizicinin hiç çizmediği orada
+görünmüyordu.
+
+`gi` bağlayıcıları kurulu (`WebKit2 4.1`). İskelet:
+
+```python
+import gi; gi.require_version("WebKit2", "4.1"); gi.require_version("Gtk", "3.0")
+from gi.repository import WebKit2, Gtk, GLib
+w = Gtk.OffscreenWindow(); v = WebKit2.WebView(); w.add(v); w.show_all()
+v.connect("load-changed", lambda vw, ev: ev == WebKit2.LoadEvent.FINISHED
+          and GLib.timeout_add(1500, sor, vw))
+v.load_uri("http://localhost:1420/sayfa.html")   # `npm run dev` ayakta
+Gtk.main()
+```
+
+- **CSS/JS desteği:** `v.evaluate_javascript("CSS.supports(...)", ...)`.
+  `oklch()` ve içindeki `var()` böyle doğrulandı.
+- **Gerçekten çizildi mi:** `v.get_snapshot(...)` → PNG. **JS'ten piksel
+  okumak WebGL tuvalinde yalan söyler** — çizim tamponu sunumdan sonra
+  siliniyor. Snapshot derleyiciden geçen asıl çıktı.
+- Boşta `requestAnimationFrame` 62 fps koşuyor; "rAF durmuş olabilir"
+  hipotezi bu ölçümle elendi.
+
+### 2. Bileşenleri uygulamayı açmadan görmek
+
+Geçici bir `onizleme.tsx` + `onizleme.html` yazıp **gerçek bileşenleri**
+uydurma proplarla `npm run dev`'de çizdir; tarayıcı bölmesinden iki temaya da
+bak. Masaüstü kilidini açmaya, uygulamayı derlemeye gerek yok.
+`PermMenu` gibi IPC isteyen bileşenler için `window.__TAURI_INTERNALS__.invoke`
+taklidi yeter. İşi bitince **silinir.**
+
+Böyle bulundu: kuyunun aydınlık temada okunmaması (1,09:1), düşünce
+kutusunun boş görünmesi (kap sıfır genişkeyken ölçülmüş `scrollHeight`),
+döküm satırlarının 30 px kayması.
+
+### 3. Tauri IPC gecikmesi
+
+Geçici bir komut + kurulumda arka plandan yayın; `eprintln!` ile stderr'e
+yaz, uygulamayı `timeout 60 npm run tauri dev > log 2>&1` ile koştur, logu
+oku. Yayın gecikmesi **0–1 ms** çıktı ve şüphe listesinden düştü.
+
+### 4. Rust katmanı Tauri olmadan
+
+`#[test] #[ignore = "elle ölçüm"]` bir test yazıp gerçek desenin aynısını
+kur (PTY aç, iş parçacığında oku, yaz, yankıyı zamanla), ölç, **sonra sil.**
+PTY + tmux yankısı 0,1–0,3 ms çıktı.
+
+```bash
+cargo test --lib pty::tests::olcum -- --ignored --nocapture
+```
+
+### Testin dişi var mı?
+
+Yeni bir regresyon testi yazınca **eski davranışı geri koyup düşmesini gör.**
+Denetim noktası testi böyle doğrulandı: eski `write_ctx` geri konunca
+`summary` `None` oluyor ve test kırmızıya dönüyor. Düşmeyen bir regresyon
+testi hiçbir şey sabitlemez.
 
 ## Çalışma tarzı
 
