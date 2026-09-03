@@ -15,6 +15,7 @@ import type {
   McpTool,
   ModelConfig,
   ModelInfo,
+  PendingPermission,
   Shots,
   TerminalsView,
   Turn,
@@ -124,6 +125,23 @@ export const sendMessage = (id: string, text: string) =>
  */
 export const cancelJob = (botId: string, jobId: string) =>
   call<string>("cancel_job", { botId, jobId });
+
+/**
+ * Bekleyen bir izin isteğine kullanıcının kararı.
+ *
+ * `false` dönmesi hata değil: istek bu arada düşmüş olabilir (koşum bitti ya
+ * da durduruldu). Arayüz kartı öylece kaldırır.
+ */
+export const answerPermission = (runId: string, allow: boolean) =>
+  call<boolean>("answer_permission", { runId, allow });
+
+/**
+ * Yanıt bekleyen izin istekleri.
+ *
+ * Arayüz yeniden kurulunca yayınlanmış olay kaçıyor; bu olmadan sorulan şey
+ * ekrandan siliniyor ve koşum sessizce bekliyordu.
+ */
+export const pendingPermissions = () => call<PendingPermission[]>("pending_permissions");
 
 /** Açılışta yarım kalmış işleri yeniden izlemeye alır. */
 export const resumeWatches = () => call<string[]>("resume_watches");

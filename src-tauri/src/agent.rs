@@ -19,6 +19,7 @@ use crate::jobs::JobMeta;
 use crate::model::{self, ChatRequest, Delta, Message, ModelError, ToolCall};
 use crate::parse::Event;
 use crate::runs;
+use crate::tools::{Grup, Izin};
 
 /// Bir koşumdaki en fazla model gidiş-dönüşü. Model araç çağırmayı bırakmazsa
 /// döngü sonsuza kadar dönerdi; bu tavan onu keser ve kullanıcıya söyler.
@@ -35,6 +36,12 @@ const KORUNAN_KOSUM: usize = 2;
 /// Arayüz bunu `err.*` sözlüğünden çözüp insan cümlesine çeviriyor.
 const OZET_BASARISIZ: &str = "#summaryFailed";
 
+/// Bütçe aşıldı ama özetleme yardımcı olamıyor: düşürülebilecek her şey zaten
+/// korunan pencerenin dışında ve önemsiz. Kullanıcının bütçeyi büyütmesi
+/// gerekiyor — bunu **söylemek** gerekir, yoksa her koşumda sessizce bağlam
+/// taşar ve kimse nedenini bilmez.
+const BUTCE_YETMIYOR: &str = "#budgetTooSmall";
+
 // ─────────────────────────── kayıt yüzeyi ───────────────────────────
 
 /// Koşumun dışa dokunan yüzü: olaylar, modelin mesajları, bağlam defteri.
@@ -48,11 +55,131 @@ pub trait Kayit: Send + Sync {
     fn ctx(&self, ctx: runs::RunCtx);
 }
 
+// ─────────────────────────── izin kapısı ───────────────────────────
+
+/// Kullanıcıya götürülen tek bir izin isteği.
+///
+/// `args` **okunur JSON olarak** taşınıyor: kullanıcı "bu bot `shell_run`
+/// çağırmak istiyor" değil, "`rm -rf /tmp/x` çalıştırmak istiyor" görmeli.
+/// Onaylanan şeyin ne olduğunu göstermeyen bir onay kutusu onay değildir.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IzinIstegi {
+    /// Araç çağrısının kimliği — arayüz isteği doğru baloncuğa bağlar.
+    pub id: String,
+    pub tool: String,
+    pub detail: String,
+    pub group: Grup,
+    pub args: String,
+}
+
+/// İzin isteğini kullanıcıya götüren kapı.
+///
+/// Metot **sync**: `dyn` ile `async fn` taşımamak için istek kaydedilip
+/// yanıtı bekleyecek kanal dönüyor, beklemek çağıranın işi. Böylece
+/// `agent.rs` Tauri'den bağımsız kalıyor ve döngü penceresiz sınanabiliyor.
+pub trait IzinKapisi: Send + Sync {
+    fn sor(&self, run_id: &str, istek: IzinIstegi) -> tokio::sync::oneshot::Receiver<bool>;
+}
+
+/// Bir koşumun izin ayarı: kip + kullanıcıya ulaşan kapı.
+#[derive(Clone, Copy)]
+pub struct Kapi<'a> {
+    pub kip: Izin,
+    /// Araç adından gruba. Boşsa ad listesine düşülür.
+    pub gruplar: &'a HashMap<String, Grup>,
+    /// `None` → hiç sorulmaz. Testler ve otomatik yollar böyle koşar.
+    pub kapi: Option<&'a dyn IzinKapisi>,
+    pub run_id: &'a str,
+}
+
+impl Kapi<'_> {
+    /// Testte: her şey serbest. Uygulamada kip her zaman botundan geliyor.
+    #[cfg(test)]
+    pub fn serbest() -> Kapi<'static> {
+        static BOS: std::sync::OnceLock<HashMap<String, Grup>> = std::sync::OnceLock::new();
+        Kapi {
+            kip: Izin::Serbest,
+            gruplar: BOS.get_or_init(HashMap::new),
+            kapi: None,
+            run_id: "",
+        }
+    }
+
+    fn grubu(&self, tool: &str) -> Grup {
+        // Listede yoksa ada bakılır; o da tanımıyorsa `write` — yani sorulur.
+        self.gruplar
+            .get(tool)
+            .copied()
+            .unwrap_or_else(|| crate::tools::grup(tool, None))
+    }
+
+    /// Bu çağrı çalışabilir mi? Gerekirse kullanıcıya sorar ve **bekler.**
+    async fn izin_var_mi(&self, tc: &ToolCall, detail: &str) -> bool {
+        let g = self.grubu(&tc.function.name);
+        if !self.kip.sorar(g) {
+            return true;
+        }
+        // Kip soruyor ama soracak kimse yok: reddetmek tek dürüst yanıt.
+        // Sessizce çalıştırmak, kullanıcının seçtiği kipi yok saymak olurdu.
+        let Some(kapi) = self.kapi else {
+            return false;
+        };
+        let rx = kapi.sor(
+            self.run_id,
+            IzinIstegi {
+                id: tc.id.clone(),
+                tool: tc.function.name.clone(),
+                detail: detail.to_string(),
+                group: g,
+                args: tc.function.arguments.clone(),
+            },
+        );
+        // Kanal yanıtsız kapanırsa (uygulama kapanıyor, koşum iptal edildi)
+        // izin verilmemiş sayılır.
+        rx.await.unwrap_or(false)
+    }
+}
+
 /// Uygulamadaki kayıt: `events.jsonl` + `job://chunk`.
 struct AppKayit {
     app: AppHandle,
     run_id: String,
     bot_id: String,
+}
+
+/// Uygulamadaki izin kapısı: isteği `Runs`'a yazar ve arayüze yayar.
+///
+/// Yanıt `answer_permission` komutuyla geliyor. Arayüz cevaplamazsa koşum
+/// **bekler** — zaman aşımı yok: sessizce reddetmek kullanıcıya "izin
+/// istemedim" yalanını söylerdi, sessizce kabul etmek daha kötüsünü.
+struct AppKapi {
+    app: AppHandle,
+    runs: Arc<Runs>,
+    bot_id: String,
+}
+
+impl IzinKapisi for AppKapi {
+    fn sor(&self, run_id: &str, istek: IzinIstegi) -> tokio::sync::oneshot::Receiver<bool> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let bekleyen = BekleyenIzin {
+            run_id: run_id.to_string(),
+            bot_id: self.bot_id.clone(),
+            istek: istek.clone(),
+        };
+        if let Ok(mut map) = self.runs.bekleyen.lock() {
+            map.insert(
+                run_id.to_string(),
+                Bekleyen {
+                    bot_id: self.bot_id.clone(),
+                    istek,
+                    yanit: tx,
+                },
+            );
+        }
+        let _ = tauri::Emitter::emit(&self.app, "job://permission", bekleyen);
+        rx
+    }
 }
 
 impl Kayit for AppKayit {
@@ -80,6 +207,28 @@ impl Kayit for AppKayit {
 #[derive(Default)]
 pub struct Runs {
     inner: Arc<Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>>,
+    /// Yanıt bekleyen izin istekleri: koşum kimliği → istek + yanıt kanalı.
+    ///
+    /// Koşum başına **en fazla bir** istek olur: araçlar sırayla yürütülüyor.
+    /// Kilit `std` çünkü hiçbir `await`'in üstünden geçirilmiyor.
+    bekleyen: Arc<std::sync::Mutex<HashMap<String, Bekleyen>>>,
+}
+
+/// Kullanıcının yanıtını bekleyen tek bir istek.
+struct Bekleyen {
+    bot_id: String,
+    istek: IzinIstegi,
+    yanit: tokio::sync::oneshot::Sender<bool>,
+}
+
+/// Arayüze giden bekleyen istek — `bot_id` ile birlikte.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BekleyenIzin {
+    pub run_id: String,
+    pub bot_id: String,
+    #[serde(flatten)]
+    pub istek: IzinIstegi,
 }
 
 impl Runs {
@@ -89,6 +238,59 @@ impl Runs {
 
     async fn cikar(&self, id: &str) {
         self.inner.lock().await.remove(id);
+        // Koşum bitti: bekleyen bir istek varsa kanalı düşür. `rx.await`
+        // hata alır ve izin **verilmemiş** sayılır.
+        self.izni_dus(id);
+    }
+
+    /// Bekleyen isteği haritadan çıkarır. Kanalı düşürmek reddetmek demek.
+    fn izni_dus(&self, run_id: &str) -> Option<Bekleyen> {
+        self.bekleyen.lock().ok()?.remove(run_id)
+    }
+
+    /// Testte bekleyen bir istek kurar ve döngünün beklediği kanalı döner.
+    #[cfg(test)]
+    fn test_bekleyen(&self, run_id: &str, tool: &str) -> tokio::sync::oneshot::Receiver<bool> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.bekleyen.lock().unwrap().insert(
+            run_id.to_string(),
+            Bekleyen {
+                bot_id: "b1".into(),
+                istek: IzinIstegi {
+                    id: "c1".into(),
+                    tool: tool.into(),
+                    detail: String::new(),
+                    group: Grup::Write,
+                    args: "{}".into(),
+                },
+                yanit: tx,
+            },
+        );
+        rx
+    }
+
+    /// Yanıt bekleyen bütün istekler. Arayüz yeniden kurulduğunda (kip
+    /// değişimi, HMR, uygulama açılışı) sorulan şeyin kaybolmaması için.
+    pub fn bekleyen_izinler(&self) -> Vec<BekleyenIzin> {
+        let Ok(map) = self.bekleyen.lock() else {
+            return Vec::new();
+        };
+        map.iter()
+            .map(|(run_id, b)| BekleyenIzin {
+                run_id: run_id.clone(),
+                bot_id: b.bot_id.clone(),
+                istek: b.istek.clone(),
+            })
+            .collect()
+    }
+
+    /// Kullanıcının kararını döngüye iletir. `false` dönerse bekleyen istek
+    /// yoktu — çift tıklama ya da koşum bu arada bitmiş demek.
+    pub fn izni_yanitla(&self, run_id: &str, ver: bool) -> bool {
+        match self.izni_dus(run_id) {
+            Some(b) => b.yanit.send(ver).is_ok(),
+            None => false,
+        }
     }
 
     /// Koşumu keser. `true` dönerse gerçekten süren bir iş durduruldu.
@@ -97,6 +299,9 @@ impl Runs {
     /// Kabul edilen davranış; alternatifi her araç çağrısını iptal edilebilir
     /// yapmaktı ve rmcp bunu vermiyor.
     pub async fn cancel(&self, app: &AppHandle, run_id: &str, bot_id: &str) -> bool {
+        // Önce bekleyen izin: kanal düşünce döngü `await`'ten reddedilmiş
+        // olarak çıkar, sonra `abort()` zaten hepsini keser.
+        self.izni_dus(run_id);
         let vardi = {
             let mut map = self.inner.lock().await;
             match map.remove(run_id) {
@@ -178,7 +383,17 @@ pub async fn baslat(
     let rs = runs_state.clone();
     let handle = tauri::async_runtime::spawn(async move {
         let bot_id = bot.id.clone();
-        kos(app.clone(), mcp, bot, rid.clone(), model_id, cfg.base_url, text).await;
+        kos(
+            app.clone(),
+            mcp,
+            rs.clone(),
+            bot,
+            rid.clone(),
+            model_id,
+            cfg.base_url,
+            text,
+        )
+        .await;
         rs.cikar(&rid).await;
         if let Some(m) = runs::read_meta(&rid) {
             crate::jobs::emit_status(&app, &rid, &bot_id, &m, true);
@@ -193,9 +408,11 @@ pub async fn baslat(
 
 /// Koşumun dışını kurar: oturum olayı, araçlar, özetleme, bitiş, meta.
 /// Asıl tur döngüsü `tur_dongusu`'nde ve o **Tauri'yi hiç görmüyor**.
+#[allow(clippy::too_many_arguments)]
 async fn kos(
     app: AppHandle,
     mcp: Arc<crate::mcp::McpState>,
+    runs_state: Arc<Runs>,
     bot: Bot,
     run_id: String,
     model_id: String,
@@ -231,9 +448,15 @@ async fn kos(
 
     // Araçlar. Filtre boşsa modele hiç araç gösterilmiyor — bu geçerli bir
     // yapılandırma (düz sohbet botu), hata değil.
-    let araclar = match arac_listesi(&mcp, &bot).await {
+    let (araclar, gruplar) = match arac_listesi(&mcp, &bot).await {
         Ok(a) => a,
         Err(e) => return kapat(false, 0, Some(e.to_string())),
+    };
+
+    let app_kapi = AppKapi {
+        app: app.clone(),
+        runs: runs_state,
+        bot_id: bot_id.clone(),
     };
 
     // Geçmiş + gerekiyorsa özetleme.
@@ -259,8 +482,14 @@ async fn kos(
             ozet = if basarisiz { None } else { Some(yeni_ozet) };
             gecmis_msg = korunan;
         }
-        // Özetleme koşumu düşürmez: tutmazsa geçmiş olduğu gibi gönderilir
-        // ve sunucu bağlamı taşırırsa hatayı kullanıcı görür.
+        else {
+            // Özetleme koşumu düşürmez: geçmiş olduğu gibi gönderilir. Ama
+            // sessiz kalmaz — bütçe aşılmış ve özetleme bunu çözemiyor.
+            kayit.olay(&[Event::Summary {
+                text: BUTCE_YETMIYOR.to_string(),
+                dropped: 0,
+            }]);
+        }
     }
 
     let sonuc = tur_dongusu(
@@ -273,6 +502,12 @@ async fn kos(
             araclar,
             gecmis: gecmis_msg,
             text,
+            kapi: Kapi {
+                kip: bot.permission,
+                gruplar: &gruplar,
+                kapi: Some(&app_kapi),
+                run_id: &run_id,
+            },
         },
     )
     .await;
@@ -291,6 +526,8 @@ pub struct Baglam<'a> {
     pub gecmis: Vec<Message>,
     /// Kullanıcının bu turda yazdığı.
     pub text: String,
+    /// İzin kipi ve kullanıcıya ulaşan kapı.
+    pub kapi: Kapi<'a>,
 }
 
 pub struct Sonuc {
@@ -308,6 +545,7 @@ pub async fn tur_dongusu(
     mcp: &crate::mcp::McpState,
     baglam: Baglam<'_>,
 ) -> Sonuc {
+    let baglam_kapi = baglam.kapi;
     let mut mesajlar = vec![Message::system(baglam.sistem)];
     mesajlar.extend(baglam.gecmis);
 
@@ -398,25 +636,40 @@ pub async fn tur_dongusu(
         // Araçlar **sırayla** yürütülür: `McpState` zaten tek mutex'in
         // arkasında ve sıralı yürütme hata ayıklamayı okunur tutuyor.
         for tc in &cagrilar {
-            let sonuc = arac_calistir(kayit, mcp, tc).await;
-            let msg = Message::tool(sonuc, tc.id.clone());
-            mesajlar.push(msg.clone());
-            kayit.mesaj(&[msg]);
+            let sonuc = arac_calistir(kayit, mcp, &baglam_kapi, tc).await;
+            let mut msg = Message::tool(sonuc.metin, tc.id.clone());
+            msg.images = sonuc.gorseller;
+
+            if !msg.images.is_empty() {
+                eski_gorselleri_dus(&mut mesajlar);
+            }
+
+            // Diske görüntüsüz gider: `messages.jsonl` base64 ile şişmemeli.
+            kayit.mesaj(&[msg.without_images()]);
+            mesajlar.push(msg);
         }
     }
 }
 
-/// Tek bir araç çağrısı: olayları yayar, sonucu modele verilecek metni döner.
-async fn arac_calistir(kayit: &dyn Kayit, mcp: &crate::mcp::McpState, tc: &ToolCall) -> String {
+/// Tek bir araç çağrısı: izni alır, olayları yayar, sonucu modele verilecek
+/// metni döner.
+async fn arac_calistir(
+    kayit: &dyn Kayit,
+    mcp: &crate::mcp::McpState,
+    kapi: &Kapi<'_>,
+    tc: &ToolCall,
+) -> crate::mcp::AracSonuc {
     let (args, arg_hata) = match tc.args() {
         Ok(a) => (a, None),
         Err(e) => (serde_json::Map::new(), Some(e)),
     };
+    let detail =
+        crate::parse::detail(&tc.function.name, &serde_json::Value::Object(args.clone()));
 
     kayit.olay(&[Event::ToolStart {
         id: tc.id.clone(),
         tool: tc.function.name.clone(),
-        detail: crate::parse::detail(&tc.function.name, &serde_json::Value::Object(args.clone())),
+        detail: detail.clone(),
     }]);
 
     // Modelin ürettiği JSON bozuksa araç hiç çağrılmaz; model kendi hatasını
@@ -426,21 +679,62 @@ async fn arac_calistir(kayit: &dyn Kayit, mcp: &crate::mcp::McpState, tc: &ToolC
             id: tc.id.clone(),
             ok: false,
         }]);
-        return format!("Hata: argümanlar okunamadı ({e}).");
+        return crate::mcp::AracSonuc {
+            metin: format!("Hata: argümanlar okunamadı ({e})."),
+            hata: true,
+            gorseller: Vec::new(),
+        };
     }
 
-    let (metin, arac_hatasi) = match mcp.call_for_agent(tc.function.name.clone(), args).await {
+    // **İzin, araç çağrılmadan önce.** `ToolStart` çoktan yayıldı: arayüz
+    // isteği o baloncuğa bağlıyor, kullanıcı neyin beklediğini görüyor.
+    if !kapi.izin_var_mi(tc, &detail).await {
+        kayit.olay(&[Event::ToolEnd {
+            id: tc.id.clone(),
+            ok: false,
+        }]);
+        // Model bunu bir arıza sanıp aynı çağrıyı tekrarlamasın diye
+        // reddin kullanıcıdan geldiği açıkça yazılıyor.
+        return crate::mcp::AracSonuc {
+            metin: "Kullanıcı bu aracı çalıştırma iznini vermedi. \
+                    Aynı çağrıyı tekrarlama; ya başka bir yol dene ya da \
+                    kullanıcıya neye ihtiyacın olduğunu söyle."
+                .to_string(),
+            hata: true,
+            gorseller: Vec::new(),
+        };
+    }
+
+    let sonuc = match mcp.call_for_agent(tc.function.name.clone(), args).await {
         Ok(r) => r,
         // Bağlantı hatası aracın hatası değil; yine de modele söylenir ki
         // döngü sessizce boş sonuçla devam etmesin.
-        Err(e) => (format!("Hata: araç çağrılamadı ({e})."), true),
+        Err(e) => crate::mcp::AracSonuc {
+            metin: format!("Hata: araç çağrılamadı ({e})."),
+            hata: true,
+            gorseller: Vec::new(),
+        },
     };
 
     kayit.olay(&[Event::ToolEnd {
         id: tc.id.clone(),
-        ok: !arac_hatasi,
+        ok: !sonuc.hata,
     }]);
-    metin
+    sonuc
+}
+
+/// **Görüntü yalnızca bir tur yaşar.** Yeni bir görüntü gelince öncekiler
+/// yer tutucuya dönüşür.
+///
+/// Ekran görüntüsü megabaytlarca base64; her turda hepsi yeniden
+/// gönderilseydi bağlam da bant genişliği de birkaç turda tükenirdi. Model
+/// **o anki** ekranı görmeli, ekranların tarihçesini değil.
+fn eski_gorselleri_dus(mesajlar: &mut [Message]) {
+    for eski in mesajlar.iter_mut() {
+        if !eski.images.is_empty() {
+            *eski = eski.without_images();
+        }
+    }
 }
 
 /// Yanıtsız kalmış araç çağrılarına sahte sonuç yazar.
@@ -477,21 +771,34 @@ fn yanitsizlar(msgs: &[Message]) -> Vec<String> {
 ///
 /// **33 araç küçük modeli boğar** — filtre konfor değil şart. Bot hiçbir araç
 /// seçmediyse MCP'ye hiç gidilmiyor.
+/// Botun filtresinden geçen araçlar **ve** her birinin grubu.
+///
+/// Grup burada, sunucunun kendi `read_only` ipucuyla birlikte belirleniyor;
+/// izin kapısı onu ikinci kez hesaplamıyor. Böylece arayüzde "masaüstü"
+/// görünen bir araç kapıda "yazma" sayılamaz.
 async fn arac_listesi(
     mcp: &crate::mcp::McpState,
     bot: &Bot,
-) -> Result<Vec<model::ToolDef>, ModelError> {
+) -> Result<(Vec<model::ToolDef>, HashMap<String, Grup>), ModelError> {
     if bot.tools.is_empty() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), HashMap::new()));
     }
     let hepsi = mcp
         .tools()
         .await
         .map_err(|e| ModelError::Protocol(e.to_string()))?;
 
-    Ok(hepsi
+    let secili: Vec<_> = hepsi
         .into_iter()
         .filter(|t| bot.tools.iter().any(|s| s == &t.name))
+        .collect();
+    let gruplar = secili
+        .iter()
+        .map(|t| (t.name.clone(), crate::tools::grup(&t.name, t.read_only)))
+        .collect();
+
+    let defler = secili
+        .into_iter()
         .map(|t| {
             // Şema bir nesne değilse model onu yutmaz; boş bir nesne şeması
             // araç yine de çağrılabilsin diye konuyor.
@@ -502,7 +809,87 @@ async fn arac_listesi(
             };
             model::ToolDef::new(t.name, t.description, sema)
         })
-        .collect())
+        .collect();
+    Ok((defler, gruplar))
+}
+
+/// Masaüstü araçları verilmiş bir bota kilidin **o anki** durumunu söyler.
+///
+/// **Neden gerekli:** kilitliyken pcbridge'in hata cümlesi "desktop_unlock
+/// bekliyor" diyor. Model bunu "çağırman gereken bir araç var" diye okuyup
+/// elinde olmayan aracı aramaya başlıyor — bir koşum bu yüzden 28 paragraf
+/// döndü. Durumu ve kimin açabileceğini baştan söylemek o döngüyü kesiyor.
+fn masaustu_notu(araclar: &[model::ToolDef]) -> String {
+    masaustu_notu_ile(araclar, &crate::desktop::read_state())
+}
+
+/// Kilit durumu dışarıdan verilir: iki dal da makinenin o anki hâline
+/// bağlı kalmadan sınanabilsin diye.
+fn masaustu_notu_ile(araclar: &[model::ToolDef], d: &crate::desktop::DesktopState) -> String {
+    let masaustu: Vec<&str> = araclar
+        .iter()
+        .map(|t| t.name())
+        .filter(|n| crate::tools::grup(n, None) == Grup::Desktop)
+        .collect();
+    if masaustu.is_empty() {
+        return String::new();
+    }
+
+    let acabilir = masaustu.contains(&"desktop_unlock");
+
+    let mut s = String::from("\nMasaüstü (ekran, fare, klavye) araçları ayrı bir izne bağlı. ");
+    if !d.known {
+        s.push_str("İzin durumu okunamıyor; masaüstü aracı hata verirse kullanıcıya söyle.\n");
+        return s;
+    }
+    if d.unlocked {
+        s.push_str(&format!(
+            "İzin şu an **açık**, yaklaşık {} dakika kaldı.\n",
+            d.remaining.max(0) / 60
+        ));
+        s.push_str(&masaustu_ipuclari());
+        return s;
+    }
+    s.push_str("İzin şu an **kapalı** ve kapalıyken hiçbir masaüstü aracı çalışmaz. ");
+    if acabilir {
+        s.push_str(
+            "Açmak için `desktop_unlock` çağır; süreyi ve gerekçeyi sen verirsin. \
+             Kullanıcının izin kipine göre bu çağrı onay isteyebilir.\n",
+        );
+        s.push_str(&masaustu_ipuclari());
+    } else {
+        s.push_str(
+            "`desktop_unlock` senin araç listende **yok**, yani izni sen açamazsın. \
+             Masaüstü işi istenirse kullanıcıdan izni açmasını iste ve bekle; \
+             başka bir yol arama.\n",
+        );
+    }
+    s
+}
+
+/// Masaüstünü süren bir modelin bu makinede tur tur öğrendiği şeyler.
+///
+/// **Hepsi ölçülmüş.** Bunlar yazılmadan bir koşum şunları yaşadı: izin
+/// ortasında düştü ve model şaşırdı; her eylem "kullanıcı aktif" diye
+/// reddedildi ve model gerekçeyi turlarca aradı; ölçekli ekran görüntüsünden
+/// koordinat hesaplamaya çalışıp yanlış pencereye tıkladı.
+fn masaustu_ipuclari() -> String {
+    String::from(
+        "\nBu makinede masaüstü hakkında bilinmesi gerekenler:\n\
+         - **İzin boşta kalınca düşer** (bu makinede ~90 saniye). Uzun bir işte \
+           izin ortada kaybolabilir; araç \"kilitli\" derse şaşırma, yeniden aç \
+           ve kaldığın yerden devam et.\n\
+         - **Kullanıcı klavye/fareyi kullanıyorsa eylem reddedilir.** Aracın \
+           böyle bir seçeneği varsa (`force`) onu kullan; her seferinde \
+           baştan denemek tur harcar.\n\
+         - **Koordinatlar bütün ekranlar için tektir**, monitör başına değil. \
+           Ekran görüntüsü küçültülmüş gelebilir; ondan piksel sayıp koordinat \
+           uydurma. Monitör konumlarını `screen_info` söyler.\n\
+         - **Önce `ui_dump` dene, sonra ekran görüntüsü.** Ağaç öğeyi adıyla \
+           verir ve ıskalamaz; koordinat tahmini son çare. Ağaç boş dönerse \
+           (bazı uygulamalar vermiyor) ekran görüntüsüne düş.\n\
+         - Bir uygulamayı açmak için `window_focus` kullan; kapalıysa açar.\n",
+    )
 }
 
 fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> String {
@@ -523,6 +910,15 @@ fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> S
             "Bilgiye ihtiyacın olduğunda tahmin etme, aracı çağır. \
              Araç sonucunu gördükten sonra kullanıcıya kendi cümlenle yanıt ver.\n",
         );
+        // **Olmayan aracı aramama kuralı.** Bu satır olmadan küçük bir model,
+        // listede bulamadığı bir aracı "başka bir yolu olmalı" diye tur tur
+        // aramaya başlıyor ve tur tavanına kadar dönüyor — ölçüldü.
+        s.push_str(
+            "Kullanabileceğin araçlar yalnızca sana verilen listedekiler. \
+             İhtiyacın olan bir araç listede yoksa onu başka bir yoldan \
+             aramaya çalışma: kullanıcıya neye ihtiyacın olduğunu söyle ve dur.\n",
+        );
+        s.push_str(&masaustu_notu(araclar));
     }
     if let Some(o) = ozet.filter(|o| !o.trim().is_empty()) {
         // Özet **sistem mesajının içinde**: kimi sunucu ikinci bir `system`
@@ -619,6 +1015,31 @@ async fn ozetle_in(
         return Err(ModelError::Protocol("düşecek mesaj yok".into()));
     }
 
+    // **Kazanç taban kontrolü — model çağrısından önce.**
+    //
+    // Ölçüldü (2026-09-03): bütçesi 8192 olan bir botta 30 mesajlık bir koşum
+    // 12.714 token'a çıktı, ama o koşum korunan pencerenin içindeydi ve
+    // dışarıda yalnızca iki satırlık bir selamlaşma kaldı. Özetleme yine de
+    // çalıştı: tam bir yerel model turu harcadı, kullanıcıyı bekletti,
+    // "Kullanıcının amacı: Selamlaşmak" diyen yanıltıcı bir özet üretti ve
+    // ~50 token kazandırdı. Sonraki koşumda aynısı yeniden olacaktı.
+    //
+    // Hiçbir şey kazandırmayan bir özetleme, özetlememekten kötüdür.
+    let dusecek_karakter: usize = gecmis_msg
+        .iter()
+        .take(dusen)
+        .map(|m| m.content.as_deref().map_or(0, str::len))
+        .sum();
+    // Kaba çeviri; kesin sayı yalnızca sunucudan gelir ve o da ancak istek
+    // gönderildikten sonra. Burada gereken kesinlik değil, büyüklük mertebesi.
+    let kazanc = dusecek_karakter / 4;
+    let taban = (bot.context_budget as usize / 10).max(512);
+    if kazanc < taban {
+        return Err(ModelError::Protocol(format!(
+            "özetleme kazancı düşük ({kazanc} ≈ token, taban {taban})"
+        )));
+    }
+
     let mut dokum = String::new();
     if let Some(o) = onceki_ozet {
         dokum.push_str("Daha önceki özet:\n");
@@ -682,7 +1103,7 @@ mod tests {
             effort: None,
             workdir: "/tmp/proje".into(),
             preamble: preamble.into(),
-            desktop: false,
+            permission: Izin::Sor,
             timeout: 1800,
             tools: vec!["fs_list".into()],
             context_budget: 8192,
@@ -714,6 +1135,30 @@ mod tests {
         }
         fn ctx(&self, ctx: runs::RunCtx) {
             self.ctxler.lock().unwrap().push(ctx);
+        }
+    }
+
+    /// Her isteği kaydeden ve önceden kararlaştırılmış yanıtı veren kapı.
+    struct SahteKapi {
+        ver: bool,
+        istekler: StdMutex<Vec<IzinIstegi>>,
+    }
+
+    impl SahteKapi {
+        fn yeni(ver: bool) -> Self {
+            SahteKapi {
+                ver,
+                istekler: StdMutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl IzinKapisi for SahteKapi {
+        fn sor(&self, _run_id: &str, istek: IzinIstegi) -> tokio::sync::oneshot::Receiver<bool> {
+            self.istekler.lock().unwrap().push(istek);
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let _ = tx.send(self.ver);
+            rx
         }
     }
 
@@ -998,6 +1443,7 @@ mod tests {
                 araclar: vec![arac("fs_list")],
                 gecmis: Vec::new(),
                 text: "kaç dosya var".into(),
+                kapi: Kapi::serbest(),
             },
         )
         .await;
@@ -1079,6 +1525,7 @@ mod tests {
                 araclar: vec![arac("fs_list")],
                 gecmis: Vec::new(),
                 text: "dur durak bilme".into(),
+                kapi: Kapi::serbest(),
             },
         )
         .await;
@@ -1109,6 +1556,7 @@ mod tests {
                 araclar: Vec::new(),
                 gecmis: Vec::new(),
                 text: "selam".into(),
+                kapi: Kapi::serbest(),
             },
         )
         .await;
@@ -1233,6 +1681,7 @@ mod tests {
                 araclar,
                 gecmis: Vec::new(),
                 text: "/tmp dizininde neler var?".into(),
+                kapi: Kapi::serbest(),
             },
         )
         .await;
@@ -1257,5 +1706,477 @@ mod tests {
             olaylar.iter().any(|e| matches!(e, Event::Text { .. })),
             "model sonunda kendi cümlesiyle yanıt vermeliydi"
         );
+    }
+
+    // ── izin kapısı ──
+
+    /// Modelin bir yazma aracı çağırdığı iki turluk akış.
+    fn yazma_cagiran_akis() -> Vec<String> {
+        let tur1 = concat!(
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c1\",",
+            "\"function\":{\"name\":\"shell_run\",\"arguments\":\"{\\\"command\\\":\\\"rm -rf /tmp/x\\\"}\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let tur2 = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Peki.\"}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        vec![tur1.to_string(), tur2.to_string()]
+    }
+
+    async fn kipli_kosum(kip: Izin, kapi: &SahteKapi) -> (Sonuc, Vec<Event>, Vec<Message>) {
+        let port = sirali_sunucu(yazma_cagiran_akis());
+        let base = format!("http://127.0.0.1:{port}/v1");
+        let mut gruplar = HashMap::new();
+        gruplar.insert("shell_run".to_string(), Grup::Write);
+
+        let kayit = VecKayit::default();
+        let sonuc = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "y".into(),
+                araclar: vec![arac("shell_run")],
+                gecmis: Vec::new(),
+                text: "sil".into(),
+                kapi: Kapi {
+                    kip,
+                    gruplar: &gruplar,
+                    kapi: Some(kapi),
+                    run_id: "local-test",
+                },
+            },
+        )
+        .await;
+        let olaylar = kayit.olaylar.lock().unwrap().clone();
+        let mesajlar = kayit.mesajlar.lock().unwrap().clone();
+        (sonuc, olaylar, mesajlar)
+    }
+
+    /// **Kipin asıl işi.** `Sor` kipinde yazma aracı kullanıcıya sorulur ve
+    /// reddedilirse **çalıştırılmaz**; koşum yine de düzgün biter.
+    #[tokio::test]
+    async fn sor_kipinde_reddedilen_arac_calismaz() {
+        let kapi = SahteKapi::yeni(false);
+        let (sonuc, olaylar, mesajlar) = kipli_kosum(Izin::Sor, &kapi).await;
+
+        let istekler = kapi.istekler.lock().unwrap().clone();
+        assert_eq!(istekler.len(), 1, "tam bir kez sorulmalı");
+        assert_eq!(istekler[0].tool, "shell_run");
+        assert_eq!(istekler[0].group, Grup::Write);
+        // Kullanıcı **ne onayladığını** görmeli: argümanlar isteğe konuyor.
+        assert!(
+            istekler[0].args.contains("rm -rf /tmp/x"),
+            "argümanlar isteğe taşınmalı: {}",
+            istekler[0].args
+        );
+
+        assert!(matches!(olaylar[1], Event::ToolEnd { ok: false, .. }));
+        let red = mesajlar
+            .iter()
+            .find(|m| m.role == "tool")
+            .expect("modele bir araç sonucu yazılmalı");
+        let metin = red.content.as_deref().unwrap();
+        assert!(
+            metin.contains("Kullanıcı") && metin.contains("vermedi"),
+            "reddin kullanıcıdan geldiği modele söylenmeli: {metin}"
+        );
+        assert!(
+            metin.contains("tekrarlama"),
+            "model aynı çağrıyı yeniden denememeli: {metin}"
+        );
+        // Reddedilmek arıza değil: model kendi cümlesiyle bitirebildi.
+        assert!(sonuc.ok, "koşum reddedilen araçla da bitmeli: {:?}", sonuc.hata);
+    }
+
+    /// `YazmaSerbest` kipinde yazma aracı **hiç sorulmadan** çalışır.
+    #[tokio::test]
+    async fn yazma_serbest_kipinde_sorulmaz() {
+        let kapi = SahteKapi::yeni(false);
+        let (sonuc, olaylar, _) = kipli_kosum(Izin::YazmaSerbest, &kapi).await;
+
+        assert!(kapi.istekler.lock().unwrap().is_empty(), "sorulmamalıydı");
+        // MCP bağlı değil, o yüzden araç hata veriyor — ama **reddedilmedi**:
+        // çağrı gerçekten yapıldı.
+        assert!(matches!(olaylar[1], Event::ToolEnd { ok: false, .. }));
+        assert!(sonuc.ok);
+    }
+
+    /// Kip soruyor ama soracak kimse yoksa **reddedilir**. Sessizce
+    /// çalıştırmak kullanıcının seçtiği kipi yok saymak olurdu.
+    #[tokio::test]
+    async fn kapisiz_sor_kipi_reddeder() {
+        let port = sirali_sunucu(yazma_cagiran_akis());
+        let base = format!("http://127.0.0.1:{port}/v1");
+        let mut gruplar = HashMap::new();
+        gruplar.insert("shell_run".to_string(), Grup::Write);
+
+        let kayit = VecKayit::default();
+        let sonuc = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "y".into(),
+                araclar: vec![arac("shell_run")],
+                gecmis: Vec::new(),
+                text: "sil".into(),
+                kapi: Kapi {
+                    kip: Izin::Sor,
+                    gruplar: &gruplar,
+                    kapi: None,
+                    run_id: "local-test",
+                },
+            },
+        )
+        .await;
+
+        assert!(sonuc.ok);
+        let mesajlar = kayit.mesajlar.lock().unwrap().clone();
+        let red = mesajlar.iter().find(|m| m.role == "tool").unwrap();
+        assert!(red.content.as_deref().unwrap().contains("vermedi"));
+    }
+
+    /// Grup haritasında olmayan bir araç **yazma** sayılır, yani sorulur.
+    /// Bilmediğimiz bir aracı zararsız varsaymak yanlış olur.
+    #[tokio::test]
+    async fn haritada_olmayan_arac_sorulur() {
+        let kapi = SahteKapi::yeni(true);
+        let port = sirali_sunucu(yazma_cagiran_akis());
+        let base = format!("http://127.0.0.1:{port}/v1");
+        let bos = HashMap::new();
+
+        let kayit = VecKayit::default();
+        let _ = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "y".into(),
+                araclar: vec![arac("shell_run")],
+                gecmis: Vec::new(),
+                text: "sil".into(),
+                kapi: Kapi {
+                    kip: Izin::Sor,
+                    gruplar: &bos,
+                    kapi: Some(&kapi),
+                    run_id: "local-test",
+                },
+            },
+        )
+        .await;
+
+        assert_eq!(kapi.istekler.lock().unwrap().len(), 1, "bilinmeyen araç sorulmalı");
+    }
+
+    // ── sistem promptu: olmayan aracı arama ──
+
+    #[test]
+    fn sistem_promptu_olmayan_araci_aramamayi_soyler() {
+        // Bir koşum bu satır olmadığı için 28 paragraf döndü: model listede
+        // bulamadığı `desktop_unlock`'u "başka bir yolu olmalı" diye aradı.
+        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None);
+        assert!(s.contains("yalnızca sana verilen listedekiler"), "{s}");
+        assert!(s.contains("kullanıcıya neye ihtiyacın olduğunu söyle"), "{s}");
+    }
+
+    #[test]
+    fn masaustu_araci_yoksa_kilit_notu_da_yok() {
+        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None);
+        assert!(!s.contains("Masaüstü"), "gereksiz not: {s}");
+    }
+
+    /// **Döngü gerçekten bekliyor mu?**
+    ///
+    /// Yanıtı hemen veren bir kapı, "sorup beklemek" ile "hemen reddetmek"
+    /// arasındaki farkı gösteremez. Burada yanıt başka bir görevden, gecikmeli
+    /// geliyor: döngü o süre boyunca duruyor, sonra araç **çalışıyor.**
+    #[tokio::test]
+    async fn dongu_yanit_gelene_kadar_bekler() {
+        /// İsteği kanalıyla birlikte dışarı veren kapı.
+        struct GecikmeliKapi {
+            gonder: StdMutex<Option<tokio::sync::oneshot::Sender<bool>>>,
+            soruldu: Arc<tokio::sync::Notify>,
+        }
+        impl IzinKapisi for GecikmeliKapi {
+            fn sor(&self, _r: &str, _i: IzinIstegi) -> tokio::sync::oneshot::Receiver<bool> {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                *self.gonder.lock().unwrap() = Some(tx);
+                self.soruldu.notify_one();
+                rx
+            }
+        }
+
+        let port = sirali_sunucu(yazma_cagiran_akis());
+        let base = format!("http://127.0.0.1:{port}/v1");
+        let mut gruplar = HashMap::new();
+        gruplar.insert("shell_run".to_string(), Grup::Write);
+
+        let soruldu = Arc::new(tokio::sync::Notify::new());
+        let kapi = Arc::new(GecikmeliKapi {
+            gonder: StdMutex::new(None),
+            soruldu: soruldu.clone(),
+        });
+
+        let k2 = kapi.clone();
+        let bekleyen = tokio::spawn(async move {
+            let kayit = VecKayit::default();
+            let sonuc = tur_dongusu(
+                &kayit,
+                &crate::mcp::McpState::default(),
+                Baglam {
+                    base_url: &base,
+                    model_id: "m",
+                    sistem: "y".into(),
+                    araclar: vec![arac("shell_run")],
+                    gecmis: Vec::new(),
+                    text: "sil".into(),
+                    kapi: Kapi {
+                        kip: Izin::Sor,
+                        gruplar: &gruplar,
+                        kapi: Some(k2.as_ref()),
+                        run_id: "local-bekle",
+                    },
+                },
+            )
+            .await;
+            let mesajlar = kayit.mesajlar.lock().unwrap().clone();
+            (sonuc, mesajlar)
+        });
+
+        // Soru gelene kadar bekle, sonra döngünün **gerçekten durduğunu**
+        // doğrula: yanıt vermeden koşum bitmemeli.
+        soruldu.notified().await;
+        assert!(!bekleyen.is_finished(), "yanıt verilmeden koşum bitmemeli");
+        tokio::task::yield_now().await;
+        assert!(!bekleyen.is_finished(), "döngü hâlâ beklemeli");
+
+        // Şimdi izin ver — döngü devam etmeli.
+        kapi.gonder.lock().unwrap().take().unwrap().send(true).unwrap();
+        let (sonuc, mesajlar) = bekleyen.await.unwrap();
+
+        assert!(sonuc.ok, "izin verilince koşum bitmeli: {:?}", sonuc.hata);
+        let arac_sonucu = mesajlar.iter().find(|m| m.role == "tool").unwrap();
+        let metin = arac_sonucu.content.as_deref().unwrap();
+        // İzin verildi: bu bir **red mesajı değil**, aracın kendi sonucu.
+        // (MCP bağlı olmadığı için hata metni, ama reddedilmedi.)
+        assert!(!metin.contains("vermedi"), "izin verilmişti: {metin}");
+        assert!(metin.contains("araç çağrılamadı"), "araç gerçekten çağrılmalı: {metin}");
+    }
+
+    /// **Kazandırmayan özetleme yapılmaz.**
+    ///
+    /// Gerçek kayıttan (2026-09-03): bütçesi 8192 olan bir bot 12.714 token'a
+    /// çıktı, ama büyük koşum korunan pencerenin içindeydi ve dışarıda
+    /// yalnızca iki satırlık bir selamlaşma kaldı. Eski kod yine de tam bir
+    /// yerel model turu harcayıp "Kullanıcının amacı: Selamlaşmak" diyen
+    /// yanıltıcı bir özet üretti ve ~50 token kazandırdı.
+    #[tokio::test]
+    async fn kazandirmayan_ozetleme_modele_hic_gitmez() {
+        let k = std::env::temp_dir().join(format!("pcbd-taban-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // Üç koşum: ikisi korunuyor, dışarıda kalan tek koşum küçücük.
+        let ids = sahte_kosumlar(&k, 3);
+        let mut b = bot("");
+        b.jobs = ids;
+        b.context_budget = 8192;
+        let (onceki, msgs) = gecmis_in(&k, &b);
+
+        // Adres kapalı bir port: model çağrısı yapılsaydı **bağlantı hatası**
+        // dönerdi. Taban çağrıdan önce kestiği için gerekçe onu söylemeli.
+        let rt_sonuc = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs).await;
+        let hata = rt_sonuc.unwrap_err().to_string();
+        assert!(hata.contains("kazancı düşük"), "taban devreye girmeliydi: {hata}");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    /// Düşecek metin gerçekten büyükse özetleme çalışır — taban bir duvar
+    /// değil, boşa çalışmayı kesen bir eşik.
+    #[tokio::test]
+    async fn kazanc_buyukse_ozetleme_denenir() {
+        let k = std::env::temp_dir().join(format!("pcbd-taban2-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // Düşecek koşumda tabanı aşacak kadar metin var.
+        let uzun = "x".repeat(40_000);
+        for (i, metin) in [uzun.as_str(), "kısa", "kısa"].iter().enumerate() {
+            runs::append_messages_in(
+                &k,
+                &format!("local-taban-{i:04}"),
+                &[
+                    Message::user((*metin).to_string()),
+                    Message::assistant("peki".into(), vec![]),
+                ],
+            );
+        }
+        let mut b = bot("");
+        b.jobs = (0..3).map(|i| format!("local-taban-{i:04}")).collect();
+        b.context_budget = 8192;
+        let (onceki, msgs) = gecmis_in(&k, &b);
+
+        // Taban geçildi ve model çağrısına gidildi. Sunucu kapalı olduğu için
+        // özet boş döndü — bu bir hata değil, belgelenmiş sert kırpma yolu:
+        // özetleme başarısız olsa da koşum ölmüyor.
+        let (ozet, dusen, korunan) = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs)
+            .await
+            .expect("taban geçilmeliydi, çağrı denenmeliydi");
+        assert!(ozet.is_empty(), "sunucu kapalıyken özet boş olmalı");
+        assert_eq!(dusen, 2, "uzun koşumun iki mesajı düşmeli");
+        assert_eq!(korunan.len(), 4, "son iki koşum korunmalı");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    #[test]
+    fn yeni_gorsel_gelince_eskiler_dusuyor() {
+        let gorselli = |metin: &str, id: &str| {
+            let mut m = Message::tool(metin.into(), id.into());
+            m.images = vec!["data:image/png;base64,AAAA".into()];
+            m
+        };
+        let mut msgs = vec![
+            Message::user("ekranı izle".into()),
+            gorselli("1. ekran", "c1"),
+            Message::assistant("bakıyorum".into(), vec![]),
+            gorselli("2. ekran", "c2"),
+        ];
+
+        eski_gorselleri_dus(&mut msgs);
+
+        // Hepsi düşer: çağıran bunu **yeni** mesajı listeye eklemeden önce
+        // yapıyor, yani ayakta kalan tek görüntü sonradan eklenen oluyor.
+        assert!(msgs.iter().all(|m| m.images.is_empty()), "{msgs:?}");
+        // Metin kaybolmuyor, yerine iz bırakılıyor.
+        let c = msgs[1].content.as_deref().unwrap();
+        assert!(c.contains("1. ekran") && c.contains("1 görüntü"), "{c}");
+        // Görüntüsüz mesajlara dokunulmuyor.
+        assert_eq!(msgs[0].content.as_deref(), Some("ekranı izle"));
+    }
+
+    // ── Runs: bekleyen izin durum makinesi ──
+
+    #[tokio::test]
+    async fn izin_yaniti_donguyu_cozer() {
+        let runs = Runs::default();
+        let rx = runs.test_bekleyen("local-1", "shell_run");
+
+        // Arayüz isteği görebilmeli.
+        let bekleyenler = runs.bekleyen_izinler();
+        assert_eq!(bekleyenler.len(), 1);
+        assert_eq!(bekleyenler[0].run_id, "local-1");
+        assert_eq!(bekleyenler[0].bot_id, "b1");
+        assert_eq!(bekleyenler[0].istek.tool, "shell_run");
+
+        assert!(runs.izni_yanitla("local-1", true));
+        assert!(rx.await.unwrap(), "döngüye izin verildiği ulaşmalı");
+
+        // İstek düştü: aynı yanıt ikinci kez gitmiyor.
+        assert!(!runs.izni_yanitla("local-1", true), "çift tıklama yutulmalı");
+        assert!(runs.bekleyen_izinler().is_empty());
+    }
+
+    /// **Koşum durdurulunca izin isteği düşer ve reddedilmiş sayılır.**
+    /// Kanal yanıtsız kapanırsa `rx.await` hata verir; döngü bunu `false`
+    /// okuyor. Aksi hâlde durdurulan bir koşum ekranda soru bırakırdı.
+    #[tokio::test]
+    async fn dusen_istek_reddedilmis_sayilir() {
+        let runs = Runs::default();
+        let rx = runs.test_bekleyen("local-2", "ui_click");
+
+        runs.izni_dus("local-2");
+        assert!(rx.await.is_err(), "kanal düşmeli");
+        assert!(runs.bekleyen_izinler().is_empty());
+    }
+
+    /// Koşum bitince `cikar` bekleyen isteği de temizler.
+    #[tokio::test]
+    async fn kosum_bitince_bekleyen_istek_temizlenir() {
+        let runs = Runs::default();
+        let rx = runs.test_bekleyen("local-3", "fs_write");
+        runs.cikar("local-3").await;
+        assert!(rx.await.is_err());
+        assert!(runs.bekleyen_izinler().is_empty());
+    }
+
+    /// Yanıt bekleyen istek yokken yanıtlamak sessizce `false` döner —
+    /// koşum bu arada bitmiş olabilir, bu bir hata değil.
+    #[tokio::test]
+    async fn olmayan_istegi_yanitlamak_hata_degil() {
+        let runs = Runs::default();
+        assert!(!runs.izni_yanitla("local-yok", true));
+    }
+
+    fn kilit(unlocked: bool) -> crate::desktop::DesktopState {
+        crate::desktop::DesktopState {
+            unlocked,
+            remaining: if unlocked { 600 } else { 0 },
+            hard_remaining: if unlocked { 3600 } else { 0 },
+            reason: None,
+            granted_at: None,
+            known: true,
+        }
+    }
+
+    #[test]
+    fn kilitliyken_kimin_acacagi_yazilir() {
+        // `desktop_unlock` listede **yok**: modele "sen açamazsın, iste ve
+        // bekle" denmeli. Bu satır olmadan model olmayan aracı arıyordu.
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(false));
+        assert!(s.contains("kapalı"), "{s}");
+        assert!(s.contains("araç listende **yok**"), "{s}");
+        assert!(s.contains("başka bir yol arama"), "{s}");
+
+        // Listede **var**: modele kendi açabileceği söylenmeli. Kullanıcının
+        // istediği otomasyon tam olarak bu.
+        let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &kilit(false));
+        assert!(s.contains("kapalı"), "{s}");
+        assert!(s.contains("`desktop_unlock` çağır"), "{s}");
+        assert!(!s.contains("listende **yok**"), "{s}");
+    }
+
+    #[test]
+    fn masaustu_ipuclari_iki_dalda_da_verilir() {
+        // Model bunları turlarca kendi keşfetmeye çalışıyordu: izin boşta
+        // düşüyor, kullanıcı aktifken eylem reddediliyor, koordinatlar
+        // ekran başına değil global.
+        for d in [kilit(true), kilit(false)] {
+            let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d);
+            assert!(s.contains("boşta kalınca düşer"), "{s}");
+            assert!(s.contains("force"), "{s}");
+            assert!(s.contains("bütün ekranlar için tektir"), "{s}");
+            assert!(s.contains("ui_dump"), "{s}");
+        }
+        // Masaüstü aracı olmayan bota bu bilgiler gereksiz.
+        assert!(!sistem_prompt(&bot(""), &[arac("fs_list")], None).contains("force"));
+    }
+
+    #[test]
+    fn izin_acikken_kalan_sure_yazilir() {
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(true));
+        assert!(s.contains("açık"), "{s}");
+        assert!(s.contains("10 dakika"), "600 sn → 10 dk: {s}");
+        assert!(
+            !s.contains("`desktop_unlock` çağır"),
+            "açıkken açma talimatı gereksiz: {s}"
+        );
+    }
+
+    #[test]
+    fn kilit_durumu_bilinmiyorsa_uydurulmaz() {
+        let mut d = kilit(false);
+        d.known = false;
+        let s = masaustu_notu_ile(&[arac("ui_click")], &d);
+        assert!(s.contains("okunamıyor"), "{s}");
+        assert!(!s.contains("kapalı"), "bilinmeyen durum 'kapalı' diye sunulmamalı: {s}");
     }
 }

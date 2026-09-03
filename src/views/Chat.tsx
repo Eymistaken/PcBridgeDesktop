@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "../ui/Avatar";
+import PermAsk from "../ui/PermAsk";
+import PermMenu from "../ui/PermMenu";
 import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
-import type { Bot, Turn } from "../lib/types";
+import type { Bot, PendingPermission, Permission, Turn } from "../lib/types";
 
 interface Props {
   bot: Bot;
@@ -17,6 +19,13 @@ interface Props {
   error?: string;
   onSend: (text: string) => void;
   onCancel: (jobId: string) => void;
+  /** Bu bot için yanıt bekleyen izin isteği — yoksa kart çizilmez. */
+  pending?: PendingPermission;
+  onAnswer: (runId: string, allow: boolean) => void;
+  /** Kip **botun kendi alanı**; menü onu doğrudan yazar. */
+  onPermission: (p: Permission) => void;
+  /** Kip menüsündeki sayaçtan bot ayarlarına geçiş. */
+  onEditBot: () => void;
 }
 
 export default function Chat({
@@ -27,6 +36,10 @@ export default function Chat({
   error,
   onSend,
   onCancel,
+  pending,
+  onAnswer,
+  onPermission,
+  onEditBot,
 }: Props) {
   const [text, setText] = useState("");
   const [ekler, setEkler] = useState<string[]>([]);
@@ -148,6 +161,14 @@ export default function Chat({
         </div>
       )}
 
+      {pending && (
+        <PermAsk
+          istek={pending}
+          botName={bot.name}
+          onAnswer={(allow) => onAnswer(pending.runId, allow)}
+        />
+      )}
+
       <div className="composer">
         {ekler.length > 0 && (
           <div className="ekler">
@@ -206,6 +227,15 @@ export default function Chat({
           >
             <IconSend />
           </button>
+        </div>
+        <div className="composer__foot">
+          <PermMenu
+            value={bot.permission}
+            botName={bot.name}
+            tools={bot.tools}
+            onChange={onPermission}
+            onEditTools={onEditBot}
+          />
         </div>
       </div>
     </>
@@ -300,7 +330,8 @@ function BlockView({ block }: { block: Block }) {
   // Bağlam özeti. Sessizce olmaz: özetleme fazladan bir model koşumu ve
   // geçmişin bir kısmının atılması demek — ikisi de görünür olmalı.
   if (block.t === "summary") {
-    const basarisiz = block.text === "#summaryFailed";
+    // İki durum da metin değil **kod** taşır ve `err.*` sözlüğünden çözülür.
+    const basarisiz = block.text.startsWith("#");
     return (
       <div style={{ display: "flex" }}>
         <div
@@ -314,9 +345,11 @@ function BlockView({ block }: { block: Block }) {
             borderBottomLeftRadius: 6,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
-            {t("chat.summarized", { n: block.dropped })}
-          </div>
+          {block.dropped > 0 && (
+            <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
+              {t("chat.summarized", { n: block.dropped })}
+            </div>
+          )}
           {basarisiz ? null : block.text}
           {basarisiz && (
             <div style={{ color: "var(--fail)", marginTop: 6 }}>{detailText(block.text)}</div>

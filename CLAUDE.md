@@ -1,15 +1,34 @@
 # CLAUDE.md — PcBridgeDesktop
 
-> **BU DEPODA İŞE BAŞLAMADAN ÖNCE `YAPILACAKLAR.md`'Yİ OKU.**
-> Sıradaki iş orada. [ASAMALAR.md](ASAMALAR.md)'deki **altı aşama da bitti**;
-> o dosya artık yapılacak iş listesi değil, bitmiş işin kaydı.
->
-> **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Kullanıcı açıkça istemeden
-> başlama; önce YAPILACAKLAR.md'deki "Karar verilmemiş: araçları kim tüketiyor"
-> başlığını okuyup A/B ayrımını sor.
->
-> `YAPILACAKLAR.md` **yerel bir dosyadır, depoda yoktur** — kullanıcının
-> isteğiyle izlenmiyor. Yoksa kullanıcıya söyle, uydurma.
+## ► "İşleme devam edelim" dendiğinde
+
+Kullanıcı bu depoda yeni bir oturum açıp *"devam edelim"* ya da benzeri bir şey
+derse **başka bir şey sormadan** şunu yap:
+
+1. **`YAPILACAKLAR.md`'yi oku.** Sıradaki iş orada, ayrıntısıyla ve ölçümüyle.
+   Dosya **yereldir, depoda yoktur** (kullanıcının isteğiyle izlenmiyor);
+   yoksa kullanıcıya söyle, **içeriğini uydurma**.
+2. **Sıradaki iş: [Arayüz turu](YAPILACAKLAR.md).** Kullanıcının 2026-09-03'te
+   verdiği altı başlık: besteci altına durum çubuğu (bağlam doluluğu · model ·
+   effort) · "compacting" bildirimi · katlanabilir düşünce kutusu · addan
+   türeyen bot rengi · **idle kapısını izin menüsünden kapatabilme** ·
+   tur tavanı. Ondan sonraki iş **Eklentiler (MCP kayıt defteri)** — ona
+   başlamadan "Karar verilmemiş: araçları kim tüketiyor" başlığını okuyup
+   A/B ayrımını sor.
+3. **Önce şu iki soruyu sor, sonra kod yaz.** İkisinin de kararı kullanıcıda
+   ve ikisi de yanlış seçilirse iş yeniden yapılır:
+   - **Bot rengi.** Bugünkü altı renk sabit açıklık/doygunlukta (L=62 C=0.14)
+     çünkü avatardaki harf okunabilir kalmalı. Kullanıcı "bütün RGB" istedi;
+     bu kontrast garantisini kırar. **Öneri:** addan türeyen şey **hue** olsun
+     (0-360), L ve C sabit kalsın.
+   - **Tur tavanı.** `MAX_TUR = 24` masaüstü işinde yetmiyor (ölçüldü).
+     Yükseltmek mi · bot başına ayar mı · tavanda "devam edeyim mi" diye
+     sormak mı?
+4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yedi aşama da bitti.**
+   O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
+   bitince oraya bir aşama olarak taşınır.
+5. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+   yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
 gerçek terminal ızgarası.
@@ -30,6 +49,14 @@ gerçek terminal ızgarası.
   kimliğinin önekine bakar: `local-…` bizim (`runs.rs`), `%Y%m%d-%H%M%S-…`
   pcbridge'in (`jobs.rs`). Kullanıcı arka ucu sonradan değiştirse bile eski
   geçmiş doğru yerden okunsun diye.
+- **Araç filtresi ile izin kipi ayrı sorulardır.** Filtre "bu bot neyi
+  görebilir" (`Bot.tools`), kip "gördüğünü sormadan yapabilir mi"
+  (`Bot.permission`). Grup listesi **`src-tauri/src/tools.rs`'te**, arayüzde
+  değil — kipi Rust uyguluyor ve ikinci bir liste ayrışırdı. Ön yüz grubu
+  `mcp_tools` yanıtındaki `group` alanından okur.
+- **Aynı işi yapan iki denetim koyma.** `Bot.desktop` bayrağı bir yıl boyunca
+  kaydedildi ve hiç okunmadı; kullanıcı ölü anahtarı açıp masaüstü izni
+  verdiğini sandı (Aşama 7). Bir alan ya okunur ya silinir.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"
@@ -96,6 +123,13 @@ işe yaramayan sayı ve rozet.
 
 Ayırıcı olarak çizgi değil **yüzey kademesi** kullanılır. Seçim yükselen
 yüzeyle anlatılır, renkli çubukla değil.
+
+**Yerel açılır liste (`<select>`) kullanılmaz.** GTK kendi kutusunu çiziyor:
+köşeli, kendi renkleri, kendi yazı tipi — üç köşe değerinin hiçbirine uymuyor.
+Yerine `src/ui/Picker.tsx`. Aynı gerekçeyle menüler de kendi bileşenimiz
+(`PermMenu`). Menü ve liste yüzeyleri `--field` → `--surface` kademesini
+kullanır; **`--surface-2`'ye ikincil metin taşıyan satırda çıkılmaz**
+(`--text-muted` orada 4.07:1).
 
 ### Tuvalden bilinçli iki sapma
 
@@ -352,6 +386,81 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
   "dosyanın ilk satırı ne" diye sorulursa `fs_read` ile **asla** bulamıyor ve
   denemeye devam ediyor. pcbridge'in işi, bu depodan dokunulmuyor — ama
   yerel modelle çalışırken bu davranışı bilmek gerekiyor.
+
+### İzin kipleri — 2026-09-03'te ölçüldü
+
+- **Kip botun alanı, oturumun değil.** Besteci menüsü de BotForge de aynı
+  `Bot.permission` alanını yazıyor. Ayrı bir oturum katmanı **bilinçli olarak
+  yok**: bu depoda aynı işi yapan iki denetimden biri bir kez ölü kaldı.
+- **Kip Rust'ta uygulanıyor** (`agent.rs::Kapi`), arayüzde değil. Arayüz
+  yalnızca soruyu gösteriyor; reddi de kabulü de döngü uyguluyor.
+- **`IzinKapisi` trait'i sync.** İsteği kaydedip `oneshot::Receiver` dönüyor,
+  beklemek çağıranın işi — `dyn` ile `async fn` taşımamak için. `agent.rs`
+  böylece Tauri'den bağımsız kaldı.
+- **Döngü gerçekten bekliyor**, hemen reddetmiyor: yanıtı başka bir görevden
+  gecikmeli veren bir test bunu sabitliyor
+  (`dongu_yanit_gelene_kadar_bekler`).
+- **Zaman aşımı yok.** Yanıtlanmayan istek koşumu süresiz bekletir; kenar
+  çubuğu "İznini bekliyor" yazar. Sessizce reddetmek "izin istemedim" yalanı,
+  sessizce kabul etmek daha kötüsü olurdu.
+- **Soracak kimse yoksa reddedilir.** `Kapi.kapi == None` iken `Sor` kipi
+  çalıştırmıyor; kullanıcının seçtiği kipi yok saymak olurdu.
+- **Reddedilen çağrı koşumu düşürmez.** Modele "kullanıcı izin vermedi, aynı
+  çağrıyı tekrarlama" yazılıyor; bu satır olmadan model aynı çağrıyı tur
+  tavanına kadar yineliyordu.
+- **`Bot.desktop` alanı kaldırıldı.** Diskteki eski `bots.json` onu hâlâ
+  taşıyor; serde `deny_unknown_fields` kullanmadığı için sessizce yutuluyor ve
+  ilk kayıtta düşüyor. Gerçek dosya üstünde ölçüldü.
+- **Sistem promptu iki satır kazandı:** "kullanabileceğin araçlar yalnızca
+  listedekiler" ve masaüstü kilidinin **o anki** durumu. İkincisi
+  `desktop::read_state()`'ten geliyor ve `desktop_unlock`'un botun listesinde
+  olup olmamasına göre farklı cümle kuruyor. Bu satırlar olmadan bir koşum 28
+  paragraf boyunca olmayan bir aracı aradı.
+
+### Masaüstü otomasyonu — 2026-09-03'te ölçüldü
+
+- **`MAX_TUR = 24` masaüstü işi için yetmiyor.** Gerçek bir görev
+  (`local-1a066f56b7d-a88e8c`: Chrome → YouTube → kanal ara → son video)
+  `#turnLimit` ile düştü ve hedefe **bir tıklama** kalmıştı. Dağılım:
+  6 `screen_capture` · 5 `keyboard` · 3 `mouse` · 2'şer `window_focus`,
+  `window_list`, `ui_dump` · **2 `shell_run sleep`** · 1 `desktop_unlock`.
+  Bak-uygula-bak döngüsü doğası gereği onlarca adım.
+- **"Makinenin başında birisi var" reddi `GetIdletime`'dan geliyor.**
+  `pcbridge/desktop/safety.py:73` D-Bus üstünden
+  `org.gnome.Mutter.IdleMonitor.GetIdletime` okuyor; **yazma** eylemlerinde
+  `idle_ms < idle_guard_seconds` (varsayılan **60 sn**) ise çağrı reddediliyor
+  (`safety.py:264`). `force=true` kapıyı atlıyor. **Reddedilen çağrı
+  `touch()` çağırmaz** — reddedilmek izni uzatmaz.
+  Sonuç: kullanıcı botu **izlerken** `idle_ms` neredeyse hiç 60 sn'yi
+  geçmiyor ve her yazma eylemi reddediliyor. Ölçülen koşumda model bunu
+  aşmak için `sleep 12` ve `sleep 30` çalıştırdı: 42 saniye, iki tur israfı.
+  `idle_guard_seconds` `config.toml`'da — **bu depodan değiştirilemez.**
+- **Model çok düşünüyor.** Aynı koşumda **1965 `thinking`** olayına karşılık
+  594 `text` ve 24 araç çağrısı. Düşünce hem bağlam hem ekran alanı yiyor.
+- **`ui_dump` Chrome'da boş dönüyor** (bilinen); model bunu iki turda
+  keşfediyor. Sistem promptu artık "ağaç boşsa ekran görüntüsüne düş" diyor.
+- **Ölçekli ekran görüntüsünden koordinat hesaplamak model için tuzak.**
+  Bir koşum yanlış pencereye tıkladı, birçoğunda uzun uzun ölçek çarpanı
+  hesabı yapıldı. `scale=0` (tam çözünürlük) ile isabet belirgin arttı.
+
+### Bağlam ve özetleme — 2026-09-03'te ölçüldü
+
+- **Kazandırmayan özetleme yapılmaz.** Bütçesi 8192 olan bir botta koşum
+  12.714 token'a çıktı, ama büyük koşum korunan pencerenin (son 2 koşum)
+  içindeydi ve dışarıda yalnızca iki satırlık bir selamlaşma kaldı. Eski kod
+  yine de tam bir yerel model turu harcayıp *"Kullanıcının amacı:
+  Selamlaşmak"* diyen yanıltıcı bir özet üretti ve ~50 token kazandırdı.
+  Artık **model çağrısından önce** kazanç tabanı var: düşecek metin bütçenin
+  %10'unu (en az ~512 token) bulmuyorsa özetleme hiç denenmiyor.
+- **Özetleme yardımcı olamıyorsa uygulama susmuyor.** `#budgetTooSmall`
+  olayı yayılıyor ve arayüz "bütçeyi büyüt" diyor. Eskiden sessizce her
+  koşumda bağlam taşıyordu.
+- **`promptTokens` görüntü taşıyan turda şişer.** 30 mesaj + 7 görüntü →
+  12.714. Görüntü diske yazılmadığı için sonraki koşumun geçmişi çok daha
+  küçük olur; bu sayıyı doluluk göstergesi olarak kullanan her şey bunu
+  hesaba katmalı.
+- **Görüntünün maliyeti mütevazı.** Görüntülü koşumlar 2301 ve 2776 token'da
+  kaldı; korkulan patlama olmadı (pcbridge görüntüyü küçültüyor).
 
 ### Kontrast tablosu — hesaplandı, tahmin değil
 

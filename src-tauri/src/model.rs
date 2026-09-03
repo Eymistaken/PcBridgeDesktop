@@ -11,6 +11,7 @@
 //! Akış `Response::chunk()` ile okunuyor; reqwest'in `stream` özelliği
 //! gerekmiyor (`response.rs:310` özellik kapısının dışında).
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -200,6 +201,16 @@ fn request(
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
     pub id: String,
+    /// Sunucunun yüklü olduğunu söylediği bağlam uzunluğu (token).
+    ///
+    /// **OpenAI standardında yok.** LM Studio'nun kendi `/api/v0/models`
+    /// ucundan geliyor; başka bir sunucuda `None` kalır ve arayüz bütçeyi
+    /// kendiliğinden doldurmaz. Uydurmaktansa boş bırakmak doğru.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_length: Option<u32>,
+    /// Model görüntü okuyabiliyor mu (LM Studio `type: "vlm"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vision: Option<bool>,
 }
 
 /// `GET /v1/models`. Bağlantıyı denemenin de yolu bu.
@@ -224,11 +235,69 @@ pub async fn models(base_url: &str) -> Result<Vec<ModelInfo>, ModelError> {
         .and_then(|d| d.as_array())
         .ok_or_else(|| ModelError::Protocol("yanıtta `data` dizisi yok".into()))?;
 
-    Ok(dizi
+    let mut modeller: Vec<ModelInfo> = dizi
         .iter()
         .filter_map(|m| m.get("id").and_then(|i| i.as_str()))
-        .map(|id| ModelInfo { id: id.to_string() })
-        .collect())
+        .map(|id| ModelInfo {
+            id: id.to_string(),
+            context_length: None,
+            vision: None,
+        })
+        .collect();
+
+    // LM Studio'nun ek ucu varsa bağlam uzunluğunu ve görme yeteneğini
+    // oradan zenginleştir. Yoksa liste olduğu gibi kalır.
+    if let Some(ek) = lmstudio_detay(base_url, key.as_deref()).await {
+        for m in &mut modeller {
+            if let Some((ctx, vlm)) = ek.get(&m.id) {
+                m.context_length = *ctx;
+                m.vision = Some(*vlm);
+            }
+        }
+    }
+    Ok(modeller)
+}
+
+/// LM Studio'nun `/api/v0/models` ucu: `loaded_context_length`,
+/// `max_context_length`, `type: "vlm"`.
+///
+/// **Standart dışı ve isteğe bağlı.** Uç yoksa ya da biçim değiştiyse `None`
+/// dönüp sessizce vazgeçiliyor; model listesi bundan etkilenmiyor.
+async fn lmstudio_detay(
+    base_url: &str,
+    key: Option<&str>,
+) -> Option<HashMap<String, (Option<u32>, bool)>> {
+    // Adres `…/v1` ile bitiyor; v0 ucu kardeşi değil, kökün altında.
+    let kok = normalize(base_url);
+    let kok = kok.strip_suffix("/v1").unwrap_or(&kok);
+    let url = format!("{kok}/api/v0/models");
+
+    let mut req = client().get(&url).timeout(PROBE_TIMEOUT);
+    if let Some(k) = key {
+        req = req.bearer_auth(k);
+    }
+    let res = req.send().await.ok()?;
+    if !res.status().is_success() {
+        return None;
+    }
+    let v: serde_json::Value = res.json().await.ok()?;
+
+    let mut out = HashMap::new();
+    for m in v.get("data")?.as_array()? {
+        let Some(id) = m.get("id").and_then(|i| i.as_str()) else {
+            continue;
+        };
+        // Yüklü uzunluk gerçekte kullanılabilecek olan; tavan yalnızca
+        // model hiç yüklenmemişse anlamlı.
+        let ctx = m
+            .get("loaded_context_length")
+            .or_else(|| m.get("max_context_length"))
+            .and_then(|c| c.as_u64())
+            .and_then(|c| u32::try_from(c).ok());
+        let vlm = m.get("type").and_then(|t| t.as_str()) == Some("vlm");
+        out.insert(id.to_string(), (ctx, vlm));
+    }
+    Some(out)
 }
 
 // ─────────────────────────── sohbet tipleri ───────────────────────────
@@ -260,6 +329,11 @@ impl ToolDef {
                 parameters,
             },
         }
+    }
+
+    /// Aracın adı. Tel biçimi iç içe olduğu için tek satırlık erişim.
+    pub fn name(&self) -> &str {
+        &self.function.name
     }
 }
 
@@ -305,7 +379,7 @@ impl ToolCall {
 /// `content` `null` olabilir: araç çağıran bir `assistant` mesajında metin
 /// olmayabiliyor ve şartname alanı **nullable ama zorunlu** sayıyor, bu
 /// yüzden atlanmıyor, açıkça `null` yazılıyor.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Message {
     pub role: String,
     #[serde(default)]
@@ -315,6 +389,74 @@ pub struct Message {
     pub tool_calls: Vec<ToolCall>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
+    /// Araç sonucundan gelen görüntüler, `data:<mime>;base64,…` biçiminde.
+    ///
+    /// **Diske hiç yazılmaz** (`skip`): tek bir ekran görüntüsü megabaytlarca
+    /// base64 ve `messages.jsonl` onunla şişerdi. Görüntü yalnızca canlı
+    /// döngüde yaşıyor; kayda `#images` yer tutucusu gidiyor. Bedeli:
+    /// uygulama kapanınca eski ekran görüntüleri bağlamdan düşer.
+    #[serde(skip)]
+    pub images: Vec<String>,
+}
+
+/// Görüntü taşıyan bir mesaj tel üstünde `content`'i dizi olarak yazar; bu,
+/// o dizinin bir parçası.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum Parca<'a> {
+    #[serde(rename = "text")]
+    Text { text: &'a str },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: Url<'a> },
+}
+
+#[derive(Debug, Serialize)]
+struct Url<'a> {
+    url: &'a str,
+}
+
+/// **Elle yazılmış `Serialize`.** Görüntü varsa `content` dizi olur; yoksa
+/// alan alan aynı eski şekil. `Deserialize` türetilmiş hâlde kalıyor —
+/// diskten okunan mesajın görüntüsü zaten olmuyor.
+///
+/// Ölçüldü (2026-09-03): LM Studio görüntüyü **`tool` mesajının içinde**
+/// kabul ediyor, ayrı bir `user` mesajı gerekmiyor. Böylece araç
+/// çağrısı/sonucu eşleşmesi bozulmadan kalıyor.
+impl Serialize for Message {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let alan = 2
+            + usize::from(!self.tool_calls.is_empty())
+            + usize::from(self.tool_call_id.is_some());
+        let mut st = s.serialize_struct("Message", alan)?;
+        st.serialize_field("role", &self.role)?;
+
+        if self.images.is_empty() {
+            // **`content: null` bilerek yazılıyor.** Araç çağıran bir
+            // `assistant` mesajında OpenAI sözleşmesi alanı bekliyor; atlamak
+            // kimi sunucuda isteği bozuyor. Bir test bunu sabitliyor.
+            st.serialize_field("content", &self.content)?;
+        } else {
+            let mut parcalar: Vec<Parca<'_>> = Vec::with_capacity(self.images.len() + 1);
+            if let Some(t) = self.content.as_deref().filter(|t| !t.is_empty()) {
+                parcalar.push(Parca::Text { text: t });
+            }
+            for u in &self.images {
+                parcalar.push(Parca::ImageUrl {
+                    image_url: Url { url: u },
+                });
+            }
+            st.serialize_field("content", &parcalar)?;
+        }
+
+        if !self.tool_calls.is_empty() {
+            st.serialize_field("tool_calls", &self.tool_calls)?;
+        }
+        if let Some(id) = &self.tool_call_id {
+            st.serialize_field("tool_call_id", id)?;
+        }
+        st.end()
+    }
 }
 
 impl Message {
@@ -324,6 +466,7 @@ impl Message {
             content,
             tool_calls: Vec::new(),
             tool_call_id: None,
+            images: Vec::new(),
         }
     }
     pub fn system(content: String) -> Self {
@@ -343,6 +486,28 @@ impl Message {
     pub fn tool(content: String, tool_call_id: String) -> Self {
         let mut m = Message::yeni("tool", Some(content));
         m.tool_call_id = Some(tool_call_id);
+        m
+    }
+
+    /// Görüntüleri düşürülmüş kopya — diske yazılan ve geçmişte tutulan hâli.
+    ///
+    /// Metne kaç görüntünün düştüğü ekleniyor: model geçmişe baktığında
+    /// "orada bir ekran görüntüsü vardı ama artık yok" bilgisini görmeli,
+    /// yoksa hiç bakmadığını sanır.
+    pub fn without_images(&self) -> Self {
+        if self.images.is_empty() {
+            return self.clone();
+        }
+        let n = self.images.len();
+        let mut m = self.clone();
+        m.images.clear();
+        let onceki = m.content.take().unwrap_or_default();
+        let not = format!("[{n} görüntü — yalnızca alındığı turda görülebildi]");
+        m.content = Some(if onceki.is_empty() {
+            not
+        } else {
+            format!("{onceki}\n{not}")
+        });
         m
     }
 }
@@ -1066,4 +1231,85 @@ mod tests {
         let j = serde_json::to_string(&msgs[2]).unwrap();
         assert!(j.contains("\"content\":null"), "{j}");
     }
+
+    /// **Gerçek sunucuya karşı.** LM Studio'nun standart dışı `/api/v0/models`
+    /// ucundan bağlam uzunluğu ve görme yeteneği geliyor mu?
+    ///
+    /// ```text
+    /// cargo test --lib gercek_model_detayi -- --ignored --nocapture
+    /// ```
+    #[tokio::test]
+    #[ignore = "LM Studio ayakta olmalı"]
+    async fn gercek_model_detayi_baglam_uzunlugu_tasir() {
+        let base = std::env::var("PCBRIDGE_MODEL_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:1234/v1".into());
+        let modeller = models(&base).await.expect("model listesi alınamadı");
+        for m in &modeller {
+            eprintln!("{} · ctx={:?} · vision={:?}", m.id, m.context_length, m.vision);
+        }
+        let sohbet = modeller
+            .iter()
+            .find(|m| m.context_length.is_some_and(|c| c > 4096))
+            .expect("en az bir modelin bağlam uzunluğu gelmeliydi");
+        assert!(sohbet.vision.is_some(), "görme bilgisi de gelmeliydi");
+    }
+    #[test]
+    fn gorseller_content_i_diziye_cevirir() {
+        // Ölçüldü (2026-09-03): LM Studio görüntüyü `tool` mesajının içinde
+        // kabul ediyor; ayrı bir `user` mesajı gerekmiyor ve araç
+        // çağrısı/sonucu eşleşmesi bozulmuyor.
+        let mut m = Message::tool("ekran alındı".into(), "c1".into());
+        m.images = vec!["data:image/png;base64,AAAA".into()];
+
+        let v: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(v["role"], "tool");
+        assert_eq!(v["tool_call_id"], "c1");
+        let parcalar = v["content"].as_array().expect("content dizi olmalı");
+        assert_eq!(parcalar.len(), 2);
+        assert_eq!(parcalar[0]["type"], "text");
+        assert_eq!(parcalar[0]["text"], "ekran alındı");
+        assert_eq!(parcalar[1]["type"], "image_url");
+        assert_eq!(parcalar[1]["image_url"]["url"], "data:image/png;base64,AAAA");
+    }
+
+    #[test]
+    fn gorselsiz_mesaj_eski_sekli_koruyor() {
+        // Görüntü yoksa tel biçimi bir bit bile değişmemeli: eski koşumlar
+        // ve görme yeteneği olmayan sunucular aynı isteği almalı.
+        let m = Message::user("selam".into());
+        assert_eq!(
+            serde_json::to_string(&m).unwrap(),
+            r#"{"role":"user","content":"selam"}"#
+        );
+    }
+
+    #[test]
+    fn gorseller_diske_yazilmaz_ama_izi_kalir() {
+        let mut m = Message::tool("ekran alındı".into(), "c1".into());
+        m.images = vec![
+            "data:image/png;base64,AAAA".into(),
+            "data:image/png;base64,BBBB".into(),
+        ];
+
+        let temiz = m.without_images();
+        assert!(temiz.images.is_empty());
+        let j = serde_json::to_string(&temiz).unwrap();
+        assert!(!j.contains("base64"), "base64 diske sızmamalı: {j}");
+        // Model geçmişe bakınca "orada bir görüntü vardı" bilgisini görmeli,
+        // yoksa hiç bakmadığını sanır.
+        assert!(j.contains("2 görüntü"), "{j}");
+        assert!(j.contains("ekran alındı"), "önceki metin korunmalı: {j}");
+
+        let geri: Message = serde_json::from_str(&j).unwrap();
+        assert!(geri.images.is_empty());
+        assert_eq!(geri, temiz);
+    }
+
+    #[test]
+    fn gorselsiz_mesajda_without_images_hicbir_sey_eklemez() {
+        let m = Message::tool("iki dosya".into(), "c1".into());
+        assert_eq!(m.without_images(), m);
+    }
+
 }

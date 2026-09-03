@@ -63,6 +63,35 @@ export type Backend = "pcbridge-agent" | "yerel-model";
 
 export const BACKENDS: Backend[] = ["pcbridge-agent", "yerel-model"];
 
+/**
+ * Botun izin kipi: gördüğü aracı sormadan çalıştırabilir mi.
+ *
+ * Araç **filtresinden ayrı bir soru.** Filtre "bu bot neyi görebilir", kip
+ * "gördüğünü sormadan yapabilir mi" der. Okuma hiçbir kipte sorulmaz — onu
+ * filtre zaten karara bağladı.
+ *
+ * | Kip | Okuma | Yazma | Masaüstü |
+ * |---|---|---|---|
+ * | `sor` | serbest | sorar | sorar |
+ * | `yazma-serbest` | serbest | serbest | sorar |
+ * | `serbest` | serbest | serbest | serbest |
+ */
+export type Permission = "sor" | "yazma-serbest" | "serbest";
+
+export const PERMISSIONS: Permission[] = ["sor", "yazma-serbest", "serbest"];
+
+/**
+ * Her kipin **sorduğu** gruplar — Rust'taki `tools::Izin::sorar` ile birebir.
+ *
+ * Kararı bu tablo vermiyor; kipi Rust uyguluyor. Burası yalnızca arayüzün
+ * "bu kip neye uygulanıyor" diye anlatabilmesi için.
+ */
+export const SORAR: Record<Permission, ToolGroup[]> = {
+  sor: ["write", "desktop"],
+  "yazma-serbest": ["desktop"],
+  serbest: [],
+};
+
 export interface Bot {
   id: string;
   name: string;
@@ -73,7 +102,7 @@ export interface Bot {
   effort: string | null;
   workdir: string;
   preamble: string;
-  desktop: boolean;
+  permission: Permission;
   timeout: number;
   /** Modele gösterilen araçlar. **Boş = hiçbiri.** */
   tools: string[];
@@ -96,10 +125,34 @@ export interface BotDraft {
   effort: string | null;
   workdir: string;
   preamble: string;
-  desktop: boolean;
+  permission: Permission;
   timeout: number;
   tools: string[];
   contextBudget: number;
+}
+
+/**
+ * Kayıtlı bir bottan form taslağı.
+ *
+ * `updateBot` bir `BotDraft` bekliyor; bir `Bot`'u olduğu gibi yollamak
+ * çalışırdı (Rust bilinmeyen alanları yutuyor) ama hangi alanların gerçekten
+ * yazıldığı örtük kalırdı. Kip menüsü ile form aynı dönüşümü kullanıyor.
+ */
+export function botDraft(bot: Bot): BotDraft {
+  return {
+    name: bot.name,
+    avatar: bot.avatar,
+    agent: bot.agent,
+    backend: bot.backend,
+    model: bot.model,
+    effort: bot.effort,
+    workdir: bot.workdir,
+    preamble: bot.preamble,
+    permission: bot.permission,
+    timeout: bot.timeout,
+    tools: bot.tools,
+    contextBudget: bot.contextBudget,
+  };
 }
 
 // ────────────────────────────── model sunucusu ──────────────────────────────
@@ -112,6 +165,16 @@ export interface ModelConfig {
 
 export interface ModelInfo {
   id: string;
+  /**
+   * Sunucunun bildirdiği bağlam uzunluğu (token).
+   *
+   * **OpenAI standardında yok** — LM Studio'nun kendi `/api/v0/models`
+   * ucundan geliyor. Başka bir sunucuda gelmez; o zaman bütçe kendiliğinden
+   * doldurulmaz, kullanıcının yazdığı değer kalır.
+   */
+  contextLength?: number;
+  /** Model görüntü okuyabiliyor mu. */
+  vision?: boolean;
 }
 
 /** Bir MCP aracının modele anlatılabilecek hâli. */
@@ -119,8 +182,33 @@ export interface McpTool {
   name: string;
   description: string | null;
   inputSchema: unknown;
-  /** Sunucunun ipucu; vermiyorsa `null` ve arayüz kendi ad listesine düşer. */
+  /** Sunucunun ipucu; grup zaten bunu hesaba katıyor, burada yalnızca bilgi. */
   readOnly: boolean | null;
+  /** Aracın grubu — **Rust'ta** hesaplanır, kipi uygulayan yer orası. */
+  group: ToolGroup;
+}
+
+/** Araç filtresindeki üç grup. Rust'taki `tools::Grup` ile birebir. */
+export type ToolGroup = "read" | "write" | "desktop";
+
+export const TOOL_GROUPS: ToolGroup[] = ["read", "write", "desktop"];
+
+/**
+ * Yanıt bekleyen bir izin isteği.
+ *
+ * Koşum başına en fazla bir tane olur: araçlar sırayla yürütülüyor. Koşum
+ * kullanıcı yanıtlayana kadar **bekler**; zaman aşımı yok.
+ */
+export interface PendingPermission {
+  runId: string;
+  botId: string;
+  /** Araç çağrısının kimliği — `ToolStart` olayındaki `id` ile aynı. */
+  id: string;
+  tool: string;
+  detail: string;
+  group: ToolGroup;
+  /** Argümanların ham JSON'ı: kullanıcı **neyi** onayladığını görmeli. */
+  args: string;
 }
 
 // ─────────────────────────────── koşumlar ───────────────────────────────

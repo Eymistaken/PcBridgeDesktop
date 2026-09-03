@@ -9,7 +9,9 @@ import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
 import { IconRefresh } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
+import { botDraft } from "./lib/types";
 import {
+  answerPermission,
   botHistory,
   botSummaries,
   cancelJob,
@@ -18,12 +20,14 @@ import {
   desktopState as fetchDesktop,
   errorText,
   listBots,
+  pendingPermissions,
   refresh as refreshConn,
   resumeWatches,
   sendMessage,
   suggestAvatar,
   terminals as loadTerminals,
   tmuxKill,
+  updateBot,
 } from "./lib/ipc";
 import type {
   Avatar,
@@ -34,6 +38,8 @@ import type {
   ConnSnapshot,
   DesktopState,
   Mode,
+  PendingPermission,
+  Permission,
   StatusPayload,
   TerminalsView,
   Theme,
@@ -222,9 +228,47 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     };
   }, [selectedId]);
 
+  /**
+   * Yanıt bekleyen izin istekleri, koşum kimliğine göre.
+   *
+   * Açılışta ve her abonelik kurulumunda diskten değil **Rust'tan** okunuyor:
+   * arayüz yeniden kurulunca yayınlanmış olay kaçıyor ve kart ekrandan
+   * siliniyordu; koşum ise sessizce beklemeye devam ediyordu.
+   */
+  const [pending, setPending] = useState<PendingPermission[]>([]);
+
+  const izinYanitla = useCallback(async (runId: string, allow: boolean) => {
+    // Kart hemen kalksın: yanıt yolda ve iki kez tıklamanın anlamı yok.
+    setPending((p) => p.filter((x) => x.runId !== runId));
+    try {
+      await answerPermission(runId, allow);
+    } catch {
+      // İstek bu arada düşmüş olabilir (koşum bitti, durduruldu). Kart
+      // zaten kalktı; kullanıcıya söylenecek bir şey yok.
+    }
+  }, []);
+
+  /** Kip botun kendi alanı: menü onu doğrudan yazıyor, ayrı bir kopya yok. */
+  const kipDegistir = useCallback(
+    async (bot: Bot, permission: Permission) => {
+      if (bot.permission === permission) return;
+      try {
+        const yeni = await updateBot(bot.id, { ...botDraft(bot), permission });
+        setBots((prev) => prev.map((b) => (b.id === yeni.id ? yeni : b)));
+      } catch (e) {
+        setChatError(detailText(e));
+      }
+    },
+    [],
+  );
+
   // Canlı akış.
   useEffect(() => {
+    void pendingPermissions().then(setPending).catch(() => undefined);
     const abonelikler = [
+      listen<PendingPermission>("job://permission", (e) => {
+        setPending((p) => [...p.filter((x) => x.runId !== e.payload.runId), e.payload]);
+      }),
       listen<ChunkPayload>("job://chunk", (e) => {
         const p = e.payload;
         if (p.botId !== seciliRef.current) return;
@@ -241,7 +285,11 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             prev.map((t) => (t.jobId === p.jobId ? { ...t, meta: p.meta } : t)),
           );
         }
-        if (p.done) void ozetleriYukle();
+        if (p.done) {
+          // Koşum bitti: bekleyen isteği Rust zaten düşürdü, kart da kalkmalı.
+          setPending((q) => q.filter((x) => x.runId !== p.jobId));
+          void ozetleriYukle();
+        }
       }),
     ];
     return () => {
@@ -446,6 +494,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         onDelete={setSilinecek}
         refreshing={busyConn}
         connError={connError}
+        waiting={pending.map((p) => p.botId)}
       />
 
       <div className="main" key="agents">
@@ -462,6 +511,10 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             error={chatError}
             onSend={(t) => void gonder(t)}
             onCancel={(j) => void durdur(j)}
+            pending={pending.find((p) => p.botId === secili.id)}
+            onAnswer={(runId, allow) => void izinYanitla(runId, allow)}
+            onPermission={(p) => void kipDegistir(secili, p)}
+            onEditBot={() => setForge({ bot: secili, tone: secili.avatar })}
           />
         ) : (
           <>

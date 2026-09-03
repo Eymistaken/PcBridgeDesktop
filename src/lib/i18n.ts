@@ -246,6 +246,8 @@ const en: Record<string, string> = {
     "pcbridge starts a CLI agent. Tools come from that CLI's own MCP setup.",
   "forge.backend.yerel-model.hint":
     "The loop runs inside this app. Tools are handed to the model here, so nothing is installed on the model side.",
+  "forge.ctxTokens": "{n} context",
+  "forge.vision": "vision",
   "forge.pickModel": "Pick a model…",
   "forge.modelsFrom_one": "{n} model on the server",
   "forge.modelsFrom_other": "{n} models on the server",
@@ -254,6 +256,10 @@ const en: Record<string, string> = {
   "forge.toolGroup.read": "Read",
   "forge.toolGroup.write": "Write",
   "forge.toolGroup.desktop": "Desktop",
+  "forge.permGap":
+    "This mode runs {groups} tools without asking — but this bot has none of them.",
+  "forge.toolGroup.all": "Enable all",
+  "forge.toolGroup.none": "Turn all off",
   "forge.toolGroup.write.warn":
     "These change the machine. Give them only to a bot you trust with the text it reads.",
   "forge.toolGroup.desktop.warn":
@@ -272,9 +278,27 @@ const en: Record<string, string> = {
   "forge.chooseTitle": "Working directory",
   "forge.preamble": "Standing instruction · prepended to every prompt",
   "forge.preamblePlaceholder": "Answer in English. Never call something “working” unless you measured it.",
-  "forge.desktop": "Desktop permission",
-  "forge.desktopHint":
-    "When on, every run asks for desktop_unlock — virtual keyboard and mouse. It closes itself when the time runs out.",
+  "forge.permission": "Permission mode",
+  "perm.sor": "Ask every time",
+  "perm.yazma-serbest": "Allow writes",
+  "perm.serbest": "Never ask",
+  "perm.sor.hint":
+    "Every write and desktop tool asks before it runs. Reading never asks — the tool list already decided that.",
+  "perm.yazma-serbest.hint":
+    "Write tools run without asking. Screen, mouse, keyboard and the desktop lock still ask.",
+  "perm.serbest.hint":
+    "Nothing is asked. Every tool you gave this bot runs on its own, including the desktop ones.",
+  "perm.menu": "Permission mode for {name}",
+  "perm.editTools": "Edit tools",
+  "perm.toolsUnknown_one": "{n} tool",
+  "perm.toolsUnknown_other": "{n} tools",
+  "perm.ask.title": "{name} wants to run this",
+  "perm.ask.allow": "Allow",
+  "perm.ask.deny": "Deny",
+  "perm.ask.group.write": "Changes the machine",
+  "perm.ask.group.desktop": "Drives the screen, mouse and keyboard",
+  "perm.ask.waiting": "The run is waiting for your answer.",
+  "side.waitingPermission": "Waiting for your permission",
   "forge.cancel": "Cancel",
   "forge.save": "Save",
   "forge.saving": "Saving…",
@@ -393,6 +417,8 @@ const en: Record<string, string> = {
   "err.turnLimit": "The model kept calling tools and hit the turn limit.",
   "err.appClosed": "The app was closed while this run was going; a local run cannot be resumed.",
   "err.summaryFailed": "The summary could not be produced, so the oldest turns were dropped instead.",
+  "err.budgetTooSmall":
+    "The context budget is full and summarizing cannot help — the recent turns alone exceed it. Raise the budget in this bot's settings.",
 };
 
 const tr: Record<string, string> = {
@@ -549,6 +575,8 @@ const tr: Record<string, string> = {
     "Koşumu pcbridge bir CLI ajanıyla yürütür. Araçlar o CLI'nın kendi MCP yapılandırmasından gelir.",
   "forge.backend.yerel-model.hint":
     "Döngü bu uygulamanın içinde döner. Araçları modele uygulama verir; modelin tarafında hiçbir kurulum gerekmez.",
+  "forge.ctxTokens": "{n} bağlam",
+  "forge.vision": "görme",
   "forge.pickModel": "Bir model seç…",
   "forge.modelsFrom_one": "sunucuda {n} model",
   "forge.modelsFrom_other": "sunucuda {n} model",
@@ -557,6 +585,10 @@ const tr: Record<string, string> = {
   "forge.toolGroup.read": "Okuma",
   "forge.toolGroup.write": "Yazma",
   "forge.toolGroup.desktop": "Masaüstü",
+  "forge.permGap":
+    "Bu kip {groups} araçlarını sormadan çalıştırır — ama bu botta hiçbiri yok.",
+  "forge.toolGroup.all": "Hepsini aç",
+  "forge.toolGroup.none": "Hepsini kapat",
   "forge.toolGroup.write.warn":
     "Bunlar makineyi değiştirir. Yalnızca okuduğu metne güvendiğin bir bota ver.",
   "forge.toolGroup.desktop.warn":
@@ -575,9 +607,27 @@ const tr: Record<string, string> = {
   "forge.chooseTitle": "Çalışma dizini",
   "forge.preamble": "Kalıcı yönerge · her prompt'un başına eklenir",
   "forge.preamblePlaceholder": "Türkçe cevap ver. Ölçmediğin şeyi “çalışıyor” diye yazma.",
-  "forge.desktop": "Masaüstü izni",
-  "forge.desktopHint":
-    "Açılırsa her koşumda desktop_unlock istenir — sanal klavye ve fare. Süre dolunca kendiliğinden kapanır.",
+  "forge.permission": "İzin kipi",
+  "perm.sor": "Her seferinde sor",
+  "perm.yazma-serbest": "Yazma serbest",
+  "perm.serbest": "Hiç sorma",
+  "perm.sor.hint":
+    "Her yazma ve masaüstü aracı çalışmadan önce sorar. Okuma hiç sormaz — onu araç listesi zaten karara bağladı.",
+  "perm.yazma-serbest.hint":
+    "Yazma araçları sormadan çalışır. Ekran, fare, klavye ve masaüstü kilidi yine sorar.",
+  "perm.serbest.hint":
+    "Hiçbir şey sorulmaz. Bu bota verdiğin her araç, masaüstü olanlar dahil, kendi başına çalışır.",
+  "perm.menu": "{name} için izin kipi",
+  "perm.editTools": "Araçları düzenle",
+  "perm.toolsUnknown_one": "{n} araç",
+  "perm.toolsUnknown_other": "{n} araç",
+  "perm.ask.title": "{name} bunu çalıştırmak istiyor",
+  "perm.ask.allow": "İzin ver",
+  "perm.ask.deny": "Verme",
+  "perm.ask.group.write": "Makineyi değiştirir",
+  "perm.ask.group.desktop": "Ekranı, fareyi ve klavyeyi sürer",
+  "perm.ask.waiting": "Koşum yanıtını bekliyor.",
+  "side.waitingPermission": "İznini bekliyor",
   "forge.cancel": "Vazgeç",
   "forge.save": "Kaydet",
   "forge.saving": "Kaydediliyor…",
@@ -692,6 +742,8 @@ const tr: Record<string, string> = {
   "err.turnLimit": "Model araç çağırmayı bırakmadı ve tur sınırına ulaşıldı.",
   "err.appClosed": "Bu koşum sürerken uygulama kapandı; yerel koşum devam ettirilemiyor.",
   "err.summaryFailed": "Özet üretilemedi, bunun yerine en eski turlar düşürüldü.",
+  "err.budgetTooSmall":
+    "Bağlam bütçesi doldu ve özetleme bunu çözemiyor — yalnızca son turlar bile bütçeyi aşıyor. Botun ayarlarından bütçeyi büyüt.",
 };
 
 const MESSAGES: Record<Lang, Record<string, string>> = { en, tr };

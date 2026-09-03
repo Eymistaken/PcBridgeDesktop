@@ -69,6 +69,20 @@ pub struct Agent {
     pub note: Option<String>,
 }
 
+/// Ajan döngüsüne dönen araç sonucu.
+#[derive(Debug, Clone)]
+pub struct AracSonuc {
+    /// Modele metin olarak verilecek kısım.
+    pub metin: String,
+    /// Aracın **kendi** hatası. Bağlantı hatası değil; koşumu düşürmez.
+    pub hata: bool,
+    /// `data:<mime>;base64,…` biçiminde görüntüler.
+    pub gorseller: Vec<String>,
+}
+
+/// Tek bir araç sonucundan modele taşınacak en fazla görüntü.
+const MAX_GORSEL: usize = 4;
+
 /// Bir MCP aracının modele anlatılabilecek hâli.
 ///
 /// `read_only` sunucunun **ipucu**; pcbridge veriyorsa araç filtresinin
@@ -80,6 +94,10 @@ pub struct ToolDef {
     pub description: Option<String>,
     pub input_schema: serde_json::Value,
     pub read_only: Option<bool>,
+    /// Aracın grubu. **Burada hesaplanıyor**, arayüzde değil: kipi Rust
+    /// uyguluyor ve iki ayrı listenin ayrışması "arayüzde masaüstü yazıyordu
+    /// ama sormadan çalıştı" hatasına açık kapı bırakırdı.
+    pub group: crate::tools::Grup,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -363,13 +381,14 @@ impl Conn {
     /// 1. `is_error` yukarı fırlatılmaz. Aracın kendi hatası (dosya yok, komut
     ///    çöktü) modele geri verilmesi gereken bir **sonuçtur**; bağlantı
     ///    hatası gibi koşumu düşürmemeli.
-    /// 2. Görüntü blokları metne çevrilemediği için sayılıp yer tutucuya
-    ///    dönüşür — yerel modele görüntü göndermek ayrı bir hedef.
+    /// 2. Görüntü blokları **modele taşınır** (`data:` URL olarak), atılmaz.
+    ///    Görme yeteneği olmayan bir modelde bunlar sunucuda yok sayılır ya da
+    ///    hata verir; hangi modelin göreceğini bot yapılandırması belirler.
     async fn call_for_agent(
         &self,
         name: String,
         args: serde_json::Map<String, serde_json::Value>,
-    ) -> Result<(String, bool), ConnError> {
+    ) -> Result<AracSonuc, ConnError> {
         let mut params = CallToolRequestParams::new(name);
         if !args.is_empty() {
             params = params.with_arguments(args);
@@ -383,21 +402,33 @@ impl Conn {
         let hata = res.is_error.unwrap_or(false);
         let mut metin = scrub(extract_text(&res), &self.token);
 
-        let gorseller = res
+        let mut gorseller: Vec<String> = res
             .content
             .iter()
-            .filter(|c| matches!(c, ContentBlock::Image(_)))
-            .count();
-        if gorseller > 0 {
-            if !metin.is_empty() {
-                metin.push('\n');
-            }
-            metin.push_str(&format!("[{gorseller} görüntü — bu botta gösterilemiyor]"));
+            .filter_map(|c| match c {
+                ContentBlock::Image(img) => {
+                    Some(format!("data:{};base64,{}", img.mime_type, img.data))
+                }
+                _ => None,
+            })
+            .collect();
+
+        // **Tavan var.** Bir araç onlarca görüntü döndürürse bağlam tek
+        // hamlede taşar; sunucuya megabaytlarca base64 gitmeden kesiliyor.
+        let fazla = gorseller.len().saturating_sub(MAX_GORSEL);
+        gorseller.truncate(MAX_GORSEL);
+        if fazla > 0 {
+            metin.push_str(&format!("\n[{fazla} görüntü daha vardı, gönderilmedi]"));
         }
-        if metin.trim().is_empty() {
+
+        if metin.trim().is_empty() && gorseller.is_empty() {
             metin = "(araç boş yanıt döndürdü)".into();
         }
-        Ok((metin, hata))
+        Ok(AracSonuc {
+            metin,
+            hata,
+            gorseller,
+        })
     }
 
     /// Araçların adı, açıklaması ve girdi şeması. `snapshot()` bunu zaten
@@ -411,11 +442,16 @@ impl Conn {
             .map_err(|e| classify(&e, token))?;
         Ok(tools
             .into_iter()
-            .map(|t| ToolDef {
-                name: t.name.to_string(),
-                description: t.description.map(|d| d.to_string()),
-                input_schema: serde_json::Value::Object((*t.input_schema).clone()),
-                read_only: t.annotations.and_then(|a| a.read_only_hint),
+            .map(|t| {
+                let name = t.name.to_string();
+                let read_only = t.annotations.and_then(|a| a.read_only_hint);
+                ToolDef {
+                    group: crate::tools::grup(&name, read_only),
+                    name,
+                    description: t.description.map(|d| d.to_string()),
+                    input_schema: serde_json::Value::Object((*t.input_schema).clone()),
+                    read_only,
+                }
             })
             .collect())
     }
@@ -564,7 +600,7 @@ impl McpState {
         &self,
         name: String,
         args: serde_json::Map<String, serde_json::Value>,
-    ) -> Result<(String, bool), ConnError> {
+    ) -> Result<AracSonuc, ConnError> {
         let guard = self.inner.lock().await;
         let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
         conn.call_for_agent(name, args).await

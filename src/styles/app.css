@@ -169,6 +169,128 @@ input:focus {
   font-weight: 500;
 }
 
+/* Kip ile araç filtresi arasındaki boşluk — burada söylenip burada kapanıyor.
+ * Kip araç listesini kendiliğinden değiştirmiyor (33 araç küçük bir modeli
+ * boğuyor), ama eksiği sessizce de bırakmıyor. */
+.permgap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+}
+
+.permgap__metin {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+/* ── açılır liste ────────────────────────────────────────────────── */
+/*
+ * Yerel `<select>` yerine kendi listemiz: GTK'nın çizdiği kutu köşeli, kendi
+ * renkleriyle geliyor ve Nötr Kabuk'un üç köşe değerinin hiçbirine uymuyordu.
+ * `--surface-2` kullanılmıyor — `note` metni `--text-muted` ve orada 4.07:1.
+ */
+
+.picker {
+  position: relative;
+}
+
+.picker__dugme {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.picker__dugme:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.picker__dugme:disabled {
+  opacity: 0.55;
+}
+
+.picker__dugme > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker__pop {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.picker__sec {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: left;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.picker__sec:hover,
+.picker__sec[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.picker__tik {
+  flex: none;
+  width: 13px;
+  display: flex;
+  align-items: center;
+}
+
+.picker__ad {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker__not {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.picker__bos {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 /* ── araç filtresi ───────────────────────────────────────────────── */
 /*
  * Ayırıcı çizgi değil **yüzey kademesi**: gruplar `--field` üstünde duruyor.
@@ -201,16 +323,28 @@ input:focus {
   gap: 9px;
 }
 
-.toolset__hepsi {
+.toolset__ad {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
-.toolset__hepsi:hover,
-.toolset__hepsi[aria-pressed="true"] {
+/* On aracı birden açan eylem. Grup adının kendisi düğmeydi ve düğmeye
+ * benzemiyordu; kimse tıklamayınca kullanıcı araçları tek tek açtı. */
+.toolset__hepsi {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--surface);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.toolset__hepsi:hover {
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -668,6 +802,232 @@ pre.well {
   min-width: 0;
 }
 
+/* ── izin kipi menüsü ────────────────────────────────────────────── */
+/*
+ * Renk yok: seçim yükselen yüzeyle anlatılıyor. `--surface-2` bilinçli
+ * olarak kullanılmıyor — satırın ipucu metni `--text-muted` ve orada
+ * 4.07:1 ile AA'nın altında kalıyor. `--field` (5.64) ve `--surface`
+ * (5.12) ikisi de geçiyor.
+ */
+
+.permmenu {
+  position: relative;
+  align-self: flex-start;
+}
+
+.permmenu__dugme {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.permmenu__dugme:hover:not(:disabled),
+.permmenu__dugme[aria-expanded="true"] {
+  background: var(--field);
+  color: var(--text);
+}
+
+.permmenu__dugme:disabled {
+  opacity: 0.5;
+}
+
+.permmenu__dugme svg {
+  flex: none;
+  transition: transform 0.12s ease;
+}
+
+/* Bestecinin üstünde açılır: menü aşağı doğru açılsa pencerenin dışına
+ * taşardı — besteci zaten en altta. */
+.permmenu__pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+}
+
+.permmenu__sec {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
+  border-radius: 7px;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.permmenu__sec:hover {
+  background: var(--surface);
+}
+
+/* Seçim hover'dan **bir kademe yukarıda**: ikisi aynı yüzeyde olsaydı fare
+ * satırın üstündeyken hangisinin seçili olduğu görünmezdi. */
+.permmenu__sec[aria-checked="true"] {
+  background: var(--surface-2);
+}
+
+.permmenu__ikon {
+  flex: none;
+  width: 14px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.permmenu__sec[aria-checked="true"] .permmenu__ikon {
+  color: var(--text);
+}
+
+.permmenu__metin {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.permmenu__ad {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.permmenu__sec[aria-checked="true"] .permmenu__ad {
+  font-weight: 500;
+}
+
+.permmenu__ipucu {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* `--text-muted` `--surface-2` üstünde 4.07:1 — AA'nın altında. Seçili
+ * satırda ipucu `--text`'e yükseliyor (9.86:1). */
+.permmenu__sec[aria-checked="true"] .permmenu__ipucu {
+  color: var(--text);
+}
+
+/* Kipin **neye** uygulandığını gösteren satır.
+ *
+ * Menünün içinde ama bir kip değil: yüzeyi kademe olarak ayrılıyor, çizgiyle
+ * değil. Kip seçip erişimi ayrı bir yerden vermek gerektiğini burada
+ * öğrenmek, bir koşumu boşa harcadıktan sonra öğrenmekten iyi. */
+.permmenu__filtre {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 3px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: var(--surface);
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.permmenu__filtre:hover {
+  background: var(--surface-2);
+}
+
+.permmenu__sayac {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+/* Sıfır araçlı grup **vurgulanır**, soluklaştırılmaz: kipin o grupta
+ * hiçbir şeye uygulanmadığı, görülmesi gereken şeyin ta kendisi. */
+.permmenu__bos {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.permmenu__filtre:hover .permmenu__sayac {
+  color: var(--text);
+}
+
+.permmenu__duzenle {
+  flex: none;
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+/* ── bekleyen izin isteği ────────────────────────────────────────── */
+
+.permask {
+  flex: none;
+  padding: 12px 32px 0;
+}
+
+.permask__box {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--field);
+  min-width: 0;
+}
+
+.permask__ust {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Onaylanan şeyin kendisi — kuyuda, tam metin olarak. */
+.permask__kuyu {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  color: var(--text);
+  min-width: 0;
+}
+
+.permask__arac {
+  font-size: 12.5px;
+}
+
+.permask__args {
+  font-size: 11.5px;
+  line-height: 1.6;
+  /* Uzun argüman kesilmez: onaylanacak şeyin yarısını göstermek, hiç
+   * göstermemekten kötü. Kendi içinde kayar. */
+  max-height: 96px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.permask__alt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.permask {
+  animation: girisAsagi 0.2s ease both;
+}
+
 /* ── besteci ─────────────────────────────────────────────────────── */
 
 .composer {
@@ -711,6 +1071,13 @@ pre.well {
 
 .composer__text:focus {
   outline: none;
+}
+
+.composer__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px 0;
 }
 
 .composer__hint {

@@ -23,6 +23,14 @@ interface Props {
   onDelete: (bot: Bot) => void;
   refreshing: boolean;
   connError?: string;
+  /**
+   * İzin yanıtı bekleyen botların kimlikleri.
+   *
+   * **Gerekli:** bekleyen koşum süresiz bekliyor ve soru yalnızca o botun
+   * sohbetinde görünüyor. Başka bir bota bakan kullanıcı, sorulduğunu hiç
+   * göremeden koşumun asılı kalmasını izlerdi.
+   */
+  waiting: string[];
 }
 
 export default function Sidebar({
@@ -40,6 +48,7 @@ export default function Sidebar({
   onDelete,
   refreshing,
   connError,
+  waiting,
 }: Props) {
   const [query, setQuery] = useState("");
 
@@ -139,7 +148,9 @@ export default function Sidebar({
                   {s?.running && (
                     <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
                   )}
-                  <span className="row__sub">{altMetin(b, s)}</span>
+                  <span className="row__sub">
+                    {waiting.includes(b.id) ? t("side.waitingPermission") : altMetin(b, s)}
+                  </span>
                 </div>
               </div>
               {secili && (

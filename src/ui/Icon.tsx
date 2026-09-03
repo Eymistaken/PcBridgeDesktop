@@ -244,3 +244,29 @@ export function IconList({ size = 16, color = "var(--text-muted)", strokeWidth =
     strokeLinecap: "round",
   });
 }
+
+/**
+ * İzin kipi ikonları — üçü de 20px ızgarada, aynı çizgi kalınlığında.
+ *
+ * Kip **renkle değil biçimle** anlatılıyor: kalkan durur ve sorar, tik geçer,
+ * şimşek hiç durmaz. Renk yalnızca kimlikten ve durumdan gelir.
+ */
+
+/** `sor` — kalkan: her çağrıda önüne çıkar. */
+export function IconShield({ size = 14, color = "currentColor", strokeWidth = 1.5 }: IconProps) {
+  return svg(size, <path d="M10 2.5 4 5v4.5c0 3.4 2.4 6.5 6 8 3.6-1.5 6-4.6 6-8V5l-6-2.5Z" />, {
+    stroke: color,
+    strokeWidth,
+    strokeLinejoin: "round",
+  });
+}
+
+/** `serbest` — şimşek: hiç durmadan geçer. */
+export function IconBolt({ size = 14, color = "currentColor", strokeWidth = 1.5 }: IconProps) {
+  return svg(size, <path d="M11.5 2.5 5.5 11h4l-1 6.5L14.5 9h-4l1-6.5Z" />, {
+    stroke: color,
+    strokeWidth,
+    strokeLinejoin: "round",
+    strokeLinecap: "round",
+  });
+}

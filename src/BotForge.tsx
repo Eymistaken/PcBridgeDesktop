@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "./ui/Avatar";
+import Picker from "./ui/Picker";
 import { createBot, detailText, mcpTools, modelModels, updateBot } from "./lib/ipc";
 import { t } from "./lib/i18n";
-import { AVATARS, BACKENDS, avatarVar } from "./lib/types";
-import { TOOL_GROUPS, byGroup, groupOf, type ToolGroup } from "./lib/tools";
+import { AVATARS, BACKENDS, PERMISSIONS, SORAR, avatarVar } from "./lib/types";
+import { TOOL_GROUPS, byGroup, type ToolGroup } from "./lib/tools";
 import type {
   Agent,
   Avatar as Tone,
@@ -33,7 +34,9 @@ const BOS: Omit<BotDraft, "avatar" | "agent"> = {
   effort: null,
   workdir: "",
   preamble: "",
-  desktop: false,
+  // **En kısıtlayıcı kip başlangıç.** Yeni bir botun sessizce her şeyi
+  // sormadan yapması, kipi bir tercih değil bir sürprize çevirirdi.
+  permission: "sor",
   timeout: 1800,
   // **Boş başlar.** Bir bota araç vermek ayrı ve bilinçli bir eylem.
   tools: [],
@@ -66,6 +69,32 @@ export default function BotForge({
   const varsayilanKonuldu = useRef(false);
 
   const yerel = draft.backend === "yerel-model";
+
+  /**
+   * Model seçilince bağlam bütçesini sunucunun bildirdiği uzunluğa çeker.
+   *
+   * LM Studio'da modeli kaç token'a yüklediysen bütçe o oluyor; elle
+   * kopyalamak gereksiz bir adım ve yanlış yazılması kolay. **Yalnızca sunucu
+   * söylediyse** değişiyor — bilgi gelmezse kullanıcının yazdığı değer
+   * korunuyor, uydurulmuyor. Alan düzenlenebilir kalıyor.
+   */
+  function modelSec(id: string) {
+    const m = yerelModeller.find((x) => x.id === id);
+    setDraft((d) => ({
+      ...d,
+      model: id || null,
+      contextBudget: m?.contextLength ?? d.contextBudget,
+    }));
+  }
+
+  /** Seçenek satırının sağındaki ikincil bilgi. */
+  function modelNotu(m: ModelInfo): string | undefined {
+    const parcalar: string[] = [];
+    if (m.contextLength) parcalar.push(t("forge.ctxTokens", { n: kisaSayi(m.contextLength) }));
+    if (m.vision) parcalar.push(t("forge.vision"));
+    return parcalar.length > 0 ? parcalar.join(" · ") : undefined;
+  }
+
   const agent = agents.find((a) => a.id === draft.agent);
   const model = agent?.models.find((m) => m.id === draft.model) ?? null;
   const efforts = model?.efforts ?? [];
@@ -88,7 +117,7 @@ export default function BotForge({
         // kapalı. Bir bota yazma aracı vermek ayrı ve bilinçli bir eylem.
         if (!bot && !varsayilanKonuldu.current) {
           varsayilanKonuldu.current = true;
-          const okuma = a.filter((x) => groupOf(x) === "read").map((x) => x.name);
+          const okuma = a.filter((x) => x.group === "read").map((x) => x.name);
           setDraft((d) => (d.tools.length === 0 ? { ...d, tools: okuma } : d));
         }
       } catch (e) {
@@ -148,6 +177,21 @@ export default function BotForge({
   }
 
   const gruplar = byGroup(araclar);
+  /**
+   * Kipin **sormadığı** ama botun hiç aracının olmadığı gruplar.
+   *
+   * "Hiç sorma" seçip masaüstü aracı olmayan bir bottan masaüstü işi beklemek
+   * doğal bir yanlış anlama; iki kez oldu. Kip araç listesini **kendiliğinden
+   * değiştirmiyor** — 33 aracın tamamı küçük bir modeli boğuyor ve yalnızca
+   * okuyan, hiç sormayan bir bot meşru bir kurulum. Ama boşluk burada
+   * söyleniyor ve tek tıkla kapanıyor.
+   */
+  const bosSerbest = TOOL_GROUPS.filter(
+    (g) =>
+      !SORAR[draft.permission].includes(g) &&
+      gruplar[g].length > 0 &&
+      gruplar[g].every((x) => !draft.tools.includes(x.name)),
+  );
 
   function aracDegistir(ad: string, acik: boolean) {
     setDraft((d) => ({
@@ -271,27 +315,26 @@ export default function BotForge({
               <label className="lbl" htmlFor="bot-yerel-model">
                 {t("forge.model")}
               </label>
-              <div className="fld">
-                <select
-                  id="bot-yerel-model"
-                  className="mono"
-                  value={draft.model ?? ""}
-                  style={{ flexGrow: 1 }}
-                  onChange={(e) => setDraft({ ...draft, model: e.target.value || null })}
-                >
-                  <option value="">{t("forge.pickModel")}</option>
-                  {/* Kaydedilmiş model sunucuda görünmüyorsa yine de
-                      listelenir: seçim sessizce kaybolmamalı. */}
-                  {(draft.model && !yerelModeller.some((m) => m.id === draft.model)
+              <Picker
+                id="bot-yerel-model"
+                mono
+                value={draft.model ?? ""}
+                placeholder={t("forge.pickModel")}
+                ariaLabel={t("forge.model")}
+                options={
+                  /* Kaydedilmiş model sunucuda görünmüyorsa yine de
+                     listelenir: seçim sessizce kaybolmamalı. */
+                  (draft.model && !yerelModeller.some((m) => m.id === draft.model)
                     ? [{ id: draft.model }, ...yerelModeller]
                     : yerelModeller
-                  ).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  ).map((m) => ({
+                    value: m.id,
+                    label: m.id,
+                    note: modelNotu(m),
+                  }))
+                }
+                onChange={modelSec}
+              />
               <span className="muted" style={{ fontSize: 11.5 }}>
                 {aracHata ?? t("forge.modelsFrom", { n: yerelModeller.length })}
               </span>
@@ -319,20 +362,14 @@ export default function BotForge({
                 <label className="lbl" htmlFor="bot-model">
                   {t("forge.model")}
                 </label>
-                <div className="fld">
-                  <select
-                    id="bot-model"
-                    value={draft.model ?? ""}
-                    style={{ flexGrow: 1, fontWeight: 500 }}
-                    onChange={(e) => setDraft({ ...draft, model: e.target.value || null })}
-                  >
-                    {(agent?.models ?? []).map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Picker
+                  id="bot-model"
+                  value={draft.model ?? ""}
+                  placeholder={t("forge.pickModel")}
+                  ariaLabel={t("forge.model")}
+                  options={(agent?.models ?? []).map((m) => ({ value: m.id, label: m.id }))}
+                  onChange={(v) => setDraft({ ...draft, model: v || null })}
+                />
               </div>
             </div>
           )}
@@ -353,17 +390,25 @@ export default function BotForge({
                     return (
                       <div key={g} className="toolset__grup">
                         <div className="toolset__bas">
-                          <button
-                            type="button"
-                            className="toolset__hepsi"
-                            aria-pressed={secili === liste.length}
-                            onClick={() => grupDegistir(g, secili !== liste.length)}
-                          >
+                          {/* Grup adı **etiket**, düğme değil: tıklanınca on
+                              aracı birden açan bir başlık, düğmeye benzemediği
+                              için kimse tıklamıyordu. Eylem ayrı ve görünür. */}
+                          <span className="toolset__ad">
                             {t(`forge.toolGroup.${g}`)}
-                          </button>
+                          </span>
                           <span className="muted" style={{ fontSize: 11.5 }}>
                             {secili}/{liste.length}
                           </span>
+                          <div style={{ flexGrow: 1 }} />
+                          <button
+                            type="button"
+                            className="toolset__hepsi"
+                            onClick={() => grupDegistir(g, secili !== liste.length)}
+                          >
+                            {secili === liste.length
+                              ? t("forge.toolGroup.none")
+                              : t("forge.toolGroup.all")}
+                          </button>
                         </div>
                         {g !== "read" && (
                           <span className="muted" style={{ fontSize: 11.5 }}>
@@ -483,24 +528,39 @@ export default function BotForge({
             />
           </div>
 
-          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draft.desktop}
-              aria-label={t("forge.desktop")}
-              className="tgl"
-              data-on={draft.desktop ? "1" : undefined}
-              onClick={() => setDraft({ ...draft, desktop: !draft.desktop })}
-            >
-              <span />
-            </button>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("forge.desktop")}</span>
-              <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                {t("forge.desktopHint")}
-              </span>
+          <div className="grp">
+            <span className="lbl">{t("forge.permission")}</span>
+            <div className="seg" role="group" aria-label={t("forge.permission")}>
+              {PERMISSIONS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={draft.permission === k}
+                  onClick={() => setDraft({ ...draft, permission: k })}
+                >
+                  {t(`perm.${k}`)}
+                </button>
+              ))}
             </div>
+            <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
+              {t(`perm.${draft.permission}.hint`)}
+            </span>
+            {bosSerbest.length > 0 && (
+              <div className="permgap">
+                <span className="permgap__metin">
+                  {t("forge.permGap", {
+                    groups: bosSerbest.map((g) => t(`forge.toolGroup.${g}`)).join(", "),
+                  })}
+                </span>
+                <button
+                  type="button"
+                  className="toolset__hepsi"
+                  onClick={() => bosSerbest.forEach((g) => grupDegistir(g, true))}
+                >
+                  {t("forge.toolGroup.all")}
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -535,4 +595,10 @@ export default function BotForge({
       </div>
     </div>
   );
+}
+
+/** `100096` → `100K`. Seçenek satırı dar; tam sayı bütçe alanında zaten var. */
+function kisaSayi(n: number): string {
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(n);
 }

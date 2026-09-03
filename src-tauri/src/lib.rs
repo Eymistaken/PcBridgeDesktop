@@ -8,6 +8,7 @@ mod parse;
 mod pty;
 mod runs;
 mod secrets;
+mod tools;
 
 use agent::Runs;
 use bots::{Backend, Bot, BotDraft, BotError};
@@ -259,6 +260,30 @@ async fn cancel_job(
     state.job_cancel(job_id).await
 }
 
+/// Bekleyen bir izin isteğine kullanıcının yanıtı.
+///
+/// `false` dönmesi hata değil: istek bu arada düşmüş olabilir (koşum bitti,
+/// durduruldu, uygulama kapanıyor). Arayüz kartı öylece kaldırır.
+#[tauri::command]
+async fn answer_permission(
+    runs_state: tauri::State<'_, Arc<Runs>>,
+    run_id: String,
+    allow: bool,
+) -> Result<bool, ConnError> {
+    Ok(runs_state.izni_yanitla(&run_id, allow))
+}
+
+/// Yanıt bekleyen izin istekleri.
+///
+/// Arayüz yeniden kurulunca (kip değişimi, HMR) yayınlanmış olayı kaçırır;
+/// sorulan şey ekrandan silinip koşum sessizce beklerdi.
+#[tauri::command]
+async fn pending_permissions(
+    runs_state: tauri::State<'_, Arc<Runs>>,
+) -> Result<Vec<agent::BekleyenIzin>, ConnError> {
+    Ok(runs_state.bekleyen_izinler())
+}
+
 /// Uygulama açılışında yarım kalmış işleri yeniden izlemeye alır.
 #[tauri::command]
 async fn resume_watches(
@@ -502,6 +527,8 @@ pub fn run() {
             bot_summaries,
             send_message,
             cancel_job,
+            answer_permission,
+            pending_permissions,
             resume_watches,
             model_config,
             save_model_config,

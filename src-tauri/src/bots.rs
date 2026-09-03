@@ -13,6 +13,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::tools::Izin;
+
 /// Altı hazır ton. **Hex değil ad saklanır** — aynı ton koyu temada
 /// `#8D73D1`, aydınlıkta `#6A4FA9`; ham hex yazılsaydı bot aydınlık temada
 /// yanlış renkte çıkardı. Renk `var(--av-<ad>)` ile temadan çözülür.
@@ -76,8 +78,13 @@ pub struct Bot {
     pub workdir: String,
     #[serde(default)]
     pub preamble: String,
+    /// Bu botun izin kipi: gördüğü aracı sormadan çalıştırabilir mi.
+    ///
+    /// **Araç filtresinden ayrı bir soru.** Filtre "neyi görebilir", kip
+    /// "gördüğünü sormadan yapabilir mi" der. `default` şart: alanı olmayan
+    /// eski botlar `Sor`'a düşer, sessizce serbest kalmazlar.
     #[serde(default)]
-    pub desktop: bool,
+    pub permission: Izin,
     #[serde(default = "varsayilan_timeout")]
     pub timeout: u64,
     /// Bu botun modele gösterilen araçları. **Boş = hiçbiri.** 33 aracın
@@ -123,7 +130,7 @@ pub struct BotDraft {
     #[serde(default)]
     pub preamble: String,
     #[serde(default)]
-    pub desktop: bool,
+    pub permission: Izin,
     #[serde(default = "varsayilan_timeout")]
     pub timeout: u64,
     #[serde(default)]
@@ -255,7 +262,7 @@ pub fn create(draft: BotDraft) -> Result<Bot, BotError> {
         effort: dogrulanan.effort,
         workdir: dogrulanan.workdir,
         preamble: dogrulanan.preamble,
-        desktop: dogrulanan.desktop,
+        permission: dogrulanan.permission,
         timeout: dogrulanan.timeout,
         tools: dogrulanan.tools,
         context_budget: dogrulanan.context_budget,
@@ -290,7 +297,7 @@ pub fn update(id: &str, draft: BotDraft) -> Result<Bot, BotError> {
     bot.effort = d.effort;
     bot.workdir = d.workdir;
     bot.preamble = d.preamble;
-    bot.desktop = d.desktop;
+    bot.permission = d.permission;
     bot.timeout = d.timeout;
     bot.tools = d.tools;
     bot.context_budget = d.context_budget;
@@ -408,7 +415,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(bot.timeout, 1800);
-        assert!(!bot.desktop);
+        // Kipi olmayan eski bot **sormaya** düşer, serbeste değil.
+        assert_eq!(bot.permission, Izin::Sor);
         assert!(bot.jobs.is_empty());
         assert!(bot.session_id.is_none());
         // Arka uç alanı olmayan eski bot eski yolda kalır.
@@ -461,7 +469,7 @@ mod tests {
             effort: None,
             workdir: "/tmp".into(),
             preamble: String::new(),
-            desktop: false,
+            permission: Izin::Sor,
             timeout: 0,
             tools: Vec::new(),
             context_budget: 0,
@@ -496,7 +504,7 @@ mod tests {
             effort: None,
             workdir: "/kesinlikle/olmayan/dizin".into(),
             preamble: String::new(),
-            desktop: false,
+            permission: Izin::Sor,
             timeout: 0,
             tools: Vec::new(),
             context_budget: 0,
@@ -515,7 +523,7 @@ mod tests {
             effort: None,
             workdir: "/tmp".into(),
             preamble: String::new(),
-            desktop: false,
+            permission: Izin::Sor,
             timeout: 1800,
             tools: Vec::new(),
             context_budget: 0,

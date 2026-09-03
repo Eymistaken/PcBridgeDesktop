@@ -454,7 +454,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(kapanista_temizle_in(&k, &[id.clone()]), vec![id.clone()]);
+        assert_eq!(kapanista_temizle_in(&k, std::slice::from_ref(&id)), vec![id.clone()]);
 
         let (m, evs) = replay_in(&k, &id);
         assert!(m.bitti(), "kapatılan koşum bitmiş sayılmalı");
@@ -465,7 +465,7 @@ mod tests {
         ));
 
         // İkinci çağrı bir şey yapmamalı — koşum zaten kapalı.
-        assert!(kapanista_temizle_in(&k, &[id.clone()]).is_empty());
+        assert!(kapanista_temizle_in(&k, std::slice::from_ref(&id)).is_empty());
 
         // pcbridge kimliği hiç ellenmez.
         assert!(kapanista_temizle_in(&k, &["20260902-231500-a1b2c3".to_string()]).is_empty());

@@ -379,6 +379,111 @@ ve kullanıcı uykuda olduğu için tetiklenmedi. Çağrının kodu değişmedi.
 
 ---
 
+## Aşama 7 — İzin kipleri ✅ BİTTİ
+
+*2026-09-03.* Aşama 6'dan sonra kullanıcı bir bota masaüstü işi verdi ve bot
+28 paragraf boyunca olmayan bir aracı aradı. Teşhis üç katmanlıydı ve **üçü de
+uygulamanın hatasıydı**, modelin değil.
+
+### Bulunan üç hata
+
+1. **Ölü anahtar.** BotForge'da "Masaüstü izni" adında bir anahtar vardı,
+   `bots.json`'a `desktop: true` yazıyordu ve **hiçbir yerde okunmuyordu**
+   (`grep`: yazan üç satır, okuyan sıfır). İpucu metni de yalan söylüyordu:
+   "Açılırsa her koşumda desktop_unlock istenir" — öyle bir kod yoktu.
+   Gerçek denetim araç filtresindeki Masaüstü grubuydu ve kapalı kalmıştı.
+   Aşama 6 planı bunu *"alan ya filtreye bağlanır ya kaldırılır — ikisinden
+   biri, sessizce durmaz"* diye not düşmüş, sonra sessizce durmuştu.
+2. **Sistem promptu olmayan aracı aramayı yasaklamıyordu.** Model listede
+   bulamadığı `desktop_unlock`'u "başka bir yolu olmalı" diye aradı.
+3. **Modele kilit durumu hiç söylenmiyordu.** pcbridge'in hata cümlesi
+   "desktop_unlock bekliyor" diyor; model bunu "çağırman gereken bir araç
+   var" diye okuyor. Döngünün kaynağı tam olarak o cümleydi.
+
+### Kullanıcının kararı
+
+*"Botun masaüstü iznini açmasına benim izin vermem fikri hoşuma gitmedi.
+Otomasyonu baltalıyor."* — Onay **her çağrıda kullanıcıya sormak** değil,
+**kip seçmek** olacak. Kip bot ayarlarından ve bestecinin altındaki menüden
+değiştirilebilir.
+
+### Kip seti — uygulamanın kendi grup sözlüğü
+
+| Kip | Okuma | Yazma | Masaüstü |
+|---|---|---|---|
+| `sor` **(varsayılan)** | serbest | **sorar** | **sorar** |
+| `yazma-serbest` | serbest | serbest | **sorar** |
+| `serbest` | serbest | serbest | serbest |
+
+Okuma **hiçbir kipte** sormaz: onu araç filtresi zaten karara bağladı.
+Filtre "bu bot neyi görebilir", kip "gördüğünü sormadan yapabilir mi" der.
+
+### Kurulan şey
+
+- **`tools.rs` (YENİ)** — grup listesi ve `Izin` kipi. Liste **Rust'a taşındı**;
+  `tools.ts`'teki ikinci kopya silindi ve ön yüz artık `mcp_tools` yanıtındaki
+  `group` alanını okuyor. İki listenin ayrışması "arayüzde masaüstü yazıyordu
+  ama sormadan çalıştı" hatasına açık kapıydı.
+- **`agent.rs::Kapi`** — araç çağrılmadan önceki izin kapısı. `IzinKapisi`
+  trait'i **sync**: isteği kaydedip yanıt kanalını dönüyor, beklemek çağıranın
+  işi. Böylece `agent.rs` Tauri'den bağımsız kaldı ve döngü penceresiz
+  sınanabiliyor.
+- **`Runs.bekleyen`** — koşum başına en fazla bir istek (araçlar sırayla
+  yürütülüyor). `answer_permission` ve `pending_permissions` komutları.
+- **`PermMenu` + `PermAsk`** — bestecinin altındaki kip menüsü ve bekleyen
+  istek kartı. Kart **argümanları tam metin gösteriyor**: ne onaylandığını
+  göstermeyen bir onay kutusu onay değildir.
+- **Kenar çubuğunda "İznini bekliyor"** — bekleyen koşum süresiz bekliyor ve
+  soru yalnızca o botun sohbetinde görünüyor; başka bota bakan kullanıcı
+  koşumun neden asılı kaldığını göremezdi.
+
+### Ölçülenler
+
+- **Döngü gerçekten bekliyor.** `dongu_yanit_gelene_kadar_bekler` testi yanıtı
+  başka bir görevden gecikmeli veriyor; koşum o süre boyunca duruyor, izin
+  gelince araç **çalışıyor**. Hemen yanıt veren bir kapı bu farkı gösteremezdi.
+- **Reddedilen çağrı koşumu düşürmüyor.** Modele "kullanıcı izin vermedi,
+  aynı çağrıyı tekrarlama" yazılıyor ve model kendi cümlesiyle bitirebiliyor.
+- **Kip soruyor ama soracak kimse yoksa reddediliyor.** Sessizce çalıştırmak
+  kullanıcının seçtiği kipi yok saymak olurdu.
+- **Koşum durdurulunca istek düşüyor** ve kanal kapandığı için reddedilmiş
+  sayılıyor; ekranda asılı soru kalmıyor.
+- **Diskteki gerçek `bots.json` sağlam okundu.** `desktop` alanı serde
+  tarafından yutuluyor, `permission` `sor`'a düşüyor. 1 bot, göç sağlam.
+- 96 Rust testi, 0 clippy uyarısı, 282 i18n anahtarı iki sözlükte de tam.
+
+### Aynı gün eklenenler
+
+Kullanıcı izin kiplerini denerken çıkan üç eksik, aynı gün kapatıldı:
+
+- **Görüntü artık modele gidiyor.** `call_for_agent` görüntü bloklarını sayıp
+  atmak yerine `data:<mime>;base64,…` olarak taşıyor. Ölçüldü: LM Studio
+  görüntüyü **`tool` mesajının içinde** kabul ediyor (ayrı bir `user` mesajı
+  gerekmiyor) ve Ornith `#0078DC`'yi "Mavi" diye okudu. Görüntü **tek tur
+  yaşıyor** ve **diske yazılmıyor** — biri bağlamı, öteki `messages.jsonl`'i
+  korur. Araç başına en fazla 4 görüntü.
+- **Bağlam bütçesi model sunucusundan doluyor.** LM Studio'nun standart dışı
+  `/api/v0/models` ucu `loaded_context_length` ve `type: "vlm"` veriyor
+  (ölçüldü: `ctx=100096`, `vision=true`). Model seçilince bütçe o değere
+  çekiliyor, alan düzenlenebilir kalıyor. Uç yoksa hiçbir şey değişmiyor —
+  uydurulmuyor.
+- **Yerel `<select>` kalktı.** `src/ui/Picker.tsx`; GTK'nın kutusu tasarımın
+  dışındaydı. Seçenekler artık `100K context · vision` gibi bilgi de taşıyor.
+
+Ayrıca özetleme düzeltildi (bkz. CLAUDE.md, "Bağlam ve özetleme"): kazanç
+tabanı model çağrısından önce, ve yardımcı olamıyorsa `#budgetTooSmall`.
+
+### Kapsam dışı — bilerek
+
+- **Zaman aşımı yok.** Yanıtlanmayan istek koşumu süresiz bekletir. Sessizce
+  reddetmek kullanıcıya "izin istemedim" yalanını söylerdi, sessizce kabul
+  etmek daha kötüsünü. Kenar çubuğu göstergesi bunun karşılığı.
+- **Oturum kipi katmanı yok.** Besteci menüsü botun kendi alanını yazıyor.
+  Aynı işi yapan iki denetimden biri er geç ölü kalıyor — bu depoda bir kez
+  oldu ve bu aşamanın var olma sebebi o.
+
+---
+
 ## Doğrulama — her aşamada fiilen
 
 ```bash
