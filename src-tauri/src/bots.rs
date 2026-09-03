@@ -94,6 +94,15 @@ pub struct Bot {
     /// Bağlam bütçesi (token). Aşılınca geçmiş özetlenir.
     #[serde(default = "varsayilan_butce")]
     pub context_budget: u32,
+    /// Bir koşumdaki en fazla model gidiş-dönüşü.
+    ///
+    /// **Bot başına**, çünkü sohbet botuyla masaüstü botunun ihtiyacı aynı
+    /// değil: ölçülen bir masaüstü görevi (`local-1a066f56b7d-a88e8c`) tam 24
+    /// turda düştü ve hedefe bir tıklama kalmıştı — bak-uygula-bak döngüsü
+    /// doğası gereği onlarca adım. `default` şart: eski `bots.json` bu alanı
+    /// taşımıyor.
+    #[serde(default = "varsayilan_max_tur")]
+    pub max_turns: u32,
     /// `resume_session` için — bot başına saklanır.
     #[serde(default)]
     pub session_id: Option<String>,
@@ -112,6 +121,10 @@ fn varsayilan_timeout() -> u64 {
 
 fn varsayilan_butce() -> u32 {
     8192
+}
+
+fn varsayilan_max_tur() -> u32 {
+    100
 }
 
 /// Yeni bot yaratırken formdan gelen alanlar. `id`, zaman damgaları ve
@@ -137,6 +150,8 @@ pub struct BotDraft {
     pub tools: Vec<String>,
     #[serde(default = "varsayilan_butce")]
     pub context_budget: u32,
+    #[serde(default = "varsayilan_max_tur")]
+    pub max_turns: u32,
 }
 
 #[derive(Debug)]
@@ -266,6 +281,7 @@ pub fn create(draft: BotDraft) -> Result<Bot, BotError> {
         timeout: dogrulanan.timeout,
         tools: dogrulanan.tools,
         context_budget: dogrulanan.context_budget,
+        max_turns: dogrulanan.max_turns,
         session_id: None,
         jobs: Vec::new(),
         created_at: now,
@@ -301,6 +317,7 @@ pub fn update(id: &str, draft: BotDraft) -> Result<Bot, BotError> {
     bot.timeout = d.timeout;
     bot.tools = d.tools;
     bot.context_budget = d.context_budget;
+    bot.max_turns = d.max_turns;
     bot.updated_at = simdi();
     let out = bot.clone();
     write_store(&store)?;
@@ -390,6 +407,9 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
     if d.context_budget == 0 {
         d.context_budget = varsayilan_butce();
     }
+    if d.max_turns == 0 {
+        d.max_turns = varsayilan_max_tur();
+    }
     Ok(d)
 }
 
@@ -415,6 +435,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(bot.timeout, 1800);
+        // Tavanı olmayan eski bot yeni varsayılana düşer: 24 masaüstü işinde
+        // yetmiyordu (ölçüldü, `local-1a066f56b7d-a88e8c`).
+        assert_eq!(bot.max_turns, 100);
         // Kipi olmayan eski bot **sormaya** düşer, serbeste değil.
         assert_eq!(bot.permission, Izin::Sor);
         assert!(bot.jobs.is_empty());
@@ -473,6 +496,7 @@ mod tests {
             timeout: 0,
             tools: Vec::new(),
             context_budget: 0,
+        max_turns: 100,
         };
 
         // Eski yol: ajan şart, model isteğe bağlı.
@@ -508,6 +532,7 @@ mod tests {
             timeout: 0,
             tools: Vec::new(),
             context_budget: 0,
+        max_turns: 100,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }
@@ -527,6 +552,7 @@ mod tests {
             timeout: 1800,
             tools: Vec::new(),
             context_budget: 0,
+        max_turns: 100,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }

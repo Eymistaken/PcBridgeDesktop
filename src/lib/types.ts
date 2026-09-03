@@ -108,6 +108,13 @@ export interface Bot {
   tools: string[];
   /** Bağlam bütçesi (token); aşılınca geçmiş özetlenir. */
   contextBudget: number;
+  /**
+   * Bir koşumdaki en fazla model gidiş-dönüşü.
+   *
+   * **Bot başına**, çünkü sohbet botuyla masaüstü botunun ihtiyacı aynı değil.
+   * Tavana gelince koşum düşmez, kullanıcıya devam edip etmeyeceği sorulur.
+   */
+  maxTurns: number;
   sessionId: string | null;
   /** Koşum kimlikleri, eskiden yeniye. Geçmiş bunlardan kurulur. */
   jobs: string[];
@@ -129,6 +136,7 @@ export interface BotDraft {
   timeout: number;
   tools: string[];
   contextBudget: number;
+  maxTurns: number;
 }
 
 /**
@@ -152,6 +160,7 @@ export function botDraft(bot: Bot): BotDraft {
     timeout: bot.timeout,
     tools: bot.tools,
     contextBudget: bot.contextBudget,
+    maxTurns: bot.maxTurns,
   };
 }
 
@@ -202,11 +211,20 @@ export const TOOL_GROUPS: ToolGroup[] = ["read", "write", "desktop"];
 export interface PendingPermission {
   runId: string;
   botId: string;
-  /** Araç çağrısının kimliği — `ToolStart` olayındaki `id` ile aynı. */
+  /**
+   * Ne soruluyor: bir araç çağrısı mı, yoksa tur tavanına gelmiş koşumun
+   * devam edip etmeyeceği mi. Aynı kuyruk ve aynı kart ikisini de taşıyor —
+   * ikinci bir bekleme makinesi kurulmuyor.
+   */
+  kind: "arac" | "tur";
+  /** Araç çağrısının kimliği; tur sorusunda `tur-<n>`. */
   id: string;
+  /** Tur sorusunda boş. */
   tool: string;
+  /** Araçta argüman özeti, turda o ana kadarki tur sayısı. */
   detail: string;
-  group: ToolGroup;
+  /** Tur sorusunun grubu **yok**: bir araç değil, koşumun kendisi soruluyor. */
+  group: ToolGroup | null;
   /** Argümanların ham JSON'ı: kullanıcı **neyi** onayladığını görmeli. */
   args: string;
 }

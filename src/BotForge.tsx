@@ -41,6 +41,9 @@ const BOS: Omit<BotDraft, "avatar" | "agent"> = {
   // **Boş başlar.** Bir bota araç vermek ayrı ve bilinçli bir eylem.
   tools: [],
   contextBudget: 8192,
+  // 24 masaüstü işinde yetmiyordu (ölçüldü): bak-uygula-bak döngüsü doğası
+  // gereği onlarca adım. Tavana gelince koşum düşmüyor, soruluyor.
+  maxTurns: 100,
 };
 
 export default function BotForge({
@@ -463,6 +466,27 @@ export default function BotForge({
               </span>
             </div>
           )}
+
+          <div className="grp" style={{ width: 220 }}>
+            <label className="lbl" htmlFor="bot-tavan">
+              {t("forge.maxTurns")}
+            </label>
+            <div className="fld">
+              <input
+                id="bot-tavan"
+                className="mono"
+                type="number"
+                min={1}
+                step={10}
+                value={draft.maxTurns}
+                style={{ flexGrow: 1 }}
+                onChange={(e) => setDraft({ ...draft, maxTurns: Number(e.target.value) || 0 })}
+              />
+            </div>
+            <span className="muted" style={{ fontSize: 11.5 }}>
+              {t("forge.maxTurnsHint")}
+            </span>
+          </div>
 
           {!yerel && (
           <div className="grp">

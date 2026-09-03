@@ -21,10 +21,6 @@ use crate::parse::Event;
 use crate::runs;
 use crate::tools::{Grup, Izin};
 
-/// Bir koşumdaki en fazla model gidiş-dönüşü. Model araç çağırmayı bırakmazsa
-/// döngü sonsuza kadar dönerdi; bu tavan onu keser ve kullanıcıya söyler.
-const MAX_TUR: u32 = 24;
-
 /// Bağlam bütçesinin bu oranı aşılınca sıradaki koşumdan önce özetlenir.
 /// Ölçüm sunucunun kendi `usage.prompt_tokens`'ından geliyor, tahminden değil.
 const OZET_ESIGI: f64 = 0.75;
@@ -69,14 +65,30 @@ pub trait Kayit: Send + Sync {
 /// `args` **okunur JSON olarak** taşınıyor: kullanıcı "bu bot `shell_run`
 /// çağırmak istiyor" değil, "`rm -rf /tmp/x` çalıştırmak istiyor" görmeli.
 /// Onaylanan şeyin ne olduğunu göstermeyen bir onay kutusu onay değildir.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IstekTuru {
+    /// Bir araç çağrısının onayı.
+    Arac,
+    /// Tur tavanına gelindi: koşum devam etsin mi?
+    Tur,
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IzinIstegi {
+    /// Ne soruluyor. Arayüz kartın metnini buna göre seçiyor.
+    pub kind: IstekTuru,
     /// Araç çağrısının kimliği — arayüz isteği doğru baloncuğa bağlar.
+    /// Tur sorusunda çağrı yok, `tur-<n>` konuyor.
     pub id: String,
+    /// Tur sorusunda boş.
     pub tool: String,
+    /// Araçta argüman özeti, turda o ana kadarki tur sayısı.
     pub detail: String,
-    pub group: Grup,
+    /// Tur sorusunun grubu **yok**: bir araç değil, koşumun kendisi soruluyor.
+    pub group: Option<Grup>,
+    /// Tur sorusunda boş.
     pub args: String,
 }
 
@@ -135,15 +147,42 @@ impl Kapi<'_> {
         let rx = kapi.sor(
             self.run_id,
             IzinIstegi {
+                kind: IstekTuru::Arac,
                 id: tc.id.clone(),
                 tool: tc.function.name.clone(),
                 detail: detail.to_string(),
-                group: g,
+                group: Some(g),
                 args: tc.function.arguments.clone(),
             },
         );
         // Kanal yanıtsız kapanırsa (uygulama kapanıyor, koşum iptal edildi)
         // izin verilmemiş sayılır.
+        rx.await.unwrap_or(false)
+    }
+
+    /// Tur tavanına gelindi — koşum devam etsin mi? **Bekler.**
+    ///
+    /// Ölçülen bir masaüstü görevi tam tavanda düştü ve hedefe bir tıklama
+    /// kalmıştı. Sessizce düşmek yerine sormak, hem o işi kurtarıyor hem de
+    /// kaçak bir döngünün sonsuza kadar dönmesini engelliyor.
+    ///
+    /// Soracak kimse yoksa **durur** — araç kapısındaki mantığın aynısı:
+    /// kullanıcının haberi olmadan tur harcamak yanlış olurdu.
+    async fn tur_devam_mi(&self, tur: u32) -> bool {
+        let Some(kapi) = self.kapi else {
+            return false;
+        };
+        let rx = kapi.sor(
+            self.run_id,
+            IzinIstegi {
+                kind: IstekTuru::Tur,
+                id: format!("tur-{tur}"),
+                tool: String::new(),
+                detail: tur.to_string(),
+                group: None,
+                args: String::new(),
+            },
+        );
         rx.await.unwrap_or(false)
     }
 }
@@ -267,10 +306,11 @@ impl Runs {
             Bekleyen {
                 bot_id: "b1".into(),
                 istek: IzinIstegi {
+                    kind: IstekTuru::Arac,
                     id: "c1".into(),
                     tool: tool.into(),
                     detail: String::new(),
-                    group: Grup::Write,
+                    group: Some(Grup::Write),
                     args: "{}".into(),
                 },
                 yanit: tx,
@@ -514,6 +554,7 @@ async fn kos(
                 kapi: Some(&app_kapi),
                 run_id: &run_id,
             },
+            max_tur: bot.max_turns,
         },
     )
     .await;
@@ -534,6 +575,9 @@ pub struct Baglam<'a> {
     pub text: String,
     /// İzin kipi ve kullanıcıya ulaşan kapı.
     pub kapi: Kapi<'a>,
+    /// Sormadan yapılacak en fazla model gidiş-dönüşü. Tavana gelince koşum
+    /// düşmez, kullanıcıya devam edip etmeyeceği sorulur.
+    pub max_tur: u32,
 }
 
 pub struct Sonuc {
@@ -561,15 +605,21 @@ pub async fn tur_dongusu(
 
     let mut tur: u32 = 0;
     let mut son_prompt_tokens: u64 = 0;
+    // Tavan aşılabilir: kullanıcı "devam et" derse bir tur payı daha açılır.
+    let mut tavan = baglam.max_tur.max(1);
 
     loop {
         tur += 1;
-        if tur > MAX_TUR {
-            return Sonuc {
-                ok: false,
-                turlar: tur - 1,
-                hata: Some("#turnLimit".into()),
-            };
+        if tur > tavan {
+            if baglam_kapi.tur_devam_mi(tur - 1).await {
+                tavan = tavan.saturating_add(baglam.max_tur.max(1));
+            } else {
+                return Sonuc {
+                    ok: false,
+                    turlar: tur - 1,
+                    hata: Some("#turnLimit".into()),
+                };
+            }
         }
 
         let istek = ChatRequest::streaming(
@@ -1136,12 +1186,18 @@ mod tests {
             timeout: 1800,
             tools: vec!["fs_list".into()],
             context_budget: 8192,
+            max_turns: TEST_MAX_TUR,
             session_id: None,
             jobs: Vec::new(),
             created_at: 0,
             updated_at: 0,
         }
     }
+
+    /// Testlerin tavanı. Gerçek varsayılan **100** (`bots::varsayilan_max_tur`)
+    /// ama testte 100 tur koşturmak sahte sunucuyu boşuna yorar; tavanın
+    /// kendisi sınandığı için değeri önemli değil.
+    const TEST_MAX_TUR: u32 = 24;
 
     fn arac(ad: &str) -> model::ToolDef {
         model::ToolDef::new(ad.into(), None, serde_json::json!({"type":"object"}))
@@ -1523,6 +1579,7 @@ mod tests {
                 gecmis: Vec::new(),
                 text: "kaç dosya var".into(),
                 kapi: Kapi::serbest(),
+                max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -1581,7 +1638,115 @@ mod tests {
         assert_eq!(ctxler[0].prompt_tokens, 512);
     }
 
+    /// Tavan sabiti değil **botun alanı**, ve tavana gelince koşum sessizce
+    /// düşmüyor: kullanıcıya soruluyor.
+    ///
+    /// Ölçülen masaüstü görevi (`local-1a066f56b7d-a88e8c`) tam tavanda düştü
+    /// ve hedefe bir tıklama kalmıştı. Soru sormak hem o işi kurtarıyor hem de
+    /// kaçak bir döngünün sonsuza kadar dönmesini engelliyor.
+    #[tokio::test]
+    async fn tavanda_sorulur_evet_denince_devam_eder() {
+        let hep_arac = concat!(
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c\",",
+            "\"function\":{\"name\":\"fs_list\",\"arguments\":\"{}\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let biten = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Bitti.\"}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        // Tavan 2: iki tur araç çağırıyor, üçüncü tur ancak izinle koşabilir.
+        let port = sirali_sunucu(vec![
+            hep_arac.to_string(),
+            hep_arac.to_string(),
+            biten.to_string(),
+        ]);
+        let base = format!("http://127.0.0.1:{port}/v1");
+
+        let gruplar = HashMap::new();
+        let kapi = SahteKapi::yeni(true);
+        let kayit = VecKayit::default();
+        let sonuc = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "y".into(),
+                araclar: vec![arac("fs_list")],
+                gecmis: Vec::new(),
+                text: "uzun iş".into(),
+                // `Serbest`: araç izni hiç sorulmuyor, kapıya yalnızca tur
+                // sorusu gidiyor — sayım böylece kesin.
+                kapi: Kapi {
+                    kip: Izin::Serbest,
+                    gruplar: &gruplar,
+                    kapi: Some(&kapi),
+                    run_id: "local-test",
+                },
+                max_tur: 2,
+            },
+        )
+        .await;
+
+        assert!(sonuc.ok, "izin verilince koşum sürmeli: {:?}", sonuc.hata);
+        assert_eq!(sonuc.turlar, 3, "tavan uzayıp üçüncü tur koşmalı");
+
+        let istekler = kapi.istekler.lock().unwrap().clone();
+        assert_eq!(istekler.len(), 1, "tavan bir kez sorulmalı");
+        assert_eq!(istekler[0].kind, IstekTuru::Tur);
+        assert_eq!(istekler[0].detail, "2", "o ana kadarki tur sayısı");
+        assert!(istekler[0].group.is_none(), "tur sorusunun grubu yok");
+    }
+
+    /// Hayır denirse bugünkü davranış: koşum tavanda düşer.
+    #[tokio::test]
+    async fn tavanda_hayir_denince_kosum_duser() {
+        let hep_arac = concat!(
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c\",",
+            "\"function\":{\"name\":\"fs_list\",\"arguments\":\"{}\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let port = sirali_sunucu(vec![hep_arac.to_string(); 4]);
+        let base = format!("http://127.0.0.1:{port}/v1");
+
+        let gruplar = HashMap::new();
+        let kapi = SahteKapi::yeni(false);
+        let kayit = VecKayit::default();
+        let sonuc = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "y".into(),
+                araclar: vec![arac("fs_list")],
+                gecmis: Vec::new(),
+                text: "uzun iş".into(),
+                kapi: Kapi {
+                    kip: Izin::Serbest,
+                    gruplar: &gruplar,
+                    kapi: Some(&kapi),
+                    run_id: "local-test",
+                },
+                max_tur: 2,
+            },
+        )
+        .await;
+
+        assert!(!sonuc.ok);
+        assert_eq!(sonuc.turlar, 2);
+        assert_eq!(sonuc.hata.as_deref(), Some("#turnLimit"));
+        assert_eq!(kapi.istekler.lock().unwrap().len(), 1);
+    }
+
     /// Model araç çağırmayı bırakmazsa döngü tur sınırında kesilmeli.
+    ///
+    /// `Kapi::serbest()`'in kapısı `None`: soracak kimse yokken tavan
+    /// **uzamıyor**. Kullanıcının haberi olmadan tur harcamak yanlış olurdu.
     #[tokio::test]
     async fn tur_siniri_dongunun_sonsuza_donmesini_keser() {
         let hep_arac = concat!(
@@ -1590,7 +1755,7 @@ mod tests {
             "data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}]}\n\n",
             "data: [DONE]\n\n",
         );
-        let port = sirali_sunucu(vec![hep_arac.to_string(); (MAX_TUR + 2) as usize]);
+        let port = sirali_sunucu(vec![hep_arac.to_string(); (TEST_MAX_TUR + 2) as usize]);
         let base = format!("http://127.0.0.1:{port}/v1");
 
         let kayit = VecKayit::default();
@@ -1605,12 +1770,13 @@ mod tests {
                 gecmis: Vec::new(),
                 text: "dur durak bilme".into(),
                 kapi: Kapi::serbest(),
+                max_tur: TEST_MAX_TUR,
             },
         )
         .await;
 
         assert!(!sonuc.ok);
-        assert_eq!(sonuc.turlar, MAX_TUR);
+        assert_eq!(sonuc.turlar, TEST_MAX_TUR);
         assert_eq!(sonuc.hata.as_deref(), Some("#turnLimit"));
     }
 
@@ -1636,6 +1802,7 @@ mod tests {
                 gecmis: Vec::new(),
                 text: "selam".into(),
                 kapi: Kapi::serbest(),
+                max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -1768,6 +1935,7 @@ mod tests {
                 gecmis: Vec::new(),
                 text: "/tmp dizininde neler var?".into(),
                 kapi: Kapi::serbest(),
+                max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -1835,6 +2003,7 @@ mod tests {
                     kapi: Some(kapi),
                     run_id: "local-test",
                 },
+            max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -1853,7 +2022,7 @@ mod tests {
         let istekler = kapi.istekler.lock().unwrap().clone();
         assert_eq!(istekler.len(), 1, "tam bir kez sorulmalı");
         assert_eq!(istekler[0].tool, "shell_run");
-        assert_eq!(istekler[0].group, Grup::Write);
+        assert_eq!(istekler[0].group, Some(Grup::Write));
         // Kullanıcı **ne onayladığını** görmeli: argümanlar isteğe konuyor.
         assert!(
             istekler[0].args.contains("rm -rf /tmp/x"),
@@ -1918,6 +2087,7 @@ mod tests {
                     kapi: None,
                     run_id: "local-test",
                 },
+            max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -1954,6 +2124,7 @@ mod tests {
                     kapi: Some(&kapi),
                     run_id: "local-test",
                 },
+            max_tur: TEST_MAX_TUR,
             },
         )
         .await;
@@ -2029,6 +2200,7 @@ mod tests {
                         kapi: Some(k2.as_ref()),
                         run_id: "local-bekle",
                     },
+                max_tur: TEST_MAX_TUR,
                 },
             )
             .await;
