@@ -6,6 +6,7 @@ import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import PermAsk from "../ui/PermAsk";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
+import Thinking from "../ui/Thinking";
 import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
@@ -141,8 +142,8 @@ export default function Chat({
           </div>
         )}
 
-        {turns.map((t) => (
-          <TurnView key={t.jobId} turn={t} />
+        {turns.map((tur) => (
+          <TurnView key={tur.jobId} turn={tur} live={running?.jobId === tur.jobId} />
         ))}
 
         {error && (
@@ -328,7 +329,7 @@ function durduruldu(turn: Turn): boolean {
   return c === 130 || c === 143 || c === 137;
 }
 
-function TurnView({ turn }: { turn: Turn }) {
+function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
   const blocks = useMemo(() => toBlocks(turn.events), [turn.events]);
   const bitis = finishedOf(turn.events);
   const kesildi = durduruldu(turn);
@@ -346,7 +347,8 @@ function TurnView({ turn }: { turn: Turn }) {
       )}
 
       {blocks.map((b, i) => (
-        <BlockView key={i} block={b} />
+        // Yalnızca **süren** turun **son** bloğu canlı: akış orada.
+        <BlockView key={i} block={b} live={live && i === blocks.length - 1} />
       ))}
 
       {kesildi ? (
@@ -365,7 +367,7 @@ function TurnView({ turn }: { turn: Turn }) {
   );
 }
 
-function BlockView({ block }: { block: Block }) {
+function BlockView({ block, live }: { block: Block; live: boolean }) {
   if (block.t === "text") {
     return (
       <div style={{ display: "flex" }}>
@@ -377,16 +379,7 @@ function BlockView({ block }: { block: Block }) {
   }
 
   if (block.t === "thinking") {
-    return (
-      <div style={{ display: "flex" }}>
-        <div
-          className="bub muted"
-          style={{ background: "var(--surface)", whiteSpace: "pre-wrap", fontSize: 13 }}
-        >
-          {block.text}
-        </div>
-      </div>
-    );
+    return <Thinking text={block.text} ms={block.ms} live={live} />;
   }
 
   if (block.t === "raw") {

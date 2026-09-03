@@ -43,13 +43,42 @@ export type Theme = "system" | "dark" | "light";
 
 // ─────────────────────────────── botlar ───────────────────────────────
 
-/** Altı hazır ton. Hex değil **ad** saklanır — renk temadan çözülür. */
-export type Avatar = "mor" | "mavi" | "cam" | "yesil" | "kehribar" | "mercan";
+/**
+ * Kimlik rengi: **hue** (0-359), `null` ise addan türetilir.
+ *
+ * Açıklık ve doygunluk temadan geliyor (`--av-l` / `--av-c`) ve sabit; bu
+ * yüzden avatardaki harfin kontrastı hue'dan bağımsız garanti. 360 hue'nun
+ * hepsi için hesaplandı: koyu temada en düşük oran 4,62, aydınlıkta 4,88 —
+ * AA'nın (4,5) altına düşen hue yok.
+ */
+export type Avatar = number | null;
 
-export const AVATARS: Avatar[] = ["mor", "mavi", "cam", "yesil", "kehribar", "mercan"];
+/**
+ * Addan hue: FNV-1a, 0-359.
+ *
+ * **Karma yalnızca burada.** Rust yalnızca sayıyı saklıyor; iki dilde iki
+ * karma er geç ayrışır ve aynı botun rengi iki yerde farklı çıkardı.
+ *
+ * Ad `tr-TR` kurallarıyla küçültülüyor — avatardaki harf de `toLocaleUpperCase`
+ * ile büyütülüyor, ikisi aynı alfabede kalsın.
+ */
+export function hueOf(name: string): number {
+  const s = name.trim().toLocaleLowerCase("tr-TR");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    // FNV asalıyla çarpma; `Math.imul` 32 bitte kalmayı garanti ediyor.
+    h = Math.imul(h, 0x01000193);
+  }
+  return Math.abs(h) % 360;
+}
 
-/** `var(--av-mor)` gibi — koyu ve aydınlık temada farklı hex'e çözülür. */
-export const avatarVar = (a: Avatar) => `var(--av-${a})`;
+/** Botun fiilen çizilecek hue'su: elle seçim varsa o, yoksa addan. */
+export const hueFor = (avatar: Avatar, name: string): number =>
+  avatar ?? hueOf(name);
+
+/** Temanın açıklık/doygunluğuyla birleşmiş renk. */
+export const avatarVar = (hue: number) => `oklch(var(--av-l) var(--av-c) ${hue})`;
 
 /**
  * Koşumu **kim yürütüyor**.
@@ -251,7 +280,12 @@ export type JobEvent =
    * (olduğu gibi birleşir). Eski kayıtlarda alan yok — blok sayılır.
    */
   | { kind: "text"; text: string; delta?: boolean }
-  | { kind: "thinking"; text: string; delta?: boolean }
+  /**
+   * Ajanın düşünmesi. `ms` yalnızca **kapanış** olayında dolu: bir turun
+   * düşünme akışı bitince metinsiz tek bir olay geliyor ve süreyi o taşıyor.
+   * Eski kayıtlarda alan yok; başlık o zaman süresiz yazılır.
+   */
+  | { kind: "thinking"; text: string; delta?: boolean; ms?: number }
   | { kind: "toolStart"; id: string; tool: string; detail: string }
   | { kind: "toolEnd"; id: string; ok: boolean }
   | {

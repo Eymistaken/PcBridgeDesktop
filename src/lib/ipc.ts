@@ -4,7 +4,6 @@ import { t } from "./i18n";
 
 import type {
   AuditRow,
-  Avatar,
   Bot,
   BotDraft,
   BotSummary,
@@ -106,7 +105,6 @@ export const createBot = (draft: BotDraft) => call<Bot>("create_bot", { draft })
 export const updateBot = (id: string, draft: BotDraft) =>
   call<Bot>("update_bot", { id, draft });
 export const deleteBot = (id: string) => call<void>("delete_bot", { id });
-export const suggestAvatar = () => call<Avatar>("suggest_avatar");
 
 // ─────────────────────────────── koşumlar ───────────────────────────────
 

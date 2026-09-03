@@ -5,11 +5,10 @@ import Avatar from "./ui/Avatar";
 import Picker from "./ui/Picker";
 import { createBot, detailText, mcpTools, modelModels, updateBot } from "./lib/ipc";
 import { t } from "./lib/i18n";
-import { AVATARS, BACKENDS, PERMISSIONS, SORAR, avatarVar } from "./lib/types";
+import { BACKENDS, PERMISSIONS, SORAR, hueFor } from "./lib/types";
 import { TOOL_GROUPS, byGroup, type ToolGroup } from "./lib/tools";
 import type {
   Agent,
-  Avatar as Tone,
   Backend,
   Bot,
   BotDraft,
@@ -22,7 +21,6 @@ interface Props {
   defaultWorkdir: string | null;
   /** Düzenleme kipinde dolu gelir. */
   bot?: Bot;
-  suggested: Tone;
   onDone: (bot: Bot) => void;
   onCancel: () => void;
 }
@@ -52,7 +50,6 @@ export default function BotForge({
   agents,
   defaultWorkdir,
   bot,
-  suggested,
   onDone,
   onCancel,
 }: Props) {
@@ -60,7 +57,7 @@ export default function BotForge({
   const [draft, setDraft] = useState<BotDraft>({
     ...BOS,
     ...(bot ?? {}),
-    avatar: bot?.avatar ?? suggested,
+    avatar: bot?.avatar ?? null,
     agent: ilkAjan,
     workdir: bot?.workdir ?? defaultWorkdir ?? "",
   });
@@ -256,34 +253,37 @@ export default function BotForge({
             </div>
           </div>
 
+          {/*
+            * **Hue şeridi.** Renk ada göre kendiliğinden değişiyor; şeride
+            * dokununca elle seçime geçiyor ve "ada göre" onu geri alıyor.
+            * Açıklık ve doygunluk şeritte de sabit — seçilebilecek her renk
+            * avatarda göründüğü gibi ve harfin kontrastı hepsinde AA üstünde.
+            */}
           <div className="grp">
             <span className="lbl">{t("forge.mark")}</span>
-            <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-              {AVATARS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  aria-label={t}
-                  aria-pressed={draft.avatar === t}
-                  onClick={() => setDraft({ ...draft, avatar: t })}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 9999,
-                    flex: "none",
-                    background: avatarVar(t),
-                    boxShadow:
-                      draft.avatar === t
-                        ? "0 0 0 2px var(--bg), 0 0 0 4px var(--text)"
-                        : undefined,
-                  }}
-                />
-              ))}
-              <div style={{ flexGrow: 1 }} />
-              <span className="muted" style={{ fontSize: 11.5 }}>
-                {t("forge.markHint")}
-              </span>
+            <div className="huesecim">
+              <input
+                type="range"
+                className="hue"
+                min={0}
+                max={359}
+                step={1}
+                aria-label={t("forge.mark")}
+                value={hueFor(draft.avatar, draft.name)}
+                onChange={(e) => setDraft({ ...draft, avatar: Number(e.target.value) })}
+              />
+              <button
+                type="button"
+                className="toolset__hepsi"
+                disabled={draft.avatar === null}
+                onClick={() => setDraft({ ...draft, avatar: null })}
+              >
+                {t("forge.markAuto")}
+              </button>
             </div>
+            <span className="muted" style={{ fontSize: 11.5 }}>
+              {draft.avatar === null ? t("forge.markHint") : t("forge.markManual")}
+            </span>
           </div>
 
           <div className="grp">

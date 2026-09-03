@@ -736,6 +736,9 @@ pub async fn tur_dongusu(
         let mut metin = String::new();
         let mut cagrilar: Vec<ToolCall> = Vec::new();
         let mut hata: Option<String> = None;
+        // Düşünmenin süresi: ilk `reasoning` parçasından son parçaya kadar.
+        // Kutu kapalıyken başlıkta bu yazıyor.
+        let mut dusunme_basi: Option<std::time::Instant> = None;
 
         while let Some(d) = akis.next().await {
             match d {
@@ -744,7 +747,12 @@ pub async fn tur_dongusu(
                     kayit.olay(&[Event::Text { text: t, delta: true }]);
                 }
                 Ok(Delta::Reasoning(t)) => {
-                    kayit.olay(&[Event::Thinking { text: t, delta: true }])
+                    dusunme_basi.get_or_insert_with(std::time::Instant::now);
+                    kayit.olay(&[Event::Thinking {
+                        text: t,
+                        delta: true,
+                        ms: None,
+                    }])
                 }
                 Ok(Delta::Tool(tc)) => cagrilar.push(tc),
                 Ok(Delta::Usage { prompt, .. }) => son_prompt_tokens = prompt,
@@ -754,6 +762,16 @@ pub async fn tur_dongusu(
                     break;
                 }
             }
+        }
+
+        // Kapanış olayı: metinsiz, yalnızca süreyi taşıyor. Her token'a süre
+        // koymak 4217 olaylık bir koşumda dosyayı boşuna şişirirdi.
+        if let Some(bas) = dusunme_basi {
+            kayit.olay(&[Event::Thinking {
+                text: String::new(),
+                delta: true,
+                ms: Some(bas.elapsed().as_millis() as u64),
+            }]);
         }
 
         if let Some(e) = hata {
@@ -1555,7 +1573,7 @@ mod tests {
         Bot {
             id: "b1".into(),
             name: "test".into(),
-            avatar: crate::bots::Avatar::Mor,
+            avatar: Some(295),
             agent: String::new(),
             backend: crate::bots::Backend::YerelModel,
             model: Some("m".into()),
@@ -1988,7 +2006,21 @@ mod tests {
                 _ => "?",
             })
             .collect();
-        assert_eq!(kindler, vec!["thinking", "toolStart", "toolEnd", "text"]);
+        // İkinci `thinking` **kapanış olayı**: metinsiz, yalnızca süreyi
+        // taşıyor. Kutu kapalıyken başlıkta o süre yazıyor.
+        assert_eq!(
+            kindler,
+            vec!["thinking", "thinking", "toolStart", "toolEnd", "text"]
+        );
+        let kapanis = olaylar
+            .iter()
+            .filter_map(|e| match e {
+                Event::Thinking { text, ms: Some(ms), .. } => Some((text.clone(), *ms)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(kapanis.len(), 1, "tur başına tek kapanış: {olaylar:?}");
+        assert!(kapanis[0].0.is_empty(), "kapanış metinsiz olmalı");
 
         // **Akış parçaları `delta` işaretli olmalı.** Değilse arayüz onları
         // tamamlanmış bloklar sanıp aralarına satır atlar ve her token alt
@@ -2002,7 +2034,7 @@ mod tests {
         );
 
         // Araç ayrıntısı girdiden üretilmeli — `fs_list`'in `path`'i.
-        match &olaylar[1] {
+        match &olaylar[2] {
             Event::ToolStart { tool, detail, .. } => {
                 assert_eq!(tool, "fs_list");
                 assert_eq!(detail, "/tmp");
@@ -2010,7 +2042,7 @@ mod tests {
             other => panic!("toolStart bekleniyordu: {other:?}"),
         }
         // MCP bağlı olmadığı için araç başarısız; ama koşum düşmedi.
-        assert!(matches!(olaylar[2], Event::ToolEnd { ok: false, .. }));
+        assert!(matches!(olaylar[3], Event::ToolEnd { ok: false, .. }));
 
         // Mesaj listesi sunucuya götürülebilir durumda: yanıtsız çağrı yok.
         let mesajlar = kayit.mesajlar.lock().unwrap().clone();

@@ -948,6 +948,140 @@ pre.well {
   color: var(--text);
 }
 
+/* ── hue şeridi ──────────────────────────────────────────────────── */
+/*
+ * Bot rengi **addan türüyor**; şerit onu elle almak için. Açıklık ve doygunluk
+ * şeritte de sabit (`--av-l` / `--av-c`), yani seçilebilecek her renk avatarda
+ * göründüğü gibi ve harfin kontrastı hepsinde AA üstünde — 360 hue için
+ * hesaplandı (koyu en düşük 4,62; aydınlık 4,88).
+ */
+.huesecim {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hue {
+  flex-grow: 1;
+  height: 18px;
+  border-radius: 9999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(
+    to right,
+    oklch(var(--av-l) var(--av-c) 0),
+    oklch(var(--av-l) var(--av-c) 60),
+    oklch(var(--av-l) var(--av-c) 120),
+    oklch(var(--av-l) var(--av-c) 180),
+    oklch(var(--av-l) var(--av-c) 240),
+    oklch(var(--av-l) var(--av-c) 300),
+    oklch(var(--av-l) var(--av-c) 360)
+  );
+}
+
+/* İmleç: `--bg` halkalı beyaz/siyah nokta — her hue üstünde görünür kalıyor.
+ * Hover'da büyümüyor; zıplama ve ölçeklenme yasak. */
+.hue::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--bg);
+  box-shadow: 0 0 0 2px var(--text);
+  cursor: ew-resize;
+}
+
+.hue::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--bg);
+  box-shadow: 0 0 0 2px var(--text);
+  cursor: ew-resize;
+}
+
+/* ── düşünce kutusu ──────────────────────────────────────────────── */
+/*
+ * **Kapalı başlıyor.** Ölçüldü: tek koşumda 4217 `thinking` olayı, 329
+ * `text`'e karşılık — blok olduğu gibi çizilince sohbet boğuluyordu.
+ *
+ * Kapalıyken son üç satır sabit yükseklikte bir pencereden akıyor: tamamen
+ * gizlemek "bir şey oluyor mu" sorusunu doğuruyordu. Yükseklik sabit olduğu
+ * için akış sırasında sohbet düzeni oynamıyor.
+ */
+.dusunce {
+  max-width: 74%;
+  min-width: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dusunce__baslik {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 16px 5px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: left;
+  transition: color 0.12s ease;
+}
+
+.dusunce__baslik:hover {
+  color: var(--text);
+}
+
+.dusunce__baslik svg {
+  flex: none;
+  transition: transform 0.14s ease;
+}
+
+/* Kapalı: tam üç satır. `line-height` 1.55 ve punto 13 → 3 × 20.15px.
+ * Sabit yükseklik, çünkü akarken düzen oynamamalı. */
+.dusunce__kuyu {
+  height: calc(3 * 1.55 * 13px);
+  padding: 0 16px 11px;
+  overflow: hidden;
+  /* Üstte solma: kesilen satır kesilmiş gibi değil, akıyor gibi görünsün. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
+}
+
+/* Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor. */
+.dusunce__kuyu--acik {
+  height: auto;
+  max-height: 40vh;
+  overflow-y: auto;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.dusunce__metin {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Kapalı kutuda son satırlar buraya kayıyor. */
+  transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.dusunce__kuyu--acik .dusunce__metin {
+  transform: none !important;
+  transition: none;
+}
+
+/* Hareketi azaltılmış sistemde satırlar kaymadan yerleşir. */
+@media (prefers-reduced-motion: reduce) {
+  .dusunce__metin {
+    transition: none;
+  }
+}
+
 /* ── model · bağlam düğmesi ──────────────────────────────────────── */
 /*
  * Model adı ve doluluk **tek düğmede**: ikisi de "bu koşum neye benziyor"

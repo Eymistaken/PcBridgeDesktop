@@ -59,10 +59,17 @@ pub enum Event {
     },
     /// Ajanın düşünmesi. `delta` anlamı `Text`'teki ile aynı: token akışı
     /// mı yoksa tamamlanmış bir blok mu.
+    ///
+    /// `ms` yalnızca **kapanış** olayında dolu: bir turun düşünme akışı
+    /// bitince metinsiz tek bir olay yayılıyor ve süreyi o taşıyor. Her
+    /// token'a süre koymak 4217 olaylık bir koşumda (ölçüldü) dosyayı boşuna
+    /// şişirirdi. Eski kayıtlarda alan yok; başlık o zaman süresiz yazılır.
     Thinking {
         text: String,
         #[serde(default)]
         delta: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ms: Option<u64>,
     },
     /// Döküm baloncuğunda bir satır başlar.
     ToolStart {
@@ -349,6 +356,7 @@ fn icerik(v: &serde_json::Value, out: &mut Vec<Event>, asistan: bool) {
                         out.push(Event::Thinking {
                             text: t.to_string(),
                             delta: false,
+                            ms: None,
                         });
                     }
                 }

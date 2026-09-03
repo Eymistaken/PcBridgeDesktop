@@ -75,11 +75,6 @@ fn delete_bot(id: String) -> Result<(), BotError> {
 }
 
 /// Yeni bot için sıradaki ton — hepsi aynı renkte olmasın.
-#[tauri::command]
-fn suggest_avatar() -> bots::Avatar {
-    bots::next_avatar()
-}
-
 // ─────────────────────────── koşumlar ───────────────────────────
 
 /// Bir botun tek turu: kullanıcının yazdığı + ajanın ürettikleri.
@@ -563,7 +558,6 @@ pub fn run() {
             create_bot,
             update_bot,
             delete_bot,
-            suggest_avatar,
             bot_history,
             bot_ctx,
             compact_bot,

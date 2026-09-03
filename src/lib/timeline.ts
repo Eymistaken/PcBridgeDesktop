@@ -12,7 +12,7 @@ export interface ToolRow {
 /** Sohbette çizilecek parça. */
 export type Block =
   | { t: "text"; text: string }
-  | { t: "thinking"; text: string }
+  | { t: "thinking"; text: string; ms?: number }
   | { t: "tools"; rows: ToolRow[] }
   | { t: "raw"; text: string }
   | { t: "summary"; text: string; dropped: number };
@@ -42,8 +42,13 @@ export function toBlocks(events: JobEvent[]): Block[] {
       case "thinking": {
         // Blok düşünme her zaman yeni baloncuk; token akışı birleştirilir.
         const b = son();
-        if (e.delta && b?.t === "thinking") b.text += e.text;
-        else out.push({ t: "thinking", text: e.text });
+        if (e.delta && b?.t === "thinking") {
+          b.text += e.text;
+          // Kapanış olayı: metinsiz, yalnızca süreyi taşıyor.
+          if (e.ms !== undefined) b.ms = e.ms;
+        } else {
+          out.push({ t: "thinking", text: e.text, ms: e.ms });
+        }
         break;
       }
       case "toolStart": {

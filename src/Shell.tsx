@@ -26,13 +26,11 @@ import {
   refresh as refreshConn,
   resumeWatches,
   sendMessage,
-  suggestAvatar,
   terminals as loadTerminals,
   tmuxKill,
   updateBot,
 } from "./lib/ipc";
 import type {
-  Avatar,
   Bot,
   BotDraft,
   BotSummary,
@@ -102,7 +100,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   const [ctx, setCtx] = useState<RunCtx | null>(null);
   const [compacting, setCompacting] = useState(false);
 
-  const [forge, setForge] = useState<{ bot?: Bot; tone: Avatar }>();
+  const [forge, setForge] = useState<{ bot?: Bot }>();
   const [silinecek, setSilinecek] = useState<Bot>();
 
   const [mode, setModeState] = useState<Mode>(okuMode);
@@ -386,7 +384,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         if (yaziliyor(e.target)) return;
         e.preventDefault();
         if (modeRef.current === "terminals") setYeniSinyal((n) => n + 1);
-        else void suggestAvatar().then((tone) => setForge({ tone }));
+        else setForge({});
       }
     };
     window.addEventListener("keydown", tus);
@@ -557,8 +555,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         summaries={summaries}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onNew={() => void suggestAvatar().then((tone) => setForge({ tone }))}
-        onEdit={(bot) => setForge({ bot, tone: bot.avatar })}
+        onNew={() => setForge({})}
+        onEdit={(bot) => setForge({ bot })}
         onDelete={setSilinecek}
         refreshing={busyConn}
         connError={connError}
@@ -594,7 +592,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
                 ?.models.find((m) => m.id === secili.model)?.efforts ?? []
             }
             onEffort={(e) => void alanDegistir(secili, { effort: e })}
-            onEditBot={() => setForge({ bot: secili, tone: secili.avatar })}
+            onEditBot={() => setForge({ bot: secili })}
           />
         ) : (
           <>
@@ -652,7 +650,6 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
           agents={snap.agents}
           defaultWorkdir={snap.defaultWorkdir}
           bot={forge.bot}
-          suggested={forge.tone}
           onCancel={() => setForge(undefined)}
           onDone={(bot) => {
             setForge(undefined);

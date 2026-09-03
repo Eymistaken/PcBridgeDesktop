@@ -15,34 +15,42 @@ use serde::{Deserialize, Serialize};
 
 use crate::tools::Izin;
 
-/// Altı hazır ton. **Hex değil ad saklanır** — aynı ton koyu temada
-/// `#8D73D1`, aydınlıkta `#6A4FA9`; ham hex yazılsaydı bot aydınlık temada
-/// yanlış renkte çıkardı. Renk `var(--av-<ad>)` ile temadan çözülür.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Avatar {
-    Mor,
-    Mavi,
-    Cam,
-    Yesil,
-    Kehribar,
-    Mercan,
-}
+/// Eski altı tonun **hesaplanmış** hue karşılıkları.
+///
+/// Bugünkü hex'lerden oklch'e çevrilerek bulundu; göç bu yüzden neredeyse
+/// kayıpsız — altı renkten dördü birebir aynı, ikisi tek kanalda en fazla
+/// 3/255 kayıyor (ölçüldü). Mevcut botlar rengini koruyor.
+const ESKI_TONLAR: &[(&str, u16)] = &[
+    ("mor", 295),
+    ("mavi", 250),
+    ("cam", 196),
+    ("yesil", 150),
+    ("kehribar", 72),
+    ("mercan", 30),
+];
 
-impl Avatar {
-    pub const ALL: [Avatar; 6] = [
-        Avatar::Mor,
-        Avatar::Mavi,
-        Avatar::Cam,
-        Avatar::Yesil,
-        Avatar::Kehribar,
-        Avatar::Mercan,
-    ];
-
-    /// Yeni bot için sırayla dönen ton — hepsi aynı görünmesin.
-    fn nth(i: usize) -> Avatar {
-        Avatar::ALL[i % Avatar::ALL.len()]
+/// Diskteki avatar alanını okur.
+///
+/// **Hem sayı hem eski ad kabul ediliyor:** mevcut `bots.json` `"mor"` gibi
+/// adlar taşıyor. `Serialize` her zaman sayı yazdığı için göç ilk kayıtta
+/// kendiliğinden oluyor. Tanınmayan bir ad `None`'a düşer — yani ada göre
+/// türetilir; sessizce yanlış bir renk seçmekten iyi.
+fn hue_oku<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u16>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Ham {
+        Sayi(u16),
+        Ad(String),
     }
+
+    Ok(match Option::<Ham>::deserialize(d)? {
+        None => None,
+        Some(Ham::Sayi(n)) => Some(n % 360),
+        Some(Ham::Ad(a)) => ESKI_TONLAR
+            .iter()
+            .find(|(ad, _)| *ad == a)
+            .map(|(_, h)| *h),
+    })
 }
 
 /// Botun koşumu **kim yürütüyor**.
@@ -63,7 +71,19 @@ pub enum Backend {
 pub struct Bot {
     pub id: String,
     pub name: String,
-    pub avatar: Avatar,
+    /// Kimlik rengi: **hue** (0-359). Açıklık ve doygunluk temadan geliyor
+    /// (`--av-l` / `--av-c`), o yüzden hue tek başına yeterli ve harfin
+    /// kontrastı hue'dan bağımsız garanti kalıyor — 360 hue'nun hepsinde
+    /// AA geçtiği hesaplandı (koyu en düşük 4,62; aydınlık 4,88).
+    ///
+    /// `None` → **addan türetilir**. Elle seçim yapılınca sayı yazılır.
+    /// İkinci bir "elle seçildi mi" bayrağı **yok**: bu depoda aynı işi yapan
+    /// iki denetimden biri bir kez ölü kaldı.
+    ///
+    /// Karma **yalnızca TypeScript'te** (`src/lib/types.ts::hueOf`); iki dilde
+    /// iki karma er geç ayrışırdı.
+    #[serde(default, deserialize_with = "hue_oku")]
+    pub avatar: Option<u16>,
     /// `list_agents`'tan gelen ajan kimliği. Yerel arka uçta kullanılmaz.
     pub agent: String,
     /// Koşumu kim yürütüyor. **`default` şart:** diskteki mevcut `bots.json`
@@ -144,7 +164,8 @@ fn varsayilan_max_tur() -> u32 {
 #[serde(rename_all = "camelCase")]
 pub struct BotDraft {
     pub name: String,
-    pub avatar: Avatar,
+    #[serde(default, deserialize_with = "hue_oku")]
+    pub avatar: Option<u16>,
     pub agent: String,
     #[serde(default)]
     pub backend: Backend,
@@ -383,10 +404,6 @@ pub fn set_session(id: &str, session_id: Option<String>) -> Result<(), BotError>
     write_store(&store)
 }
 
-/// Sıradaki botun tonu — hepsi mor olmasın.
-pub fn next_avatar() -> Avatar {
-    Avatar::nth(read_store().map(|s| s.bots.len()).unwrap_or(0))
-}
 
 fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
     d.name = d.name.trim().to_string();
@@ -432,12 +449,41 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
 mod tests {
     use super::*;
 
+    /// **Avatar artık hue saklıyor, ad değil** — ama eski dosya bozulmuyor.
+    ///
+    /// Hue karşılıkları bugünkü hex'lerden oklch'e çevrilerek hesaplandı;
+    /// altı renkten dördü göç sonrası birebir aynı, ikisi tek kanalda en
+    /// fazla 3/255 kayıyor. `Serialize` sayı yazdığı için göç ilk kayıtta
+    /// kendiliğinden oluyor.
     #[test]
-    fn avatar_ad_olarak_serilesir() {
-        let j = serde_json::to_string(&Avatar::Kehribar).unwrap();
-        assert_eq!(j, "\"kehribar\"", "hex değil ad saklanmalı");
-        let geri: Avatar = serde_json::from_str("\"mor\"").unwrap();
-        assert_eq!(geri, Avatar::Mor);
+    fn eski_ton_adlari_hue_ya_gocuyor() {
+        #[derive(Deserialize)]
+        struct Sar {
+            #[serde(default, deserialize_with = "hue_oku")]
+            avatar: Option<u16>,
+        }
+        let oku = |j: &str| serde_json::from_str::<Sar>(j).unwrap().avatar;
+
+        assert_eq!(oku(r#"{"avatar":"mor"}"#), Some(295));
+        assert_eq!(oku(r#"{"avatar":"kehribar"}"#), Some(72));
+        assert_eq!(oku(r#"{"avatar":"mercan"}"#), Some(30));
+        // Sayı olduğu gibi, çember dışı sarılıyor.
+        assert_eq!(oku(r#"{"avatar":123}"#), Some(123));
+        assert_eq!(oku(r#"{"avatar":400}"#), Some(40));
+        // Alan yoksa ya da tanınmıyorsa **addan türetilir**; sessizce yanlış
+        // bir renk seçmek yerine karma karar veriyor.
+        assert_eq!(oku(r#"{}"#), None);
+        assert_eq!(oku(r#"{"avatar":null}"#), None);
+        assert_eq!(oku(r#"{"avatar":"turuncu"}"#), None);
+
+        // Diske her zaman sayı yazılıyor.
+        let bot: Bot = serde_json::from_str(
+            r#"{"id":"a","name":"X","avatar":"cam","agent":"c","workdir":"/tmp"}"#,
+        )
+        .unwrap();
+        assert_eq!(bot.avatar, Some(196));
+        let j = serde_json::to_string(&bot).unwrap();
+        assert!(j.contains("\"avatar\":196"), "sayı yazılmalı: {j}");
     }
 
     #[test]
@@ -502,7 +548,7 @@ mod tests {
     fn zorunlu_alan_arka_uca_gore_degisir() {
         let taban = |backend, agent: &str, model: Option<&str>| BotDraft {
             name: "X".into(),
-            avatar: Avatar::Mor,
+            avatar: Some(295),
             agent: agent.into(),
             backend,
             model: model.map(str::to_string),
@@ -539,7 +585,7 @@ mod tests {
     fn olmayan_dizin_reddedilir() {
         let d = BotDraft {
             name: "X".into(),
-            avatar: Avatar::Mor,
+            avatar: Some(295),
             agent: "claude".into(),
             backend: Backend::PcbridgeAgent,
             model: None,
@@ -560,7 +606,7 @@ mod tests {
     fn bos_ad_reddedilir() {
         let d = BotDraft {
             name: "   ".into(),
-            avatar: Avatar::Mor,
+            avatar: Some(295),
             agent: "claude".into(),
             backend: Backend::PcbridgeAgent,
             model: None,

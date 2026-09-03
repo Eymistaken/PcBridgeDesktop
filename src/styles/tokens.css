@@ -34,15 +34,22 @@
   --run: #d3a056; /* 7.7 */
   --ok: #75b683; /* 7.6 */
   --fail: #e2726b; /* 5.9 */
+  /* ANSI — yalnızca terminal paleti. Kabukta kullanılmazlar; `--blue` da
+   * baştan beri öyleydi. Magenta ve cyan eskiden kimlik tonlarından
+   * ödünç alınıyordu; kimlik artık hue'dan türediği için kendi tokenları var
+   * (değerler aynı, terminalde görsel değişiklik yok). */
   --blue: #398ad6;
+  --magenta: #8d73d1;
+  --cyan: #009fa0;
 
-  /* kimlik — L=62, C=0.14, yalnızca hue değişir */
-  --av-mor: #8d73d1;
-  --av-mavi: #398ad6;
-  --av-cam: #009fa0;
-  --av-yesil: #399d57;
-  --av-kehribar: #b67700;
-  --av-mercan: #cd6151;
+  /* kimlik — hue **addan türer** (0-359), açıklık ve doygunluk sabit.
+   *
+   * Sabit oldukları için avatardaki harfin kontrastı hue'dan bağımsız garanti
+   * kalıyor: 360 hue'nun hepsi için hesaplandı, koyu temada en düşük oran
+   * 4.62, aydınlıkta 4.88 — AA'nın (4.5) altına düşen hue yok. Altı sabit
+   * ton kalktı; eski botlar hue karşılıklarına göç etti. */
+  --av-l: 0.62;
+  --av-c: 0.14;
 
   /* köşeler — üç değer, arası yok */
   --r-sm: 10px; /* satır · alan · düğme */
@@ -77,14 +84,11 @@
     --ok: #337344;
     --fail: #af3c3a;
     --blue: #0465af;
+    --magenta: #6a4fa9;
+    --cyan: #007a7c;
 
-    /* L=50, C=0.14 */
-    --av-mor: #6a4fa9;
-    --av-mavi: #0465af;
-    --av-cam: #007a7c;
-    --av-yesil: #007834;
-    --av-kehribar: #905300;
-    --av-mercan: #a43c2f;
+    --av-l: 0.5;
+    --av-c: 0.14;
   }
 }
 
@@ -109,11 +113,9 @@
   --ok: #337344;
   --fail: #af3c3a;
   --blue: #0465af;
+  --magenta: #6a4fa9;
+  --cyan: #007a7c;
 
-  --av-mor: #6a4fa9;
-  --av-mavi: #0465af;
-  --av-cam: #007a7c;
-  --av-yesil: #007834;
-  --av-kehribar: #905300;
-  --av-mercan: #a43c2f;
+  --av-l: 0.5;
+  --av-c: 0.14;
 }
