@@ -4,7 +4,8 @@ Kurallar, tasarım kanunu ve ölçülmüş gerçekler **[CLAUDE.md](CLAUDE.md)'d
 yeni oturumda önce onu oku. Bu dosya yalnızca **ne yapılacağını** ve **bitiş
 ölçütünü** taşır.
 
-Durum: **Beş aşamanın hepsi bitti ve ölçüldü.** Yol haritası tamam.
+Durum: **Sekiz aşamanın hepsi bitti ve ölçüldü.** Bu dosya artık yapılacak
+iş listesi değil, **bitmiş işin kaydı**.
 
 ---
 
@@ -481,6 +482,109 @@ tabanı model çağrısından önce, ve yardımcı olamıyorsa `#budgetTooSmall`
 - **Oturum kipi katmanı yok.** Besteci menüsü botun kendi alanını yazıyor.
   Aynı işi yapan iki denetimden biri er geç ölü kalıyor — bu depoda bir kez
   oldu ve bu aşamanın var olma sebebi o.
+
+---
+
+## Aşama 8 — Arayüz turu ✅ BİTTİ
+
+*2026-09-03.* Kullanıcı Claude Code'un arayüzünü göstererek altı şey istedi.
+Hepsi Nötr Kabuk'a çevrilerek yapıldı; birebir kopya değil.
+
+### Kullanıcının kararları
+
+| Konu | Karar |
+|---|---|
+| Bot rengi | Addan **hue** türesin, açıklık ve doygunluk sabit kalsın |
+| Tur tavanı | Bot başına ayar **+** tavanda "devam edeyim mi", varsayılan **100** |
+| Düşünce kutusu | Kapalı başlar; kapalıyken son 2-3 satır akar, açılınca kendi içinde kaydırılır |
+| Bağlam çubuğu | Görüntü işareti yok; model ve doluluk **tek düğme**, basınca döküm + elle özetleme; %90'da öneri, %100'de otomatik |
+
+### Önce çıkan hata — özet denetim noktası siliniyordu
+
+Bağlam çubuğu ve compact merdiveni bunun üstüne kurulacaktı, o yüzden ilk iş
+buydu. `kos` özetlemeden sonra `ctx.json`'a `summary` yazıyor, **aynı koşum**
+başarıyla bitince `tur_dongusu` aynı dosyaya `summary: None` yazıyordu;
+`write_ctx_in` `fs::write` ile tam üzerine yazıyor. Sonuç: bir sonraki koşumda
+`gecmis_in` denetim noktası bulamaz, geçmişin tamamını yeniden yükler, eşik
+yine aşılır ve özetleme **her koşumda bir model turu harcayarak** yeniden
+çalışır.
+
+Diskte hiç gözlenmemişti: özet taşıyan tek koşum
+(`local-1a066e01592-b08137`) iptal edilmiş (`exit_code: 130`) ve token
+yazmasına hiç ulaşılmamıştı. Hata gerçekti, yalnızca henüz tetiklenmemişti.
+
+`Kayit::ctx` ikiye ayrıldı — `ctx_olcum` yalnızca ölçümü, `ctx_ozet` yalnızca
+işareti yazıyor, ikisi de oku-değiştir-yaz. İkinci tutarsızlık aynı yerdeydi:
+işaret **yeni** koşuma yazıldığı için `ozetle_in`'in koruduğu iki koşum bir
+sonraki `gecmis_in`'de sessizce düşüyordu; işaret artık korunan pencerenin
+ilk koşumuna gidiyor.
+
+### Kurulan şey
+
+- **`CtxMenu` (YENİ)** — besteci altında model · doluluk tek düğme. Çubuk
+  renksiz (dolu `--text`, boş `--surface-2`); renk yalnızca eşikte geliyor.
+  Menüde döküm: sistem · araçlar · geçmiş · görüntü. Doluluk **yalnızca
+  `yerel-model`** botlarında; `agent_run` koşumlarının `ctx`'i yok ve uydurma
+  sayı göstermektense çubuk hiç çizilmiyor.
+- **`RunCtx.breakdown`** — her turda karakter cinsinden ölçülüyor. Toplam
+  sunucunun `usage`'ı ve kesin; kırılım değil, o yüzden arayüz `≈` yazıyor.
+- **Compact merdiveni** — %75 koşumlar arası (değişmedi) · %90 boştayken
+  "Özetle?" · %100 koşum ortasında otomatik. Sonuncusu tavan 100'e çıktığı
+  için şart oldu.
+- **`kesme_noktasi`** — tur içi kesme araç çağrısı sınırından. `tool_calls`
+  taşıyan bir `assistant` mesajı `tool` yanıtlarından ayrılırsa sunucu 400
+  döndürüyor.
+- **`job://compacting`** — özetleme başlarken şerit çıkıyor. Diske yazılmıyor:
+  anlık durum, kalıcı kayıt zaten özet baloncuğu.
+- **`Thinking` (YENİ)** — kapalı başlıyor, son üç satır akıyor, açılınca kendi
+  kutusunda kaydırılıyor. `Event::Thinking` bir `ms` alanı kazandı ve turun
+  düşünme akışı bitince **metinsiz tek bir kapanış olayı** taşıyor.
+- **Bot rengi hue'dan** — `Bot.avatar` artık `Option<u16>`. Karma yalnızca
+  TypeScript'te; iki dilde iki karma ayrışırdı. `--av-*` tokenları kalktı,
+  yerine `--av-l` / `--av-c`.
+- **`Bot.max_turns`** (varsayılan 100) ve tavanda soru — **yeni bir bekleme
+  makinesi kurulmadan**, aynı kuyruk ve aynı kart. `IzinIstegi`'ye `kind`
+  alanı geldi.
+- **`Bot.force_when_busy`** (varsayılan kapalı) — açıkken `force`'u uygulama
+  ekliyor, modelden istenmiyor.
+
+### Ölçülenler
+
+- **`force` argümanını 7 araç kabul ediyor, 10 değil.** `pcbridge/tools.py`'den
+  okundu: `mouse` · `keyboard` · `ui_click` · `ui_set_text` · `window_focus` ·
+  `computer_batch` · `computer_task`. `screen_capture`, `desktop_lock` ve
+  `desktop_unlock` böyle bir alan **taşımıyor**; masaüstü grubuna körlemesine
+  eklemek onları bozardı. Bir test alt küme olduğunu sabitliyor.
+- **360 hue'nun hepsi AA geçiyor.** `--av-l`/`--av-c` sabit olduğu için harfin
+  kontrastı hue'dan bağımsız: koyu temada en düşük **4.62**, aydınlıkta
+  **4.88**. Altına düşen hue yok.
+- **Eski altı tonun göçü neredeyse kayıpsız.** Hue karşılıkları bugünkü
+  hex'lerden oklch'e çevrilerek bulundu; dördü birebir aynı, ikisi tek kanalda
+  en fazla 3/255 kayıyor.
+- **`oklch()` WebKitGTK 4.1'de çalışıyor** — varsayılmadı, ölçüldü:
+  `CSS.supports('color','oklch(...)')` true ve `oklch(var(--av-l) var(--av-c)
+  250)` doğru çözülüyor.
+- **Kuyu aydınlık temada okunmuyordu.** `--well` iki temada da koyu ama metni
+  `--text`'ten alıyordu: **1.09:1**. `--text-muted` de 2.63 ile büyük metin
+  eşiğinin altındaydı. Terminalin kendisi de buna dahildi. `--well-text`
+  (15.72) ve `--well-muted` (6.49) geldi, tema bloklarında yeniden
+  tanımlanmıyorlar.
+- **Düşünce kutusunun ölçümü düzene bağlı olmak zorunda.** Tek seferlik ölçüm
+  kap sıfır genişkeyken yapılıyor, `overflow-wrap: anywhere` yüzünden her
+  karakter ayrı satıra düşüyor ve `scrollHeight` **7130px** çıkıyordu; kutu
+  boş görünüyordu. `ResizeObserver` çözüyor.
+- **Kararsız test bulundu ve düzeltildi.** `:0` ile ayrılıp bırakılan bir portu
+  paralel koşan başka bir testin sahte sunucusu kapabiliyordu. Adres
+  `127.0.0.1:1` oldu; sekiz ardışık tam koşumda üç hedef de geçiyor.
+- **119 Rust testi**, 0 uyarı, `tsc` temiz. İki temada da bileşenler çizdirilip
+  gözle bakıldı.
+
+### Yapılmayan
+
+- Kota göstergesi — kullanıcı istemedi, yerel modelde kota diye bir şey yok.
+- Tur içi özetlemenin gerçek modelle ölçümü: LM Studio bu oturumda kapalıydı.
+  Sahte sunucuyla uçtan uca sınandı (`butce_tur_icinde_dolunca_ozetlenir`);
+  gerçek model doğrulaması **açık kalan tek uç**.
 
 ---
 

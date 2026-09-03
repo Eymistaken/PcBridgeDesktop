@@ -8,23 +8,16 @@ derse **başka bir şey sormadan** şunu yap:
 1. **`YAPILACAKLAR.md`'yi oku.** Sıradaki iş orada, ayrıntısıyla ve ölçümüyle.
    Dosya **yereldir, depoda yoktur** (kullanıcının isteğiyle izlenmiyor);
    yoksa kullanıcıya söyle, **içeriğini uydurma**.
-2. **Sıradaki iş: [Arayüz turu](YAPILACAKLAR.md).** Kullanıcının 2026-09-03'te
-   verdiği altı başlık: besteci altına durum çubuğu (bağlam doluluğu · model ·
-   effort) · "compacting" bildirimi · katlanabilir düşünce kutusu · addan
-   türeyen bot rengi · **idle kapısını izin menüsünden kapatabilme** ·
-   tur tavanı. Ondan sonraki iş **Eklentiler (MCP kayıt defteri)** — ona
-   başlamadan "Karar verilmemiş: araçları kim tüketiyor" başlığını okuyup
-   A/B ayrımını sor.
-3. **Önce şu iki soruyu sor, sonra kod yaz.** İkisinin de kararı kullanıcıda
-   ve ikisi de yanlış seçilirse iş yeniden yapılır:
-   - **Bot rengi.** Bugünkü altı renk sabit açıklık/doygunlukta (L=62 C=0.14)
-     çünkü avatardaki harf okunabilir kalmalı. Kullanıcı "bütün RGB" istedi;
-     bu kontrast garantisini kırar. **Öneri:** addan türeyen şey **hue** olsun
-     (0-360), L ve C sabit kalsın.
-   - **Tur tavanı.** `MAX_TUR = 24` masaüstü işinde yetmiyor (ölçüldü).
-     Yükseltmek mi · bot başına ayar mı · tavanda "devam edeyim mi" diye
-     sormak mı?
-4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yedi aşama da bitti.**
+2. **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Başlamadan önce
+   "Karar verilmemiş: araçları kim tüketiyor" başlığını oku ve **A/B ayrımını
+   sor** — A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona
+   yapılabilir, B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş
+   istiyor ve `backend: "yerel-model"` botları için hiç gerekmiyor.
+3. **Açık kalan tek ölçüm:** tur içi özetleme gerçek modelle sınanmadı
+   (Aşama 8'de LM Studio kapalıydı). İlk fırsatta bütçesi kasten küçük bir
+   botla uzun bir koşum yapılıp `job://compacting` ve `Devam et.` yolu
+   görülmeli.
+4. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **sekiz aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
 5. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
@@ -57,6 +50,13 @@ gerçek terminal ızgarası.
 - **Aynı işi yapan iki denetim koyma.** `Bot.desktop` bayrağı bir yıl boyunca
   kaydedildi ve hiç okunmadı; kullanıcı ölü anahtarı açıp masaüstü izni
   verdiğini sandı (Aşama 7). Bir alan ya okunur ya silinir.
+- **`RunCtx`'in iki yazıcısı ayrı kalır.** `ctx_olcum` yalnızca ölçümü,
+  `ctx_ozet` yalnızca denetim noktasını yazar, ikisi de oku-değiştir-yaz.
+  Tek bir yazıcı ikisini de taşıyınca koşum sonundaki ölçüm, aynı koşumun
+  başında konmuş özeti siliyordu (Aşama 8).
+- **Tavan ve izin aynı kuyruğu kullanır.** Tur tavanı sorusu için ikinci bir
+  bekleme makinesi kurulmadı: `Runs.bekleyen`, `answer_permission` ve
+  `PermAsk` ikisini de taşıyor, `IzinIstegi.kind` ayırıyor.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"
@@ -75,20 +75,38 @@ her yere serpiştirilmiş bir aksan, arayüzü jenerik yapan şeyin ta kendisidi
 --bg:#151618;      --bg-side:#0F0F11;   --field:#1F2023;
 --surface:#26282A; --surface-2:#36383B; --line:#2F3033;  --well:#08090B;
 --text:#EAEBED;    --text-muted:#96989C;
---run:#D3A056;     --ok:#75B683;        --fail:#E2726B;  --blue:#398AD6;
---av: #8D73D1 #398AD6 #009FA0 #399D57 #B67700 #CD6151;   /* L=62 C=0.14 */
+--run:#D3A056;     --ok:#75B683;        --fail:#E2726B;
+--av-l:0.62;       --av-c:0.14;         /* hue ADDAN türer, 0-359 */
 
 /* aydınlık — varyant */
 --bg:#F8F8FA;      --bg-side:#F1F2F4;   --field:#EBEDEF;
 --surface:#E8E9EC; --surface-2:#D9DBDE; --line:#D9DBDD;  --well:#111213;
 --text:#191B1D;    --text-muted:#56585D;
 --run:#8D5E00;     --ok:#337344;        --fail:#AF3C3A;
---av: #6A4FA9 #0465AF #007A7C #007834 #905300 #A43C2F;   /* L=50 C=0.14 */
+--av-l:0.50;       --av-c:0.14;
+
+/* iki temada da AYNI — kuyu aydınlıkta da koyu kalıyor */
+--well-text:#EAEBED;  --well-muted:#96989C;
+/* ANSI, yalnızca terminal paleti — kabukta kullanılmazlar */
+--blue:#398AD6 (ayd. #0465AF)  --magenta:#8D73D1 (#6A4FA9)  --cyan:#009FA0 (#007A7C)
 ```
 
 Hepsi oklch'ten üretildi, hue 265 (hafif soğuk), ve **kontrastı hesaplandı**:
 `--text` 15.2:1, `--text-muted` 6.3:1, durum renkleri 5.9–7.7:1. Yeni renk
 eklerken oranı hesapla, tahmin etme.
+
+**Kimlik rengi hue'dan.** Altı sabit ton kalktı; `Bot.avatar` bir hue sayısı
+(`Option<u16>`, `None` → addan türetilir) ve renk
+`oklch(var(--av-l) var(--av-c) <hue>)` ile çözülüyor. Açıklık ve doygunluk
+sabit olduğu için avatardaki harfin kontrastı hue'dan **bağımsız garanti**:
+360 hue için hesaplandı, koyu temada en düşük **4.62**, aydınlıkta **4.88**.
+Karma **yalnızca TypeScript'te** (`types.ts::hueOf`) — iki dilde iki karma
+ayrışırdı.
+
+**Kuyunun metni tema değiştirmez.** `--well` aydınlık temada da koyu; metni
+`--text`'ten almak orada **1.09:1** veriyordu (`--text-muted` 2.63) ve
+terminal dahil her şey okunmuyordu. `--well-text` (15.72) ve `--well-muted`
+(6.49) tema bloklarında **yeniden tanımlanmaz**.
 
 **Üçüncü bir metin seviyesi YOK.** İki denemede de AA'nın altında kaldı
 (3.7 ve 3.1). Hiyerarşi boyut ve ağırlıkla kurulur.
@@ -131,15 +149,20 @@ Yerine `src/ui/Picker.tsx`. Aynı gerekçeyle menüler de kendi bileşenimiz
 kullanır; **`--surface-2`'ye ikincil metin taşıyan satırda çıkılmaz**
 (`--text-muted` orada 4.07:1).
 
-### Tuvalden bilinçli iki sapma
+### Tuvalden bilinçli üç sapma
 
-Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
+Kullanıcının isteğiyle; artboard'a geri çevrilmez.
 
 1. **Kip anahtarı kenar çubuğunun tepesinde.** Artboard ana panelin sağ
    üstüne iki ikon düğme koyuyordu; şimdi uygulama adının altında tek bir
    `Botlar | Terminal` anahtarı var (kayan parça, `--surface-2`).
 2. **Besteci ipucu `Ctrl ↵`.** Artboard `⌘↵` yazıyor — o bir macOS işareti,
    bu makine Linux. `↵` duruyor: tuş adı, ikon değil.
+3. **Kimlik rengi altı ton değil hue çemberi** (2026-09-03). Artboard'lar altı
+   sabit renk gösteriyor; renk artık addan türeyen bir hue. Kanunun **asıl**
+   maddesi korundu: açıklık ve doygunluk sabit, o yüzden harf her hue'da
+   okunuyor (360 hue hesaplandı). `design/*.dc.html` eski altı tonu taşımaya
+   devam ediyor; **artboard'lar bu noktada koddan geride.**
 
 ## Ölçülmüş gerçekler
 
@@ -462,6 +485,51 @@ Kullanıcının 2026-09-02'deki isteğiyle; artboard'a geri çevrilmez.
 - **Görüntünün maliyeti mütevazı.** Görüntülü koşumlar 2301 ve 2776 token'da
   kaldı; korkulan patlama olmadı (pcbridge görüntüyü küçültüyor).
 
+### Arayüz turu — 2026-09-03'te ölçüldü
+
+- **`force` argümanını 7 pcbridge aracı kabul ediyor, 10 değil.**
+  `mouse` · `keyboard` · `ui_click` · `ui_set_text` · `window_focus` ·
+  `computer_batch` · `computer_task`. `screen_capture`, `desktop_lock` ve
+  `desktop_unlock` masaüstü grubunda olmalarına rağmen böyle bir alan
+  **taşımıyor**; körlemesine eklemek onları bozardı. Liste
+  `tools.rs::FORCE_ALIR`, bir test `MASAUSTU`'nun alt kümesi olduğunu
+  sabitliyor. `force`'u **uygulama koyar** (`agent.rs::force_ekle`), modelden
+  istenmez — sistem promptu anlatsa bile model keşfetmek için tur harcıyordu.
+- ⚠️ **Özet denetim noktası kendi koşumunun sonunda siliniyordu.**
+  `write_ctx_in` `fs::write` ile tam üzerine yazıyor; `kos` işareti yazdıktan
+  sonra `tur_dongusu` aynı dosyaya `summary: None` koyuyordu. Sonuç: sonraki
+  koşum geçmişin tamamını yeniden yükler ve özetleme her koşumda bir model
+  turu harcar. **Aşama 8'de düzeltildi** — `Kayit::ctx_olcum` ve
+  `ctx_ozet` ayrı, ikisi de oku-değiştir-yaz. Diskte hiç gözlenmemişti çünkü
+  özet taşıyan tek koşum iptal edilmişti.
+- **İşaret korunan pencerenin ilk koşumuna yazılır.** `gecmis_in` işaretten
+  **itibarenini** taşıyor; yeni koşuma yazılırsa `ozetle_in`'in koruduğu iki
+  koşum sessizce düşer.
+- **Tur içi kesme araç çağrısı sınırından olmak zorunda**
+  (`agent.rs::kesme_noktasi`). `tool_calls` taşıyan bir `assistant` mesajı
+  `tool` yanıtlarından ayrılırsa sunucu isteği **400** ile reddediyor.
+- **`oklch()` WebKitGTK 4.1'de çalışıyor** — varsayılmadı, ölçüldü:
+  `CSS.supports('color','oklch(0.62 0.14 200)')` → `true`, ve
+  `oklch(var(--av-l) var(--av-c) 250)` doğru çözülüyor (değişkenler dahil).
+- **Eski altı tonun hue karşılıkları:** mor 295 · mavi 250 · cam 196 ·
+  yeşil 150 · kehribar 72 · mercan 30. Bugünkü hex'lerden oklch'e çevrilerek
+  bulundu; göç sonrası dördü birebir aynı, ikisi tek kanalda en fazla 3/255
+  kayıyor. `Deserialize` hem sayı hem eski ad kabul ediyor.
+- **Bir koşumda 4217 `thinking` olayı** ölçüldü
+  (`local-1a066e01592-b08137`, 329 `text`'e karşılık). Düşünce kutusu bu
+  yüzden kapalı başlıyor.
+- **Düşünce kutusunun kaydırma ölçümü düzene bağlı olmak zorunda.** Tek
+  seferlik ölçüm kap sıfır genişkeyken yapılıyor, `overflow-wrap: anywhere`
+  yüzünden her karakter ayrı satıra düşüyor ve `scrollHeight` **7130px**
+  çıkıyordu — kutu boş görünüyordu. `ResizeObserver` çözüyor.
+- **`:0` ile ayrılan boş port testte kararsız.** Paralel koşan başka bir
+  testin sahte sunucusu o portu kapabiliyor. "Erişilemez" sınayan testler
+  `127.0.0.1:1` kullanıyor — bağlanmak ayrıcalık istediği için orada asla
+  dinleyen olmuyor.
+- **Bağlam dökümü karakter cinsinden, token değil.** Modelin tokenizer'ı
+  elimizde yok; toplam `usage.prompt_tokens` kesin, kırılım değil. Arayüz o
+  yüzden `≈` yazıyor.
+
 ### Kontrast tablosu — hesaplandı, tahmin değil
 
 Metin renginin her yüzey üstündeki oranı. `✓` AA metin (4.5), `~` yalnızca
@@ -481,6 +549,20 @@ büyük metin/grafik (3.0):
 Kalın olanlar AA'nın altında: koyu temada `--text-muted` ve `--fail`,
 aydınlık temada üç durum rengi — hiçbiri **`--surface-2` üstünde kullanılmaz.**
 `--text-muted` `--surface` üstünde geçiyor (5.12 / 5.86), orada serbest.
+
+**Kuyu ayrı bir yüzey** ve iki temada da koyu; metni tema tokenlarından
+**alınmaz**:
+
+| `--well` üstünde | koyu (#08090B) | aydınlık (#111213) |
+|---|---|---|
+| `--text` | 16.70✓ | **1.09** ✗ |
+| `--text-muted` | 6.89✓ | **2.63** ✗ |
+| **`--well-text`** | 16.70✓ | **15.72✓** |
+| **`--well-muted`** | 6.89✓ | **6.49✓** |
+
+**Avatar harfi** (`--bg` rengiyle, hue'dan bağımsız): 360 hue'nun hepsi
+hesaplandı — koyu temada en düşük **4.62**, aydınlıkta **4.88**, AA altına
+düşen hue yok.
 
 ## Çalışma tarzı
 

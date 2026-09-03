@@ -74,7 +74,6 @@ fn delete_bot(id: String) -> Result<(), BotError> {
     bots::delete(&id)
 }
 
-/// Yeni bot için sıradaki ton — hepsi aynı renkte olmasın.
 // ─────────────────────────── koşumlar ───────────────────────────
 
 /// Bir botun tek turu: kullanıcının yazdığı + ajanın ürettikleri.
