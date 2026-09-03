@@ -143,6 +143,14 @@ işe yaramayan sayı ve rozet.
 Ayırıcı olarak çizgi değil **yüzey kademesi** kullanılır. Seçim yükselen
 yüzeyle anlatılır, renkli çubukla değil.
 
+**Markdown kendi kütüphanesini getirmez.** `src/lib/markdown.ts` modelin
+yazdıklarını çözümlüyor ve `src/ui/Markdown.tsx` **React öğesi** üretiyor —
+HTML dizgesi değil, yani `dangerouslySetInnerHTML` hiç yok ve modelin metni
+işaretlemeye dönüşemiyor. Kapsam: başlık · kod · alıntı · liste · GFM
+tablosu · çizgi; satır içinde kalın, eğik, kod, üstü çizili, bağlantı.
+**Bağlantılar gezinmiyor** — uygulamanın dış bağlantı açacak eklentisi yok
+ve webview'ı başka adrese götürmek uygulamayı kaybettirir.
+
 **Yerel açılır liste (`<select>`) kullanılmaz.** GTK kendi kutusunu çiziyor:
 köşeli, kendi renkleri, kendi yazı tipi — üç köşe değerinin hiçbirine uymuyor.
 Yerine `src/ui/Picker.tsx`. Aynı gerekçeyle menüler de kendi bileşenimiz
@@ -530,6 +538,31 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
 - **Bağlam dökümü karakter cinsinden, token değil.** Modelin tokenizer'ı
   elimizde yok; toplam `usage.prompt_tokens` kesin, kırılım değil. Arayüz o
   yüzden `≈` yazıyor.
+
+### Terminal klavye gecikmesi — 2026-09-03'te ölçüldü
+
+Kullanıcı "harfler bir basım geç geliyor" dedi. **Uygulamanın kendi hattı
+temiz**, üç katman da ölçüldü:
+
+| Katman | Ölçüm |
+|---|---|
+| PTY + tmux yankısı (`Ptys`'in okuma/yazma deseninin aynısı) | **0,1–0,3 ms** |
+| xterm `write` → ekrana çizim (geri çağrıyla) | **11 ms** |
+| WebKitGTK `requestAnimationFrame`, boşta | **62 fps**, ortanca aralık 16 ms |
+
+- `portable_pty`'nin yazıcısı **tamponsuz** (`UnixMasterWriter`, doğrudan fd).
+- Kalan tek şüpheli **GTK girdi yöntemi**: klavye düzeni `tr+intl` (ölü
+  tuşlu) ve `ibus-daemon` çalışıyor (`XMODIFIERS=@im=ibus`). Ölü tuş
+  düzenlerinde GTK'nın IM bağlamı bir tuşu, bir sonraki tuş diziyi
+  netleştirene kadar **tutabiliyor** — belirti tam olarak bu. Sentetik tuş
+  olayları IM'yi atladığı için bu katman buradan ölçülemedi.
+- **Doğrulama yolu:** aynı düzenle GNOME Terminal'de de gecikiyorsa hata
+  uygulamada değil; düzeni düz `tr`'ye almak ya da ölü tuşsuz bir düzen
+  seçmek çözer.
+- Ayrıca ölçüldü: `tmux` sunucusunda **`escape-time 500`**. Düz harfleri
+  etkilemiyor ama ESC ile başlayan her diziyi (ok tuşları, Alt bileşimleri,
+  TUI'lerde ESC) yarım saniye geciktiriyor. Sunucu ayarı, oturuma özgü
+  değil — **kullanıcının kendi tmux'u**, bu depodan değiştirilmedi.
 
 ### Kontrast tablosu — hesaplandı, tahmin değil
 
