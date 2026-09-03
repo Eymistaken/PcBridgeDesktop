@@ -103,6 +103,17 @@ pub struct Bot {
     /// taşımıyor.
     #[serde(default = "varsayilan_max_tur")]
     pub max_turns: u32,
+    /// Masaüstü araçlarına `force=true` eklensin mi.
+    ///
+    /// pcbridge, kullanıcı klavye/fareye son 60 saniyede dokunduysa **yazma**
+    /// eylemlerini reddediyor (`desktop/safety.py:264`). Gerekçe kaynakta
+    /// yazılı: telefondan gelen eylemle kullanıcının faresi kavga etmesin.
+    /// Ama botu **izleyerek** çalıştıran kullanıcıda kapı hiç açılmıyor.
+    ///
+    /// **Varsayılan kapalı:** bu bir güvenlik kapısını kaldırmak, bilinçli bir
+    /// eylem olmalı. `default` şart, eski `bots.json` alanı taşımıyor.
+    #[serde(default)]
+    pub force_when_busy: bool,
     /// `resume_session` için — bot başına saklanır.
     #[serde(default)]
     pub session_id: Option<String>,
@@ -152,6 +163,8 @@ pub struct BotDraft {
     pub context_budget: u32,
     #[serde(default = "varsayilan_max_tur")]
     pub max_turns: u32,
+    #[serde(default)]
+    pub force_when_busy: bool,
 }
 
 #[derive(Debug)]
@@ -282,6 +295,7 @@ pub fn create(draft: BotDraft) -> Result<Bot, BotError> {
         tools: dogrulanan.tools,
         context_budget: dogrulanan.context_budget,
         max_turns: dogrulanan.max_turns,
+        force_when_busy: dogrulanan.force_when_busy,
         session_id: None,
         jobs: Vec::new(),
         created_at: now,
@@ -318,6 +332,7 @@ pub fn update(id: &str, draft: BotDraft) -> Result<Bot, BotError> {
     bot.tools = d.tools;
     bot.context_budget = d.context_budget;
     bot.max_turns = d.max_turns;
+    bot.force_when_busy = d.force_when_busy;
     bot.updated_at = simdi();
     let out = bot.clone();
     write_store(&store)?;
@@ -438,6 +453,8 @@ mod tests {
         // Tavanı olmayan eski bot yeni varsayılana düşer: 24 masaüstü işinde
         // yetmiyordu (ölçüldü, `local-1a066f56b7d-a88e8c`).
         assert_eq!(bot.max_turns, 100);
+        // Güvenlik kapısını kaldıran anahtar **kapalı** başlar.
+        assert!(!bot.force_when_busy);
         // Kipi olmayan eski bot **sormaya** düşer, serbeste değil.
         assert_eq!(bot.permission, Izin::Sor);
         assert!(bot.jobs.is_empty());
@@ -497,6 +514,7 @@ mod tests {
             tools: Vec::new(),
             context_budget: 0,
         max_turns: 100,
+        force_when_busy: false,
         };
 
         // Eski yol: ajan şart, model isteğe bağlı.
@@ -533,6 +551,7 @@ mod tests {
             tools: Vec::new(),
             context_budget: 0,
         max_turns: 100,
+        force_when_busy: false,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }
@@ -553,6 +572,7 @@ mod tests {
             tools: Vec::new(),
             context_budget: 0,
         max_turns: 100,
+        force_when_busy: false,
         };
         assert!(matches!(dogrula(d), Err(BotError::Gecersiz(_))));
     }

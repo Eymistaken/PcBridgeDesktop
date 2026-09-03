@@ -115,6 +115,15 @@ export interface Bot {
    * Tavana gelince koşum düşmez, kullanıcıya devam edip etmeyeceği sorulur.
    */
   maxTurns: number;
+  /**
+   * Masaüstü araçlarına `force=true` eklensin mi.
+   *
+   * pcbridge, kullanıcı klavye/fareye son 60 saniyede dokunduysa **yazma**
+   * eylemlerini reddediyor. Botu izleyerek çalıştıran kullanıcıda kapı hiç
+   * açılmıyor. **Varsayılan kapalı:** bir güvenlik kapısını kaldırmak
+   * bilinçli bir eylem olmalı.
+   */
+  forceWhenBusy: boolean;
   sessionId: string | null;
   /** Koşum kimlikleri, eskiden yeniye. Geçmiş bunlardan kurulur. */
   jobs: string[];
@@ -137,6 +146,7 @@ export interface BotDraft {
   tools: string[];
   contextBudget: number;
   maxTurns: number;
+  forceWhenBusy: boolean;
 }
 
 /**
@@ -161,6 +171,7 @@ export function botDraft(bot: Bot): BotDraft {
     tools: bot.tools,
     contextBudget: bot.contextBudget,
     maxTurns: bot.maxTurns,
+    forceWhenBusy: bot.forceWhenBusy,
   };
 }
 

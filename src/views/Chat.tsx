@@ -24,6 +24,8 @@ interface Props {
   onAnswer: (runId: string, allow: boolean) => void;
   /** Kip **botun kendi alanı**; menü onu doğrudan yazar. */
   onPermission: (p: Permission) => void;
+  /** "Ben makinedeyken de çalışsın" — o da botun kendi alanı. */
+  onForce: (v: boolean) => void;
   /** Kip menüsündeki sayaçtan bot ayarlarına geçiş. */
   onEditBot: () => void;
 }
@@ -39,6 +41,7 @@ export default function Chat({
   pending,
   onAnswer,
   onPermission,
+  onForce,
   onEditBot,
 }: Props) {
   const [text, setText] = useState("");
@@ -233,7 +236,9 @@ export default function Chat({
             value={bot.permission}
             botName={bot.name}
             tools={bot.tools}
+            force={bot.forceWhenBusy}
             onChange={onPermission}
+            onForce={onForce}
             onEditTools={onEditBot}
           />
         </div>

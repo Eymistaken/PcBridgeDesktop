@@ -32,6 +32,7 @@ import {
 import type {
   Avatar,
   Bot,
+  BotDraft,
   BotSummary,
   ChunkPayload,
   ConnError,
@@ -39,7 +40,6 @@ import type {
   DesktopState,
   Mode,
   PendingPermission,
-  Permission,
   StatusPayload,
   TerminalsView,
   Theme,
@@ -248,19 +248,21 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     }
   }, []);
 
-  /** Kip botun kendi alanı: menü onu doğrudan yazıyor, ayrı bir kopya yok. */
-  const kipDegistir = useCallback(
-    async (bot: Bot, permission: Permission) => {
-      if (bot.permission === permission) return;
-      try {
-        const yeni = await updateBot(bot.id, { ...botDraft(bot), permission });
-        setBots((prev) => prev.map((b) => (b.id === yeni.id ? yeni : b)));
-      } catch (e) {
-        setChatError(detailText(e));
-      }
-    },
-    [],
-  );
+  /**
+   * Botun bir alanını yerinde yazar.
+   *
+   * Kip de "makinedeyken de çalışsın" anahtarı da **botun kendi alanı**;
+   * besteci menüsü onları doğrudan yazıyor, ayrı bir oturum kopyası yok.
+   * Aynı işi yapan iki denetimden biri bu depoda bir kez ölü kaldı.
+   */
+  const alanDegistir = useCallback(async (bot: Bot, yama: Partial<BotDraft>) => {
+    try {
+      const yeni = await updateBot(bot.id, { ...botDraft(bot), ...yama });
+      setBots((prev) => prev.map((b) => (b.id === yeni.id ? yeni : b)));
+    } catch (e) {
+      setChatError(detailText(e));
+    }
+  }, []);
 
   // Canlı akış.
   useEffect(() => {
@@ -513,7 +515,10 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             onCancel={(j) => void durdur(j)}
             pending={pending.find((p) => p.botId === secili.id)}
             onAnswer={(runId, allow) => void izinYanitla(runId, allow)}
-            onPermission={(p) => void kipDegistir(secili, p)}
+            onPermission={(p) => {
+              if (secili.permission !== p) void alanDegistir(secili, { permission: p });
+            }}
+            onForce={(v) => void alanDegistir(secili, { forceWhenBusy: v })}
             onEditBot={() => setForge({ bot: secili, tone: secili.avatar })}
           />
         ) : (

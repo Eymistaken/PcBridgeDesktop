@@ -919,6 +919,71 @@ pre.well {
   color: var(--text);
 }
 
+/* "Ben makinedeyken de çalışsın" anahtarı.
+ *
+ * Bir güvenlik kapısını kaldırıyor, o yüzden **kapalı başlıyor** ve ne yaptığı
+ * satırın altında yazıyor. Kip satırlarıyla aynı kademede (`--surface`) değil
+ * çünkü bir kip değil; filtre satırıyla aynı kademede duruyor. */
+.permmenu__anahtar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 3px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: var(--surface);
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.permmenu__anahtar:hover {
+  background: var(--surface-2);
+}
+
+/* `--text-muted` `--surface-2` üstünde 4.07:1 — hover'da ipucu `--text`'e
+ * yükseliyor, tıpkı seçili kip satırında olduğu gibi. */
+.permmenu__anahtar:hover .permmenu__ipucu {
+  color: var(--text);
+}
+
+.permmenu__anahtar .permmenu__metin {
+  flex-grow: 1;
+}
+
+/* Anahtar — renksiz. Açık hâli `--text` dolgu, kapalı `--surface-2`:
+ * durum yüzey kademesiyle anlatılıyor, aksan rengiyle değil. */
+.anahtar {
+  flex: none;
+  width: 30px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  transition: background-color 0.14s ease;
+}
+
+.permmenu__anahtar:hover .anahtar {
+  background: var(--line);
+}
+
+.anahtar__top {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--text-muted);
+  transition: transform 0.14s ease, background-color 0.14s ease;
+}
+
+[role="switch"][aria-checked="true"] .anahtar {
+  background: var(--text);
+}
+
+[role="switch"][aria-checked="true"] .anahtar__top {
+  background: var(--bg);
+  transform: translateX(12px);
+}
+
 /* Kipin **neye** uygulandığını gösteren satır.
  *
  * Menünün içinde ama bir kip değil: yüzeyi kademe olarak ayrılıyor, çizgiyle

@@ -52,6 +52,35 @@ const MASAUSTU: &[&str] = &[
     "window_focus",
 ];
 
+/// `force` argümanını **gerçekten kabul eden** araçlar.
+///
+/// **Ölçüldü, tahmin edilmedi** (2026-09-03, `pcbridge/tools.py`): bu yedi
+/// aracın imzasında `force: Annotated[bool, ...]` var ve hepsi
+/// `_guard(..., force=force)` çağırıyor. `screen_capture`, `desktop_lock` ve
+/// `desktop_unlock` masaüstü grubunda olmalarına rağmen böyle bir alan
+/// **taşımıyor** — masaüstü listesine körlemesine `force` eklemek onları
+/// bilinmeyen argümanla bozardı.
+///
+/// Kapının kendisi `pcbridge/desktop/safety.py:264`'te: **yazma** eylemlerinde
+/// `idle_ms < idle_guard_seconds` (bu makinede 60 sn) ise çağrı reddediliyor.
+/// Botu **izleyen** bir kullanıcıda `idle_ms` neredeyse hiç 60'ı geçmiyor ve
+/// her yazma eylemi reddediliyor; ölçülen bir koşumda model bunu aşmak için
+/// `sleep 12` ve `sleep 30` çalıştırdı — 42 saniye, iki tur israfı.
+const FORCE_ALIR: &[&str] = &[
+    "computer_batch",
+    "computer_task",
+    "keyboard",
+    "mouse",
+    "ui_click",
+    "ui_set_text",
+    "window_focus",
+];
+
+/// Bu araca `force` argümanı eklenebilir mi?
+pub fn force_alir(name: &str) -> bool {
+    FORCE_ALIR.contains(&name)
+}
+
 /// Bir aracın grubu.
 ///
 /// Masaüstü **ada göre** belirlenir ve sunucunun ipucundan önce gelir:
@@ -135,6 +164,28 @@ mod tests {
         assert_eq!(grup("yepyeni_bir_arac", Some(false)), Grup::Write);
         // Sunucu açıkça "hiçbir şeyi değiştirmiyorum" diyorsa ona güveniliyor.
         assert_eq!(grup("yepyeni_bir_arac", Some(true)), Grup::Read);
+    }
+
+    /// `force` alan araçlar masaüstü grubunun **alt kümesi**, tamamı değil.
+    ///
+    /// Üçü (`screen_capture`, `desktop_lock`, `desktop_unlock`) masaüstü
+    /// grubunda ama `force` diye bir alanları yok; gereksiz argüman göndermek
+    /// onları bozardı.
+    #[test]
+    fn force_alanlar_masaustunun_alt_kumesi() {
+        for ad in FORCE_ALIR {
+            assert!(MASAUSTU.contains(ad), "{ad} masaüstü grubunda değil");
+        }
+        assert_eq!(FORCE_ALIR.len(), 7);
+        assert!(force_alir("mouse"));
+        assert!(force_alir("computer_batch"));
+        // Ölçüldü: bu üçünün imzasında `force` yok.
+        assert!(!force_alir("screen_capture"));
+        assert!(!force_alir("desktop_lock"));
+        assert!(!force_alir("desktop_unlock"));
+        // Masaüstü dışı hiçbir araç almaz.
+        assert!(!force_alir("shell_run"));
+        assert!(!force_alir("fs_write"));
     }
 
     #[test]

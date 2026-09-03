@@ -555,6 +555,7 @@ async fn kos(
                 run_id: &run_id,
             },
             max_tur: bot.max_turns,
+            force_when_busy: bot.force_when_busy,
         },
     )
     .await;
@@ -578,6 +579,8 @@ pub struct Baglam<'a> {
     /// Sormadan yapılacak en fazla model gidiş-dönüşü. Tavana gelince koşum
     /// düşmez, kullanıcıya devam edip etmeyeceği sorulur.
     pub max_tur: u32,
+    /// Masaüstü araçlarına `force=true` eklensin mi (`Bot.force_when_busy`).
+    pub force_when_busy: bool,
 }
 
 pub struct Sonuc {
@@ -603,6 +606,7 @@ pub async fn tur_dongusu(
     mesajlar.push(kullanici.clone());
     kayit.mesaj(&[kullanici]);
 
+    let force = baglam.force_when_busy;
     let mut tur: u32 = 0;
     let mut son_prompt_tokens: u64 = 0;
     // Tavan aşılabilir: kullanıcı "devam et" derse bir tur payı daha açılır.
@@ -688,7 +692,7 @@ pub async fn tur_dongusu(
         // Araçlar **sırayla** yürütülür: `McpState` zaten tek mutex'in
         // arkasında ve sıralı yürütme hata ayıklamayı okunur tutuyor.
         for tc in &cagrilar {
-            let sonuc = arac_calistir(kayit, mcp, &baglam_kapi, tc).await;
+            let sonuc = arac_calistir(kayit, mcp, &baglam_kapi, tc, force).await;
             let mut msg = Message::tool(sonuc.metin, tc.id.clone());
             msg.images = sonuc.gorseller;
 
@@ -710,11 +714,14 @@ async fn arac_calistir(
     mcp: &crate::mcp::McpState,
     kapi: &Kapi<'_>,
     tc: &ToolCall,
+    force_when_busy: bool,
 ) -> crate::mcp::AracSonuc {
-    let (args, arg_hata) = match tc.args() {
+    let (mut args, arg_hata) = match tc.args() {
         Ok(a) => (a, None),
         Err(e) => (serde_json::Map::new(), Some(e)),
     };
+
+    force_ekle(&mut args, &tc.function.name, force_when_busy);
     let detail =
         crate::parse::detail(&tc.function.name, &serde_json::Value::Object(args.clone()));
 
@@ -773,6 +780,22 @@ async fn arac_calistir(
         ok: !sonuc.hata,
     }]);
     sonuc
+}
+
+/// `force` argümanını **yalnızca kabul eden** araçlara ekler.
+///
+/// **Uygulama koyar, modelden istenmez.** Sistem promptu bunu zaten
+/// anlatıyordu ama model yine de keşfetmek için tur harcıyordu — ölçülen bir
+/// koşumda kapıyı aşmak için `sleep 12` ve `sleep 30` çalıştırdı: 42 saniye,
+/// iki tur israfı.
+///
+/// Masaüstü grubundaki on aracın yalnızca yedisi bu alanı kabul ediyor
+/// (`tools::force_alir`); ötekilere bilinmeyen bir argüman göndermek çağrıyı
+/// bozardı.
+fn force_ekle(args: &mut serde_json::Map<String, serde_json::Value>, tool: &str, ac: bool) {
+    if ac && crate::tools::force_alir(tool) {
+        args.insert("force".into(), serde_json::Value::Bool(true));
+    }
 }
 
 /// **Görüntü yalnızca bir tur yaşar.** Yeni bir görüntü gelince öncekiler
@@ -871,13 +894,17 @@ async fn arac_listesi(
 /// bekliyor" diyor. Model bunu "çağırman gereken bir araç var" diye okuyup
 /// elinde olmayan aracı aramaya başlıyor — bir koşum bu yüzden 28 paragraf
 /// döndü. Durumu ve kimin açabileceğini baştan söylemek o döngüyü kesiyor.
-fn masaustu_notu(araclar: &[model::ToolDef]) -> String {
-    masaustu_notu_ile(araclar, &crate::desktop::read_state())
+fn masaustu_notu(araclar: &[model::ToolDef], force: bool) -> String {
+    masaustu_notu_ile(araclar, &crate::desktop::read_state(), force)
 }
 
 /// Kilit durumu dışarıdan verilir: iki dal da makinenin o anki hâline
 /// bağlı kalmadan sınanabilsin diye.
-fn masaustu_notu_ile(araclar: &[model::ToolDef], d: &crate::desktop::DesktopState) -> String {
+fn masaustu_notu_ile(
+    araclar: &[model::ToolDef],
+    d: &crate::desktop::DesktopState,
+    force: bool,
+) -> String {
     let masaustu: Vec<&str> = araclar
         .iter()
         .map(|t| t.name())
@@ -899,7 +926,7 @@ fn masaustu_notu_ile(araclar: &[model::ToolDef], d: &crate::desktop::DesktopStat
             "İzin şu an **açık**, yaklaşık {} dakika kaldı.\n",
             d.remaining.max(0) / 60
         ));
-        s.push_str(&masaustu_ipuclari());
+        s.push_str(&masaustu_ipuclari(force));
         return s;
     }
     s.push_str("İzin şu an **kapalı** ve kapalıyken hiçbir masaüstü aracı çalışmaz. ");
@@ -908,7 +935,7 @@ fn masaustu_notu_ile(araclar: &[model::ToolDef], d: &crate::desktop::DesktopStat
             "Açmak için `desktop_unlock` çağır; süreyi ve gerekçeyi sen verirsin. \
              Kullanıcının izin kipine göre bu çağrı onay isteyebilir.\n",
         );
-        s.push_str(&masaustu_ipuclari());
+        s.push_str(&masaustu_ipuclari(force));
     } else {
         s.push_str(
             "`desktop_unlock` senin araç listende **yok**, yani izni sen açamazsın. \
@@ -925,22 +952,33 @@ fn masaustu_notu_ile(araclar: &[model::ToolDef], d: &crate::desktop::DesktopStat
 /// ortasında düştü ve model şaşırdı; her eylem "kullanıcı aktif" diye
 /// reddedildi ve model gerekçeyi turlarca aradı; ölçekli ekran görüntüsünden
 /// koordinat hesaplamaya çalışıp yanlış pencereye tıkladı.
-fn masaustu_ipuclari() -> String {
-    String::from(
+fn masaustu_ipuclari(force: bool) -> String {
+    // Anahtar açıkken kapıyı uygulamanın kendisi kaldırıyor (`force_ekle`).
+    // Modele hâlâ "reddedilebilirsin, `force` kullan" demek, olmayan bir
+    // sorunu çözdürmeye çalışmak olurdu — ölçülen koşumda model tam bunun
+    // için iki tur ve 42 saniye harcamıştı.
+    let kapi = if force {
+        "         - **Kullanıcı makinedeyken de eylemlerin çalışır.** Kullanıcı bu \
+           botta beklemeyi kapattı; uygulama gereken araçlara `force`'u kendisi \
+           ekliyor. Sen `force` yazma, \"kullanıcı aktif\" diye bekleme.\n"
+    } else {
+        "         - **Kullanıcı klavye/fareyi kullanıyorsa eylem reddedilir.** Aracın \
+           böyle bir seçeneği varsa (`force`) onu kullan; her seferinde \
+           baştan denemek tur harcar.\n"
+    };
+    format!(
         "\nBu makinede masaüstü hakkında bilinmesi gerekenler:\n\
          - **İzin boşta kalınca düşer** (bu makinede ~90 saniye). Uzun bir işte \
            izin ortada kaybolabilir; araç \"kilitli\" derse şaşırma, yeniden aç \
            ve kaldığın yerden devam et.\n\
-         - **Kullanıcı klavye/fareyi kullanıyorsa eylem reddedilir.** Aracın \
-           böyle bir seçeneği varsa (`force`) onu kullan; her seferinde \
-           baştan denemek tur harcar.\n\
+         {kapi}\
          - **Koordinatlar bütün ekranlar için tektir**, monitör başına değil. \
            Ekran görüntüsü küçültülmüş gelebilir; ondan piksel sayıp koordinat \
            uydurma. Monitör konumlarını `screen_info` söyler.\n\
          - **Önce `ui_dump` dene, sonra ekran görüntüsü.** Ağaç öğeyi adıyla \
            verir ve ıskalamaz; koordinat tahmini son çare. Ağaç boş dönerse \
            (bazı uygulamalar vermiyor) ekran görüntüsüne düş.\n\
-         - Bir uygulamayı açmak için `window_focus` kullan; kapalıysa açar.\n",
+         - Bir uygulamayı açmak için `window_focus` kullan; kapalıysa açar.\n"
     )
 }
 
@@ -970,7 +1008,7 @@ fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> S
              İhtiyacın olan bir araç listede yoksa onu başka bir yoldan \
              aramaya çalışma: kullanıcıya neye ihtiyacın olduğunu söyle ve dur.\n",
         );
-        s.push_str(&masaustu_notu(araclar));
+        s.push_str(&masaustu_notu(araclar, bot.force_when_busy));
     }
     if let Some(o) = ozet.filter(|o| !o.trim().is_empty()) {
         // Özet **sistem mesajının içinde**: kimi sunucu ikinci bir `system`
@@ -1187,6 +1225,7 @@ mod tests {
             tools: vec!["fs_list".into()],
             context_budget: 8192,
             max_turns: TEST_MAX_TUR,
+            force_when_busy: false,
             session_id: None,
             jobs: Vec::new(),
             created_at: 0,
@@ -1580,6 +1619,7 @@ mod tests {
                 text: "kaç dosya var".into(),
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -1687,6 +1727,7 @@ mod tests {
                     run_id: "local-test",
                 },
                 max_tur: 2,
+                force_when_busy: false,
             },
         )
         .await;
@@ -1733,6 +1774,7 @@ mod tests {
                     run_id: "local-test",
                 },
                 max_tur: 2,
+                force_when_busy: false,
             },
         )
         .await;
@@ -1771,6 +1813,7 @@ mod tests {
                 text: "dur durak bilme".into(),
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -1803,6 +1846,7 @@ mod tests {
                 text: "selam".into(),
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -1936,6 +1980,7 @@ mod tests {
                 text: "/tmp dizininde neler var?".into(),
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -2004,6 +2049,7 @@ mod tests {
                     run_id: "local-test",
                 },
             max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -2088,6 +2134,7 @@ mod tests {
                     run_id: "local-test",
                 },
             max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -2125,6 +2172,7 @@ mod tests {
                     run_id: "local-test",
                 },
             max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
             },
         )
         .await;
@@ -2201,6 +2249,7 @@ mod tests {
                         run_id: "local-bekle",
                     },
                 max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
                 },
             )
             .await;
@@ -2393,17 +2442,75 @@ mod tests {
     fn kilitliyken_kimin_acacagi_yazilir() {
         // `desktop_unlock` listede **yok**: modele "sen açamazsın, iste ve
         // bekle" denmeli. Bu satır olmadan model olmayan aracı arıyordu.
-        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(false));
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(false), false);
         assert!(s.contains("kapalı"), "{s}");
         assert!(s.contains("araç listende **yok**"), "{s}");
         assert!(s.contains("başka bir yol arama"), "{s}");
 
         // Listede **var**: modele kendi açabileceği söylenmeli. Kullanıcının
         // istediği otomasyon tam olarak bu.
-        let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &kilit(false));
+        let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &kilit(false), false);
         assert!(s.contains("kapalı"), "{s}");
         assert!(s.contains("`desktop_unlock` çağır"), "{s}");
         assert!(!s.contains("listende **yok**"), "{s}");
+    }
+
+    /// `force` **uygulamanın koyduğu** bir argüman ve yalnızca alanı gerçekten
+    /// kabul eden araçlara konuyor.
+    #[test]
+    fn force_yalnizca_kabul_eden_araclara_eklenir() {
+        let arg = |tool: &str, ac: bool| {
+            let mut m = serde_json::Map::new();
+            m.insert("x".into(), 1.into());
+            force_ekle(&mut m, tool, ac);
+            m
+        };
+
+        // Anahtar kapalıyken hiçbir şey eklenmiyor — varsayılan bu.
+        assert!(!arg("mouse", false).contains_key("force"));
+
+        // Açıkken masaüstünün `force` alan araçlarına ekleniyor…
+        assert_eq!(arg("mouse", true).get("force"), Some(&serde_json::json!(true)));
+        assert_eq!(
+            arg("computer_batch", true).get("force"),
+            Some(&serde_json::json!(true))
+        );
+
+        // …ama alanı olmayanlara **eklenmiyor**: bilinmeyen argüman çağrıyı
+        // bozardı. Üçü de masaüstü grubunda ama imzalarında `force` yok
+        // (ölçüldü, `pcbridge/tools.py`).
+        assert!(!arg("screen_capture", true).contains_key("force"));
+        assert!(!arg("desktop_unlock", true).contains_key("force"));
+        // Masaüstü dışı araçlara hiç bulaşmıyor.
+        assert!(!arg("shell_run", true).contains_key("force"));
+
+        // Modelin kendi argümanları korunuyor.
+        assert_eq!(arg("mouse", true).get("x"), Some(&serde_json::json!(1)));
+    }
+
+    /// Anahtar açıkken modele "reddedilebilirsin, `force` kullan" denmiyor:
+    /// kapıyı uygulama zaten kaldırdı, model onu keşfetmek için tur harcamasın.
+    #[test]
+    fn anahtar_acikken_prompt_force_istemiyor() {
+        let araclar = [arac("ui_click"), arac("mouse")];
+
+        let kapali = masaustu_notu_ile(&araclar, &kilit(true), false);
+        assert!(kapali.contains("eylem reddedilir"), "{kapali}");
+        assert!(kapali.contains("onu kullan"), "modelden istenmeli: {kapali}");
+
+        let acik = masaustu_notu_ile(&araclar, &kilit(true), true);
+        assert!(acik.contains("makinedeyken de eylemlerin çalışır"), "{acik}");
+        assert!(
+            !acik.contains("eylem reddedilir"),
+            "olmayan bir sorun anlatılmamalı: {acik}"
+        );
+        assert!(acik.contains("Sen `force` yazma"), "{acik}");
+
+        // İki dalda da ortak bilgiler duruyor.
+        for s in [&kapali, &acik] {
+            assert!(s.contains("boşta kalınca düşer"), "{s}");
+            assert!(s.contains("bütün ekranlar için tektir"), "{s}");
+        }
     }
 
     #[test]
@@ -2412,7 +2519,7 @@ mod tests {
         // düşüyor, kullanıcı aktifken eylem reddediliyor, koordinatlar
         // ekran başına değil global.
         for d in [kilit(true), kilit(false)] {
-            let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d);
+            let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d, false);
             assert!(s.contains("boşta kalınca düşer"), "{s}");
             assert!(s.contains("force"), "{s}");
             assert!(s.contains("bütün ekranlar için tektir"), "{s}");
@@ -2424,7 +2531,7 @@ mod tests {
 
     #[test]
     fn izin_acikken_kalan_sure_yazilir() {
-        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(true));
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(true), false);
         assert!(s.contains("açık"), "{s}");
         assert!(s.contains("10 dakika"), "600 sn → 10 dk: {s}");
         assert!(
@@ -2437,7 +2544,7 @@ mod tests {
     fn kilit_durumu_bilinmiyorsa_uydurulmaz() {
         let mut d = kilit(false);
         d.known = false;
-        let s = masaustu_notu_ile(&[arac("ui_click")], &d);
+        let s = masaustu_notu_ile(&[arac("ui_click")], &d, false);
         assert!(s.contains("okunamıyor"), "{s}");
         assert!(!s.contains("kapalı"), "bilinmeyen durum 'kapalı' diye sunulmamalı: {s}");
     }

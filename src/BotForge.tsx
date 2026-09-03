@@ -44,6 +44,8 @@ const BOS: Omit<BotDraft, "avatar" | "agent"> = {
   // 24 masaüstü işinde yetmiyordu (ölçüldü): bak-uygula-bak döngüsü doğası
   // gereği onlarca adım. Tavana gelince koşum düşmüyor, soruluyor.
   maxTurns: 100,
+  // **Kapalı.** Bir güvenlik kapısını kaldırmak bilinçli bir eylem olmalı.
+  forceWhenBusy: false,
 };
 
 export default function BotForge({
@@ -584,6 +586,32 @@ export default function BotForge({
                   {t("forge.toolGroup.all")}
                 </button>
               </div>
+            )}
+
+            {/*
+              * Kip ile aynı grupta: ikisi de "bu bot ne yapabilir" sorusunun
+              * parçası. **Yalnızca masaüstü aracı seçilmiş botta** görünüyor —
+              * masaüstüne erişemeyen bir botta hiçbir şey yapmaz ve okunmayan
+              * bir anahtar bu depoda bir kez kullanıcıya izin verdiğini
+              * sandırdı.
+              */}
+            {gruplar.desktop.some((x) => draft.tools.includes(x.name)) && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.forceWhenBusy}
+                className="permmenu__anahtar"
+                style={{ marginTop: 6 }}
+                onClick={() => setDraft({ ...draft, forceWhenBusy: !draft.forceWhenBusy })}
+              >
+                <span className="permmenu__metin">
+                  <span className="permmenu__ad">{t("forge.force")}</span>
+                  <span className="permmenu__ipucu">{t("forge.forceHint")}</span>
+                </span>
+                <span className="anahtar" aria-hidden="true">
+                  <span className="anahtar__top" />
+                </span>
+              </button>
             )}
           </div>
 

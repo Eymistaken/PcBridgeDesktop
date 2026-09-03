@@ -10,8 +10,11 @@ interface Props {
   botName: string;
   /** Botun araç filtresi — kipin neye uygulandığını göstermek için. */
   tools: string[];
+  /** "Ben makinedeyken de çalışsın" — `Bot.force_when_busy`. */
+  force: boolean;
   disabled?: boolean;
   onChange: (p: Permission) => void;
+  onForce: (v: boolean) => void;
   /** Araçları düzenlemek için bot ayarlarını açar. */
   onEditTools: () => void;
 }
@@ -51,8 +54,10 @@ export default function PermMenu({
   value,
   botName,
   tools,
+  force,
   disabled,
   onChange,
+  onForce,
   onEditTools,
 }: Props) {
   const [acik, setAcik] = useState(false);
@@ -122,6 +127,30 @@ export default function PermMenu({
               </span>
             </button>
           ))}
+
+          {/*
+            * **Yalnızca masaüstü aracı olan botta.** Anahtar bir güvenlik
+            * kapısını kaldırıyor; masaüstüne hiç erişemeyen bir botta hiçbir
+            * şey yapmaz ve bu depoda okunmayan bir denetim bir kez kullanıcıya
+            * izin verdiğini sandırdı.
+            */}
+          {sayilar && sayilar.desktop > 0 && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={force}
+              className="permmenu__anahtar"
+              onClick={() => onForce(!force)}
+            >
+              <span className="permmenu__metin">
+                <span className="permmenu__ad">{t("perm.force")}</span>
+                <span className="permmenu__ipucu">{t("perm.force.hint")}</span>
+              </span>
+              <span className="anahtar" aria-hidden="true">
+                <span className="anahtar__top" />
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
