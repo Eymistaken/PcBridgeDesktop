@@ -114,9 +114,10 @@ terminal dahil her şey okunmuyordu. `--well-text` (15.72) ve `--well-muted`
 
 ### Köşeler — üç değer
 
-`10px` satır/alan/düğme · `20px` baloncuk/kuyu/panel · `9999px` besteci/avatar.
+`12px` satır/alan/düğme · `20px` baloncuk/kuyu/panel · `9999px` besteci/avatar.
+(Kullanıcının 2026-09-03 isteğiyle 10 → 12 yumuşatıldı.)
 
-İç içe yüzeyde yarıçap **dış − dolgu**'dur (10 − 3 = 7). 30px altındaki ikon
+İç içe yüzeyde yarıçap **dış − dolgu**'dur (12 − 3 = 9). 30px altındaki ikon
 çizimleri bu ölçekte **değildir**, orantılı çizilir.
 
 ### Yazı

@@ -101,6 +101,13 @@ input:focus {
   background: var(--surface);
 }
 
+/* İkon hover'da soluktan tam metne çıkıyor: eylem olduğu böyle belli
+ * oluyor, renkle değil. */
+.ib:hover svg [stroke],
+.ib:hover svg {
+  stroke: var(--text);
+}
+
 .ib--filled {
   background: var(--field);
 }
@@ -153,7 +160,7 @@ input:focus {
 
 .seg > button {
   padding: 7px 15px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 13.5px;
   color: var(--text-muted);
   transition: background-color 0.12s ease, color 0.12s ease;
@@ -240,7 +247,7 @@ input:focus {
   min-height: 0;
   gap: 7px;
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: 9px;
   background: transparent;
   font-size: 12px;
   color: var(--text-muted);
@@ -279,8 +286,8 @@ input:focus {
   align-items: center;
   gap: 9px;
   padding: 8px 10px;
-  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
-  border-radius: 7px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 12 − 3 = 9. */
+  border-radius: 9px;
   font-size: 13px;
   color: var(--text-muted);
   text-align: left;
@@ -341,8 +348,8 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
-  border-radius: 7px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 12 − 3 = 9. */
+  border-radius: 9px;
   padding: 10px 11px;
 }
 
@@ -365,7 +372,7 @@ input:focus {
 .toolset__hepsi {
   flex: none;
   padding: 4px 10px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 11.5px;
   color: var(--text-muted);
   background: var(--surface);
@@ -385,7 +392,7 @@ input:focus {
 
 .toolset__arac {
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 12px;
   color: var(--text-muted);
   background: var(--surface);
@@ -481,13 +488,23 @@ input:focus {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 13px 18px;
-  text-align: left;
+  gap: 6px;
+  padding: 7px 12px 7px 18px;
   width: 100%;
 }
 
-.side__conn:hover {
+.side__conn__ana {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-grow: 1;
+  min-width: 0;
+  padding: 6px 6px 6px 0;
+  border-radius: var(--r-sm);
+  text-align: left;
+}
+
+.side__conn__ana:hover {
   background: var(--surface);
 }
 
@@ -743,6 +760,14 @@ input::placeholder {
 
 /* ── sohbet ──────────────────────────────────────────────────────── */
 
+/* Sohbetin ve bestecinin **ortak ölçüsü**.
+ *
+ * Besteci pencere kadar geniyordu, baloncuklar 640'ta duruyordu; iki ayrı
+ * genişlik aynı sütunda durmuyordu. Artık ikisi de aynı sütuna oturuyor. */
+.main {
+  --olcu: 860px;
+}
+
 .chat {
   flex-grow: 1;
   display: flex;
@@ -751,6 +776,17 @@ input::placeholder {
   padding: 8px 32px 0;
   overflow-y: auto;
   min-height: 0;
+}
+
+.chat > *,
+.composer__box,
+.composer__foot,
+.ekler,
+.jobstrip__box,
+.permask__box {
+  width: 100%;
+  max-width: var(--olcu);
+  margin-inline: auto;
 }
 
 .chat__bos {
@@ -822,6 +858,7 @@ pre.well {
 }
 
 .jobstrip__box {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 6px 18px -8px rgb(0 0 0 / 0.18);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -849,7 +886,7 @@ pre.well {
   align-items: center;
   gap: 7px;
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 12px;
   color: var(--text-muted);
   transition: background-color 0.12s ease, color 0.12s ease;
@@ -872,6 +909,13 @@ pre.well {
 
 /* Bestecinin üstünde açılır: menü aşağı doğru açılsa pencerenin dışına
  * taşardı — besteci zaten en altta. */
+/* Açılır yüzeyler zeminden **ayrılmalı**: yüzey kademesi tek başına
+ * "bu bir katman" demiyordu. Gölge yumuşak ve renksiz — aksan değil derinlik. */
+.permmenu__pop,
+.picker__pop {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.16), 0 8px 24px -6px rgb(0 0 0 / 0.28);
+}
+
 .permmenu__pop {
   position: absolute;
   bottom: calc(100% + 6px);
@@ -888,11 +932,11 @@ pre.well {
 
 .permmenu__sec {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
   padding: 9px 11px;
-  /* İç içe yüzeyde yarıçap dış − dolgu: 10 − 3 = 7. */
-  border-radius: 7px;
+  /* İç içe yüzeyde yarıçap dış − dolgu: 12 − 3 = 9. */
+  border-radius: 9px;
   text-align: left;
   transition: background-color 0.12s ease;
 }
@@ -909,10 +953,11 @@ pre.well {
 
 .permmenu__ikon {
   flex: none;
-  width: 14px;
+  width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
+  justify-content: center;
   color: var(--text-muted);
 }
 
@@ -1000,6 +1045,154 @@ pre.well {
   background: var(--bg);
   box-shadow: 0 0 0 2px var(--text);
   cursor: ew-resize;
+}
+
+/* ── markdown ────────────────────────────────────────────────────── */
+/*
+ * Model kalın yazmaya, liste ve tablo kurmaya çalışıyordu; ham `**` ekranda
+ * duruyordu. Markdown kendi rengini **getirmiyor** — her öğe tasarım
+ * tokenlarını kullanıyor ve hiyerarşi boyutla kuruluyor.
+ */
+.md__p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.md__p + .md__p,
+.md__p + .md__baslik,
+.md__baslik + .md__p,
+.md__liste + .md__p,
+.md__p + .md__liste,
+.md__p + .md__kod,
+.md__kod + .md__p,
+.md__p + .md__tabloKap,
+.md__tabloKap + .md__p,
+.md__alinti + .md__p,
+.md__p + .md__alinti {
+  margin-top: 9px;
+}
+
+.md__baslik {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+.md__baslik:first-child {
+  margin-top: 0;
+}
+
+.md__kalin {
+  font-weight: 600;
+}
+
+/* Kod yüzeyi baloncuğun bir kademe üstünde; kuyu (`--well`) burada fazla
+ * sert dururdu — baloncuk zaten bir yüzey. */
+.md__satirKod {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 0.9em;
+}
+
+.md__kod {
+  position: relative;
+  margin: 9px 0 0;
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  color: var(--well-text);
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.md__kod code {
+  font: inherit;
+}
+
+.md__dil {
+  position: absolute;
+  top: 7px;
+  right: 11px;
+  font-size: 10.5px;
+  color: var(--well-muted);
+  user-select: none;
+}
+
+.md__liste {
+  margin: 9px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md__liste:first-child {
+  margin-top: 0;
+}
+
+.md__liste li::marker {
+  color: var(--text-muted);
+}
+
+/* Ayırıcı çizgi değil yüzey kademesi — ama alıntının kenarı anlamın
+ * kendisi, orada ince bir çizgi kalıyor. */
+.md__alinti {
+  margin: 9px 0 0;
+  padding-left: 11px;
+  border-left: 2px solid var(--line);
+  color: var(--text-muted);
+}
+
+.md__cizgi {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--line);
+}
+
+/* **Tablo kendi içinde kayar.** Baloncuk yatay kaymamalı; geniş bir tablo
+ * bütün sohbeti kaydırırdı. */
+.md__tabloKap {
+  margin-top: 9px;
+  overflow-x: auto;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.md__tablo {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.md__tablo th,
+.md__tablo td {
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.md__tablo th {
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Satırlar çizgiyle değil **yüzey kademesiyle** ayrılıyor. */
+.md__tablo tbody tr {
+  background: var(--surface);
+}
+
+.md__tablo tbody tr:nth-child(even) {
+  background: var(--field);
+}
+
+.md__bag {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--text-muted);
+  cursor: text;
 }
 
 /* ── düşünce kutusu ──────────────────────────────────────────────── */
@@ -1116,12 +1309,24 @@ pre.well {
   overflow: hidden;
 }
 
+/* **Özetlemeden sonra bar yumuşak kısalır.** Sayı bir anda düşüyor;
+ * çubuğun da atlaması "ne oldu" dedirtiyordu. Uzun ve yavaşlayan bir eğri
+ * hareketi anlatıyor: doluluk gerçekten geri gitti. Hover'da zıplama ya da
+ * ölçeklenme yok — yalnızca genişlik. */
 .ctxbar__dolu {
   display: block;
   height: 100%;
   border-radius: 9999px;
   background: var(--text);
-  transition: width 0.25s ease, background-color 0.2s ease;
+  transition:
+    width 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    background-color 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctxbar__dolu {
+    transition: none;
+  }
 }
 
 .ctxbar[data-durum="run"] .ctxbar__dolu {
@@ -1137,8 +1342,16 @@ pre.well {
   flex: none;
 }
 
+/* Sağa dayalı düğmenin menüsü **sola** açılır; `left: 0` pencereden taşardı. */
 .ctxmenu__pop {
   width: 340px;
+  left: auto;
+  right: 0;
+}
+
+.picker--chip .picker__pop {
+  left: auto;
+  right: 0;
 }
 
 .ctxmenu__ust {
@@ -1152,6 +1365,43 @@ pre.well {
 .ctxmenu__toplam {
   font-size: 14px;
   font-weight: 500;
+}
+
+/* Kaynak ve hız satırları — dökümün üstünde, aynı ölçüde. */
+.ctxmenu__kaynak {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+}
+
+/* Rozet renksiz: yerel/bulut bir durum değil bir olgu. Ayrım yüzey
+ * kademesiyle — yerel dolu, bulut çerçeveli. */
+.ctxmenu__rozet {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.ctxmenu__rozet--yerel {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.ctxmenu__host {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctxmenu__hiz {
+  margin-left: auto;
+  color: var(--text);
 }
 
 .ctxmenu__bos {
@@ -1225,7 +1475,7 @@ pre.well {
   align-items: center;
   gap: 7px;
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 12px;
   color: var(--run);
   background: var(--field);
@@ -1247,7 +1497,7 @@ pre.well {
   gap: 10px;
   margin-top: 3px;
   padding: 9px 11px;
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--surface);
   text-align: left;
   transition: background-color 0.12s ease;
@@ -1312,7 +1562,7 @@ pre.well {
   gap: 10px;
   margin-top: 3px;
   padding: 9px 11px;
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--surface);
   text-align: left;
   transition: background-color 0.12s ease;
@@ -1357,6 +1607,7 @@ pre.well {
 }
 
 .permask__box {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 6px 18px -8px rgb(0 0 0 / 0.22);
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -1464,12 +1715,6 @@ pre.well {
   align-items: center;
   gap: 10px;
   padding: 8px 6px 0;
-}
-
-.composer__hint {
-  font-size: 11.5px;
-  flex: none;
-  padding-bottom: 9px;
 }
 
 /* ek listesi — dosya kopyalanmıyor, YOLU gönderiliyor */
@@ -1592,7 +1837,7 @@ pre.well {
 }
 
 .layout > button {
-  border-radius: 5px;
+  border-radius: 6px;
   display: flex;
   transition: background-color 0.12s ease;
 }
@@ -1667,7 +1912,7 @@ pre.well {
   bottom: 3px;
   left: 3px;
   width: calc(50% - 4.5px);
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--surface-2);
   transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -1684,7 +1929,7 @@ pre.well {
   justify-content: center;
   gap: 7px;
   height: 32px;
-  border-radius: 7px;
+  border-radius: 9px;
   font-size: 13.5px;
   color: var(--text-muted);
   transition: color 0.16s ease;
@@ -1703,16 +1948,33 @@ pre.well {
 
 /* Şeritteki rozet. Kilitliyken sessiz, açıkken --run: izin açık olduğu
  * sürece kullanıcı bunu kaçırmamalı. */
+/* Kilit rozeti bir **düğme**: tek tıkla izni açıp kapatıyor. Basılabilir
+ * olduğu boyutundan belli — 30 px'lik hedef, ikon ortada. */
 .dbadge {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   flex: none;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
   color: var(--text-muted);
   font-size: 11.5px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.dbadge:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .dbadge--on {
+  color: var(--run);
+}
+
+.dbadge--on:hover:not(:disabled) {
   color: var(--run);
 }
 
@@ -1873,7 +2135,7 @@ pre.well {
   min-width: 96px;
   height: 24px;
   padding: 0 9px;
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--surface);
   font-family: var(--mono);
   font-size: 11.5px;

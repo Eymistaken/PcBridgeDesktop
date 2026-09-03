@@ -66,8 +66,8 @@ const EN_AZ_DUSEN: usize = 4;
 pub trait Kayit: Send + Sync {
     fn olay(&self, events: &[Event]);
     fn mesaj(&self, msgs: &[Message]);
-    /// Bu koşumun ölçülen `prompt_tokens`'ı ve bağlam dökümü.
-    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum);
+    /// Bu koşumun ölçülen `prompt_tokens`'ı, bağlam dökümü ve üretim hızı.
+    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum, uretilen: u64, gen_ms: u64);
     /// Özetleme başladı / bitti.
     ///
     /// **Diske yazılmıyor:** anlık bir durum, geçmişe ait bir olgu değil.
@@ -266,8 +266,8 @@ impl Kayit for AppKayit {
     fn mesaj(&self, msgs: &[Message]) {
         runs::append_messages(&self.run_id, msgs);
     }
-    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum) {
-        let ctx = runs::write_ctx_tokens(&self.run_id, prompt_tokens, dokum);
+    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum, uretilen: u64, gen_ms: u64) {
+        let ctx = runs::write_ctx_tokens(&self.run_id, prompt_tokens, dokum, uretilen, gen_ms);
         // Bar koşum sürerken de aksın: arayüz her turun ölçümünü görüyor.
         // Diske zaten yazıldı; olay yalnızca canlılık için.
         let _ = tauri::Emitter::emit(
@@ -693,6 +693,10 @@ pub async fn tur_dongusu(
     let force = baglam.force_when_busy;
     let mut tur: u32 = 0;
     let mut son_prompt_tokens: u64 = 0;
+    // Üretim hızı: **modelin kendi hızı.** Araç çalıştırma ve kullanıcı
+    // beklemesi sayılmıyor, yalnızca istek gönderiminden akış bitişine kadar.
+    let mut uretilen_toplam: u64 = 0;
+    let mut gen_ms_toplam: u64 = 0;
     // Tavan aşılabilir: kullanıcı "devam et" derse bir tur payı daha açılır.
     let mut tavan = baglam.max_tur.max(1);
     // "Bütçe yetmiyor" koşum başına **bir kez** söylenir; her turda bir
@@ -722,6 +726,7 @@ pub async fn tur_dongusu(
             mesajlar.clone(),
             baglam.araclar.clone(),
         );
+        let tur_basladi = std::time::Instant::now();
         let mut akis = match model::chat_stream(baglam.base_url, istek).await {
             Ok(a) => a,
             Err(e) => {
@@ -755,7 +760,10 @@ pub async fn tur_dongusu(
                     }])
                 }
                 Ok(Delta::Tool(tc)) => cagrilar.push(tc),
-                Ok(Delta::Usage { prompt, .. }) => son_prompt_tokens = prompt,
+                Ok(Delta::Usage { prompt, completion }) => {
+                    son_prompt_tokens = prompt;
+                    uretilen_toplam += completion;
+                }
                 Ok(Delta::Finish(_)) => {}
                 Err(e) => {
                     hata = Some(e.to_string());
@@ -787,7 +795,8 @@ pub async fn tur_dongusu(
 
         // **Her turda.** Bar koşum sürerken de aksın; ayrıca uzun bir koşum
         // yarıda kesilirse (iptal, çökme) son ölçüm yine diskte kalır.
-        kayit.ctx_olcum(son_prompt_tokens, dokum);
+        gen_ms_toplam += tur_basladi.elapsed().as_millis() as u64;
+        kayit.ctx_olcum(son_prompt_tokens, dokum, uretilen_toplam, gen_ms_toplam);
 
         let yanit = Message::assistant(metin.clone(), cagrilar.clone());
         mesajlar.push(yanit.clone());
@@ -1618,10 +1627,12 @@ mod tests {
         fn mesaj(&self, msgs: &[Message]) {
             self.mesajlar.lock().unwrap().extend_from_slice(msgs);
         }
-        fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum) {
+        fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum, uretilen: u64, gen_ms: u64) {
             self.ctxler.lock().unwrap().push(runs::RunCtx {
                 prompt_tokens,
                 breakdown: dokum,
+                completion_tokens: uretilen,
+                gen_ms,
                 ..Default::default()
             });
         }
@@ -1820,7 +1831,7 @@ mod tests {
         // `kos`'un yaptığı: işaret **korunan pencerenin ilk koşumuna**.
         runs::write_ctx_summary_in(&k, &ids[3], Some("ilk üç koşumun özeti".into()), 6);
         // `tur_dongusu`'nün koşum bitince yaptığı: kendi koşumuna token.
-        runs::write_ctx_tokens_in(&k, &ids[5], 4096, runs::Dokum::default());
+        runs::write_ctx_tokens_in(&k, &ids[5], 4096, runs::Dokum::default(), 0, 0);
 
         let (ozet, msgs) = gecmis_in(&k, &b);
         assert_eq!(

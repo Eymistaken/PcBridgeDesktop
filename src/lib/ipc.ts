@@ -127,6 +127,16 @@ export const botCtx = (id: string) => call<RunCtx | null>("bot_ctx", { id });
  */
 export const compactBot = (id: string) => call<number>("compact_bot", { id });
 
+/**
+ * Sohbeti tek bir JSON dosyasına yazar; yazılan yolu döner.
+ *
+ * **Sır taşımaz:** ne pcbridge token'ı ne model anahtarı diske yazılıyor —
+ * ikisi de keyring'de. Dosyada botun alanları, koşum metaları, olaylar ve
+ * bağlam defteri var.
+ */
+export const exportBot = (id: string, path: string) =>
+  call<string>("export_bot", { id, path });
+
 /** Kenar çubuğu satırları — her botun son koşum özeti. */
 export const botSummaries = () => call<BotSummary[]>("bot_summaries");
 

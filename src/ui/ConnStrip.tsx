@@ -10,6 +10,8 @@ interface Props {
   ok: boolean;
   desktop?: DesktopState;
   onClick: () => void;
+  /** Kilit rozetine basınca — izni açar ya da kapatır. */
+  onToggleDesktop?: () => void;
   disabled?: boolean;
 }
 
@@ -18,39 +20,59 @@ interface Props {
  * izni — burada: izin **her kipte görünür** olmalı, çünkü açık bir izin
  * kullanıcı başka bir ekrandayken de sürüyor.
  */
-export default function ConnStrip({ title, sub, ok, desktop, onClick, disabled }: Props) {
+export default function ConnStrip({
+  title,
+  sub,
+  ok,
+  desktop,
+  onClick,
+  onToggleDesktop,
+  disabled,
+}: Props) {
   return (
-    <button className="side__conn" type="button" onClick={onClick} disabled={disabled}>
-      <span className="dot" style={{ background: ok ? "var(--ok)" : "var(--fail)" }} />
-      <span style={{ display: "flex", flexDirection: "column", gap: 1, flexGrow: 1, minWidth: 0 }}>
-        <span className="mono" style={{ fontSize: 12 }}>
-          {title}
+    // **Kap artık düğme değil.** Kilit rozeti kendi başına bir eylem oldu
+    // (tek tıkla izni aç/kapat) ve düğme içine düğme konamaz.
+    <div className="side__conn">
+      <button className="side__conn__ana" type="button" onClick={onClick} disabled={disabled}>
+        <span className="dot" style={{ background: ok ? "var(--ok)" : "var(--fail)" }} />
+        <span style={{ display: "flex", flexDirection: "column", gap: 1, flexGrow: 1, minWidth: 0 }}>
+          <span className="mono" style={{ fontSize: 12 }}>
+            {title}
+          </span>
+          <span className="row__sub" style={{ fontSize: 11.5 }}>
+            {sub}
+          </span>
         </span>
-        <span className="row__sub" style={{ fontSize: 11.5 }}>
-          {sub}
-        </span>
-      </span>
-      {desktop && <DesktopBadge d={desktop} />}
-    </button>
+      </button>
+      {desktop && <DesktopBadge d={desktop} onToggle={onToggleDesktop} />}
+    </div>
   );
 }
 
-function DesktopBadge({ d }: { d: DesktopState }) {
-  if (!d.unlocked) {
-    return (
-      <span className="dbadge" title={t("strip.locked")}>
-        <IconLock size={15} />
-      </span>
-    );
-  }
+/**
+ * Masaüstü izni rozeti — **tek tıkla açıp kapatan bir düğme.**
+ *
+ * Eskiden yalnızca durum gösteriyordu ve izni açmak için panele gidip süre
+ * seçmek gerekiyordu. Sık yapılan şey "şimdi aç"; süre seçimi panelde duruyor.
+ */
+function DesktopBadge({ d, onToggle }: { d: DesktopState; onToggle?: () => void }) {
+  const acik = d.unlocked;
   return (
-    <span
-      className="dbadge dbadge--on"
-      title={`${t("strip.unlocked")}${d.reason ? ` — ${d.reason}` : ""}`}
+    <button
+      type="button"
+      className={acik ? "dbadge dbadge--on" : "dbadge"}
+      disabled={!onToggle}
+      aria-pressed={acik}
+      title={
+        acik
+          ? `${t("strip.unlocked")}${d.reason ? ` — ${d.reason}` : ""} · ${t("strip.clickLock")}`
+          : `${t("strip.locked")} · ${t("strip.clickUnlock")}`
+      }
+      onClick={onToggle}
     >
-      <IconLock size={15} color="var(--run)" open />
-      <span className="mono">{sayac(d.remaining)}</span>
-    </span>
+      <IconLock size={15} color={acik ? "var(--run)" : undefined} open={acik} />
+      {acik && <span className="mono">{sayac(d.remaining)}</span>}
+    </button>
   );
 }
 

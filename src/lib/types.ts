@@ -316,6 +316,10 @@ export interface RunCtx {
   summary: string | null;
   dropped: number;
   breakdown: Dokum;
+  /** Bu koşumda **üretilen** token — sunucunun sayısı, tahmin değil. */
+  completionTokens: number;
+  /** Modelin fiilen ürettiği süre (ms). Araç çalıştırma dahil değil. */
+  genMs: number;
 }
 
 /**

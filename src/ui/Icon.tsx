@@ -107,12 +107,32 @@ export function IconPencil({ size = 15, color = "var(--text-muted)", strokeWidth
   );
 }
 
-export function IconTrash({ size = 15, color = "var(--fail)", strokeWidth = 1.7 }: IconProps) {
+/**
+ * Silme ikonu **kırmızı değil.**
+ *
+ * Kanunda renk yalnızca kimlikten ve **durumdan** gelir; `--fail` "bir şey
+ * başarısız oldu" demek. Silme düğmesi bir durum değil bir eylem — hover'da
+ * yüzey kademesiyle öne çıkıyor, rengiyle değil. Onay penceresi zaten var.
+ */
+export function IconTrash({ size = 15, color = "var(--text-muted)", strokeWidth = 1.7 }: IconProps) {
   return svg(
     size,
     <>
       <path d="M4.5 5.5h11M8 5.5V4h4v1.5M6 5.5l.7 10h6.6l.7-10" />
     </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Dışa aktar — kutudan yukarı çıkan ok. 20px ızgarada. */
+export function IconExport({
+  size = 17,
+  color = "var(--text-muted)",
+  strokeWidth = 1.7,
+}: IconProps) {
+  return svg(
+    size,
+    <path d="M10 3.5v9M6.8 6.7 10 3.5l3.2 3.2M4.5 12.5v3a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3" />,
     { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
   );
 }

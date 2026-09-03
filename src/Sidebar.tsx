@@ -14,6 +14,8 @@ interface Props {
   desktop: DesktopState;
   /** Şeride basınca sistem paneli — bağlantı, masaüstü izni, denetim kaydı. */
   onOpenSystem: () => void;
+  /** Kilit rozeti — izni tek tıkla açar/kapatır. */
+  onToggleDesktop: () => void;
   bots: Bot[];
   summaries: Record<string, BotSummary>;
   selectedId?: string;
@@ -39,6 +41,7 @@ export default function Sidebar({
   onMode,
   desktop,
   onOpenSystem,
+  onToggleDesktop,
   bots,
   summaries,
   selectedId,
@@ -154,11 +157,11 @@ export default function Sidebar({
                 </div>
               </div>
               {secili && (
-                <div style={{ display: "flex", gap: 2, flex: "none" }}>
+                <div style={{ display: "flex", gap: 2, flex: "none", alignSelf: "center" }}>
                   <button
                     type="button"
                     className="ib"
-                    style={{ width: 26, height: 26 }}
+                    style={{ width: 30, height: 30 }}
                     title={t("side.edit")}
                     aria-label={t("side.editBot", { name: b.name })}
                     onClick={(e) => {
@@ -171,7 +174,7 @@ export default function Sidebar({
                   <button
                     type="button"
                     className="ib"
-                    style={{ width: 26, height: 26 }}
+                    style={{ width: 30, height: 30 }}
                     title={t("side.delete")}
                     aria-label={t("side.deleteBot", { name: b.name })}
                     onClick={(e) => {
@@ -200,6 +203,7 @@ export default function Sidebar({
         ok={!connError}
         desktop={desktop}
         onClick={onOpenSystem}
+        onToggleDesktop={onToggleDesktop}
       />
     </div>
   );

@@ -11,6 +11,12 @@ interface Props {
   ctx: RunCtx | null;
   /** Koşum sürerken elle özetleme kapalı: mesaj listesi diskle aynı değil. */
   busy: boolean;
+  /** Anlık üretim hızı (token/sn). Koşum yokken `null`. */
+  tps: number | null;
+  /** Model sunucusunun adresi — "yerel mi bulut mu" bundan okunuyor. */
+  baseUrl: string;
+  /** `pcbridge-agent` botlarında modeli yürüten ajan. */
+  agent?: string;
   /** Özetleme şu an çalışıyor mu. */
   compacting: boolean;
   onCompact: () => void;
@@ -38,6 +44,9 @@ export default function CtxMenu({
   budget,
   ctx,
   busy,
+  tps,
+  baseUrl,
+  agent,
   compacting,
   onCompact,
 }: Props) {
@@ -67,6 +76,9 @@ export default function CtxMenu({
     <div className="permmenu" ref={kok}>
       {acik && (
         <div className="permmenu__pop ctxmenu__pop" role="menu" aria-label={t("ctx.menu")}>
+          <Kaynak baseUrl={baseUrl} agent={agent} />
+          <Hiz tps={tps} ctx={ctx} />
+
           {ctx && budget > 0 ? (
             <>
               <div className="ctxmenu__ust">
@@ -121,6 +133,73 @@ export default function CtxMenu({
         )}
         <IconChevron acik={acik} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * Model nereden geliyor: **yerel mi bulut mu**, ve kaynağı.
+ *
+ * Ayrım adresten okunuyor — döngü adresi (`127.0.0.1`, `localhost`) ve özel
+ * ağlar yerel, gerisi bulut. `pcbridge-agent` yolunda model bir CLI'nin
+ * arkasında ve o CLI buluta gidiyor; orada ajanın adı yazılıyor.
+ */
+function Kaynak({ baseUrl, agent }: { baseUrl: string; agent?: string }) {
+  const bilgi = kaynakBilgisi(baseUrl, agent);
+  if (!bilgi) return null;
+  return (
+    <div className="ctxmenu__kaynak">
+      <span className={bilgi.yerel ? "ctxmenu__rozet ctxmenu__rozet--yerel" : "ctxmenu__rozet"}>
+        {bilgi.yerel ? t("ctx.local") : t("ctx.cloud")}
+      </span>
+      <span className="mono muted ctxmenu__host">{bilgi.host}</span>
+    </div>
+  );
+}
+
+/** Adresten yerel/bulut ve görünen kaynak adı. */
+export function kaynakBilgisi(
+  baseUrl: string,
+  agent?: string,
+): { yerel: boolean; host: string } | null {
+  if (agent) return { yerel: false, host: agent };
+  if (!baseUrl) return null;
+  let u: URL;
+  try {
+    u = new URL(baseUrl);
+  } catch {
+    return { yerel: false, host: baseUrl };
+  }
+  const h = u.hostname;
+  const yerel =
+    h === "localhost" ||
+    h === "::1" ||
+    /^127\./.test(h) ||
+    /^10\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    h.endsWith(".local");
+  return { yerel, host: u.port ? `${h}:${u.port}` : h };
+}
+
+/**
+ * Üretim hızı. Koşarken **anlık** (son üç saniyenin penceresi, `~` ile),
+ * bittiğinde koşumun **ölçülmüş** ortalaması.
+ */
+function Hiz({ tps, ctx }: { tps: number | null; ctx: RunCtx | null }) {
+  const ortalama =
+    ctx && ctx.genMs > 0 && ctx.completionTokens > 0
+      ? (ctx.completionTokens / ctx.genMs) * 1000
+      : null;
+  if (tps === null && ortalama === null) return null;
+  return (
+    <div className="ctxmenu__kaynak">
+      <span className="ctxmenu__ad">{t("ctx.speed")}</span>
+      <span className="mono ctxmenu__hiz">
+        {tps !== null
+          ? t("ctx.tpsLive", { n: Math.round(tps) })
+          : t("ctx.tpsAvg", { n: Math.round(ortalama as number) })}
+      </span>
     </div>
   );
 }

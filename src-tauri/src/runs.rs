@@ -288,6 +288,15 @@ pub struct RunCtx {
     /// Bağlamın neden bu kadar dolu olduğunun dökümü.
     #[serde(default)]
     pub breakdown: Dokum,
+    /// Bu koşumda **üretilen** token sayısı, bütün turların toplamı.
+    /// Sunucunun `usage.completion_tokens`'ı — tahmin değil.
+    #[serde(default)]
+    pub completion_tokens: u64,
+    /// Modelin fiilen ürettiği süre (ms): istek gönderiminden akış bitişine.
+    /// Araç çalıştırma ve kullanıcı beklemesi **dahil değil**; hız bu yüzden
+    /// modelin kendi hızı oluyor.
+    #[serde(default)]
+    pub gen_ms: u64,
 }
 
 /// İsteme giden bağlamın parçaları — **karakter cinsinden, ölçülerek.**
@@ -341,8 +350,14 @@ pub(crate) fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
 /// siliniyordu. Sonraki koşum geçmişin tamamını yeniden yükler, eşik yine
 /// aşılır ve özetleme her seferinde bir model turu harcayarak yeniden çalışır.
 /// İki yazıcı ayrı olunca üzerine yazmak yapısal olarak imkânsız.
-pub fn write_ctx_tokens(id: &str, prompt_tokens: u64, breakdown: Dokum) -> RunCtx {
-    write_ctx_tokens_in(&runs_dir(), id, prompt_tokens, breakdown)
+pub fn write_ctx_tokens(
+    id: &str,
+    prompt_tokens: u64,
+    breakdown: Dokum,
+    uretilen: u64,
+    gen_ms: u64,
+) -> RunCtx {
+    write_ctx_tokens_in(&runs_dir(), id, prompt_tokens, breakdown, uretilen, gen_ms)
 }
 
 pub(crate) fn write_ctx_tokens_in(
@@ -350,10 +365,14 @@ pub(crate) fn write_ctx_tokens_in(
     id: &str,
     prompt_tokens: u64,
     breakdown: Dokum,
+    uretilen: u64,
+    gen_ms: u64,
 ) -> RunCtx {
     let mut ctx = read_ctx_in(kok, id);
     ctx.prompt_tokens = prompt_tokens;
     ctx.breakdown = breakdown;
+    ctx.completion_tokens = uretilen;
+    ctx.gen_ms = gen_ms;
     write_ctx_in(kok, id, &ctx);
     ctx
 }
@@ -615,14 +634,14 @@ mod tests {
 
         // Önce işaret, sonra token: işaret durmalı.
         write_ctx_summary_in(&k, "local-a", Some("önceki konuşmanın özeti".into()), 4);
-        write_ctx_tokens_in(&k, "local-a", 5000, Dokum::default());
+        write_ctx_tokens_in(&k, "local-a", 5000, Dokum::default(), 0, 0);
         let c = read_ctx_in(&k, "local-a");
         assert_eq!(c.prompt_tokens, 5000);
         assert_eq!(c.summary.as_deref(), Some("önceki konuşmanın özeti"));
         assert_eq!(c.dropped, 4);
 
         // Ters sıra da bozmamalı: token, sonra işaret.
-        write_ctx_tokens_in(&k, "local-b", 1234, Dokum::default());
+        write_ctx_tokens_in(&k, "local-b", 1234, Dokum::default(), 0, 0);
         write_ctx_summary_in(&k, "local-b", Some("özet".into()), 2);
         let c = read_ctx_in(&k, "local-b");
         assert_eq!(c.prompt_tokens, 1234, "işaret yazması token'ı sıfırlamamalı");

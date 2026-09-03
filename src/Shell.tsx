@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 
 import BotForge from "./BotForge";
 import Sidebar, { sayilar } from "./Sidebar";
@@ -19,9 +20,13 @@ import {
   compactBot,
   deleteBot,
   detailText,
+  desktopLock,
   desktopState as fetchDesktop,
+  desktopUnlock,
   errorText,
+  exportBot,
   listBots,
+  modelConfig,
   pendingPermissions,
   refresh as refreshConn,
   resumeWatches,
@@ -100,6 +105,19 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   const [ctx, setCtx] = useState<RunCtx | null>(null);
   const [compacting, setCompacting] = useState(false);
 
+  /**
+   * Anlık üretim hızı (token/sn) — **kayan pencere.**
+   *
+   * Koşum başından beri ortalama almak, uzun bir araç çağrısından sonra hızı
+   * olduğundan düşük gösteriyordu; kullanıcı "anlık" istedi. Son üç saniyeye
+   * bakılıyor. Akıştaki her parça kabaca bir token: OpenAI uyumlu sunucular
+   * token başına bir çerçeve gönderiyor. Kesin sayı koşum bitince
+   * `ctx.completionTokens`'tan geliyor, o yüzden bu değer `~` ile yazılıyor.
+   */
+  const hizPencere = useRef<number[]>([]);
+  const [tps, setTps] = useState<number | null>(null);
+  const [modelKaynak, setModelKaynak] = useState<string>("");
+
   const [forge, setForge] = useState<{ bot?: Bot }>();
   const [silinecek, setSilinecek] = useState<Bot>();
 
@@ -164,6 +182,23 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
 
   /** Ctrl+N kenar çubuğundaki "yeni oturum" alanını açsın diye artan sayaç. */
   const [yeniSinyal, setYeniSinyal] = useState(0);
+
+  /**
+   * Kilit rozetinin eylemi: kapalıysa 15 dakika açar, açıksa kilitler.
+   *
+   * Süre seçimi panelde duruyor; buradaki tek tıklık yol **sık yapılan şey**
+   * için — panele gidip süre seçmek her seferinde üç tıklamaydı.
+   */
+  const masaustuCevir = useCallback(async () => {
+    try {
+      const y = desktop.unlocked
+        ? await desktopLock()
+        : await desktopUnlock(15, t("desk.openedFrom"));
+      setDesktop(y.state);
+    } catch (e) {
+      setConnError(errorText(e as ConnError));
+    }
+  }, [desktop.unlocked]);
 
   const terminalleriYukle = useCallback(async () => {
     try {
@@ -307,6 +342,12 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       listen<ChunkPayload>("job://chunk", (e) => {
         const p = e.payload;
         if (p.botId !== seciliRef.current) return;
+        const simdi = performance.now();
+        for (const olay of p.events) {
+          if ((olay.kind === "text" || olay.kind === "thinking") && olay.delta) {
+            hizPencere.current.push(simdi);
+          }
+        }
         setTurns((prev) =>
           prev.map((t) =>
             t.jobId === p.jobId ? { ...t, events: [...t.events, ...p.events] } : t,
@@ -341,6 +382,28 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       void Promise.all(abonelikler).then((fns) => fns.forEach((f) => f()));
     };
   }, [ozetleriYukle]);
+
+  /**
+   * Hız göstergesi saniyede iki kez tazelenir; her parçada durum yazmak
+   * React'i boşuna döndürürdü.
+   */
+  useEffect(() => {
+    const t = setInterval(() => {
+      const esik = performance.now() - 3000;
+      const p = hizPencere.current.filter((x) => x >= esik);
+      hizPencere.current = p;
+      // İki parçadan az varsa ortada bir hız yok; boş göstermek yalan değil.
+      setTps(p.length >= 2 ? p.length / 3 : null);
+    }, 500);
+    return () => clearInterval(t);
+  }, []);
+
+  /** Model nereden geliyor — menüde "yerel mi bulut mu" bunu okuyor. */
+  useEffect(() => {
+    void modelConfig()
+      .then((c) => setModelKaynak(c.baseUrl))
+      .catch(() => setModelKaynak(""));
+  }, []);
 
   /**
    * Klavye kısayolları. Metin alanındayken **hiçbiri çalışmaz** — Ctrl+N
@@ -493,6 +556,27 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     }
   }, []);
 
+  /**
+   * Sohbeti dosyaya yazar. Yeri kullanıcı seçiyor; uygulamanın kendi
+   * dizinine sessizce yazmak, dosyayı bulmayı ayrı bir işe çevirirdi.
+   */
+  const disaAktar = useCallback(async (bot: Bot) => {
+    const ad = `${bot.name.replace(/[^\p{L}\p{N}_-]+/gu, "-")}-${new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "")}.json`;
+    const yol = await save({
+      defaultPath: ad,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    }).catch(() => null);
+    if (!yol) return;
+    try {
+      setChatError(t("chat.exported", { path: await exportBot(bot.id, yol) }));
+    } catch (e) {
+      setChatError(detailText(e));
+    }
+  }, []);
+
   // Süren iş: seçili botun bitmemiş son turu.
   const suren = [...turns].reverse().find((t) => {
     const s = t.meta.status;
@@ -513,6 +597,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             setSelectedId(undefined);
             setMode("agents");
           }}
+          onToggleDesktop={() => void masaustuCevir()}
           onOpen={(name) => {
             if (!panes.includes(name)) setPanes([...panes, name]);
           }}
@@ -551,6 +636,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         onMode={setMode}
         desktop={desktop}
         onOpenSystem={() => setSelectedId(undefined)}
+        onToggleDesktop={() => void masaustuCevir()}
         bots={bots}
         summaries={summaries}
         selectedId={selectedId}
@@ -584,6 +670,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             }}
             onForce={(v) => void alanDegistir(secili, { forceWhenBusy: v })}
             ctx={ctx}
+            tps={tps}
+            baseUrl={modelKaynak}
             compacting={compacting}
             onCompact={() => void ozetle(secili)}
             efforts={
@@ -593,6 +681,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             }
             onEffort={(e) => void alanDegistir(secili, { effort: e })}
             onEditBot={() => setForge({ bot: secili })}
+            onExport={() => void disaAktar(secili)}
           />
         ) : (
           <>

@@ -15,6 +15,8 @@ interface Props {
   /** Ctrl+N: değer artınca yeni oturum alanı açılır. */
   newSignal: number;
   onOpenSystem: () => void;
+  /** Kilit rozeti — izni tek tıkla açar/kapatır. */
+  onToggleDesktop: () => void;
   onOpen: (name: string) => void;
   onNew: (name: string) => void;
   onKill: (name: string) => void;
@@ -28,6 +30,7 @@ export default function TerminalSidebar({
   desktop,
   newSignal,
   onOpenSystem,
+  onToggleDesktop,
   onOpen,
   onNew,
   onKill,
@@ -128,6 +131,7 @@ export default function TerminalSidebar({
         ok
         desktop={desktop}
         onClick={onOpenSystem}
+        onToggleDesktop={onToggleDesktop}
       />
     </div>
   );
@@ -187,7 +191,7 @@ function SessionRow({
       <button
         type="button"
         className="ib"
-        style={{ width: 26, height: 26, flex: "none" }}
+        style={{ width: 30, height: 30, flex: "none", alignSelf: "center" }}
         title={t("term.kill")}
         aria-label={t("term.killNamed", { name: s.name })}
         onClick={(e) => {

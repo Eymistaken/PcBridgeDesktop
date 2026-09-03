@@ -199,6 +199,42 @@ fn bot_ctx(id: String) -> Result<Option<runs::RunCtx>, BotError> {
         .map(|j| runs::read_ctx(j)))
 }
 
+/// Sohbeti tek bir JSON dosyasına yazar — hata bildirmek için.
+///
+/// **Sır taşımaz:** botun alanları, koşum metaları, olaylar ve bağlam
+/// defteri. Model sunucusunun **adresi** var ama anahtarı yok (o zaten
+/// keyring'de ve diske hiç yazılmıyor), pcbridge token'ı da yok.
+///
+/// Yazma Rust'ta: uygulamanın dosya sistemi eklentisi yok ve olmasını da
+/// istemiyoruz — tek bir hedefe yazan dar bir komut yeterli.
+#[tauri::command]
+fn export_bot(id: String, path: String) -> Result<String, BotError> {
+    let bot = bots::get(&id)?;
+    let turlar = bot_history(id.clone())?;
+
+    let ctxler: Vec<serde_json::Value> = bot
+        .jobs
+        .iter()
+        .filter(|j| runs::bizim(j))
+        .map(|j| serde_json::json!({ "runId": j, "ctx": runs::read_ctx(j) }))
+        .collect();
+
+    let govde = serde_json::json!({
+        "format": "pcbridge-desktop/sohbet",
+        "version": env!("CARGO_PKG_VERSION"),
+        "exportedAt": runs::simdi(),
+        "modelServer": model::read_config().base_url,
+        "bot": bot,
+        "context": ctxler,
+        "turns": turlar,
+    });
+
+    let metin =
+        serde_json::to_string_pretty(&govde).map_err(|e| BotError::Io(e.to_string()))?;
+    std::fs::write(&path, metin.as_bytes()).map_err(|e| BotError::Io(e.to_string()))?;
+    Ok(path)
+}
+
 /// Kullanıcının açıkça istediği özetleme.
 ///
 /// Otomatik yoldan iki farkı var. **Kazanç tabanı uygulanmıyor:** taban,
@@ -559,6 +595,7 @@ pub fn run() {
             delete_bot,
             bot_history,
             bot_ctx,
+            export_bot,
             compact_bot,
             bot_summaries,
             send_message,

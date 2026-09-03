@@ -3,11 +3,20 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "../ui/Avatar";
 import CtxMenu, { UYARI } from "../ui/CtxMenu";
+import Markdown from "../ui/Markdown";
 import PermAsk from "../ui/PermAsk";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
-import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
+import {
+  IconAttach,
+  IconCheck,
+  IconClose,
+  IconCross,
+  IconExport,
+  IconSend,
+  IconStop,
+} from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
@@ -31,6 +40,10 @@ interface Props {
   onForce: (v: boolean) => void;
   /** Son bağlam ölçümü; `null` → yerel koşum yok ya da eski arka uç. */
   ctx: RunCtx | null;
+  /** Anlık üretim hızı (token/sn); koşum yokken `null`. */
+  tps: number | null;
+  /** Model sunucusunun adresi — menüde yerel/bulut ayrımı için. */
+  baseUrl: string;
   /** Özetleme şu an çalışıyor mu (`job://compacting`). */
   compacting: boolean;
   onCompact: () => void;
@@ -39,6 +52,8 @@ interface Props {
   onEffort: (e: string) => void;
   /** Kip menüsündeki sayaçtan bot ayarlarına geçiş. */
   onEditBot: () => void;
+  /** Sohbeti JSON olarak diske yazar. */
+  onExport: () => void;
 }
 
 export default function Chat({
@@ -54,11 +69,14 @@ export default function Chat({
   onPermission,
   onForce,
   ctx,
+  tps,
+  baseUrl,
   compacting,
   onCompact,
   efforts,
   onEffort,
   onEditBot,
+  onExport,
 }: Props) {
   const [text, setText] = useState("");
   const [ekler, setEkler] = useState<string[]>([]);
@@ -130,6 +148,16 @@ export default function Chat({
             .join(" · ")}
         </span>
         <div style={{ flexGrow: 1 }} />
+        <button
+          type="button"
+          className="ib"
+          title={t("chat.export")}
+          aria-label={t("chat.export")}
+          disabled={turns.length === 0}
+          onClick={onExport}
+        >
+          <IconExport />
+        </button>
       </div>
 
       <div className="chat">
@@ -244,7 +272,6 @@ export default function Chat({
               }
             }}
           />
-          <span className="mono muted composer__hint">Ctrl ↵</span>
           <button
             type="button"
             className="ib composer__send"
@@ -267,31 +294,6 @@ export default function Chat({
             onEditTools={onEditBot}
           />
 
-          <CtxMenu
-            model={bot.model}
-            budget={bot.contextBudget}
-            // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
-            // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
-            ctx={bot.backend === "yerel-model" ? ctx : null}
-            busy={busy || !!running}
-            compacting={compacting}
-            onCompact={onCompact}
-          />
-
-          {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
-            * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
-          {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
-            <Picker
-              chip
-              up
-              value={bot.effort ?? ""}
-              options={efforts.map((e) => ({ value: e, label: e }))}
-              placeholder={t("forge.effort")}
-              ariaLabel={t("forge.effort")}
-              onChange={onEffort}
-            />
-          )}
-
           <div style={{ flexGrow: 1 }} />
 
           {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
@@ -307,6 +309,35 @@ export default function Chat({
                 {t("ctx.suggest")}
               </button>
             )}
+
+          {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
+            * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
+          {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
+            <Picker
+              chip
+              up
+              value={bot.effort ?? ""}
+              options={efforts.map((e) => ({ value: e, label: e }))}
+              placeholder={t("forge.effort")}
+              ariaLabel={t("forge.effort")}
+              onChange={onEffort}
+            />
+          )}
+
+          <CtxMenu
+            model={bot.model}
+            budget={bot.contextBudget}
+            // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
+            // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
+            ctx={bot.backend === "yerel-model" ? ctx : null}
+            busy={busy || !!running}
+            tps={running ? tps : null}
+            baseUrl={baseUrl}
+            // Eski yolda modeli bir CLI yürütüyor ve o buluta gidiyor.
+            agent={bot.backend === "pcbridge-agent" ? bot.agent : undefined}
+            compacting={compacting}
+            onCompact={onCompact}
+          />
         </div>
       </div>
     </>
@@ -369,10 +400,12 @@ function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
 
 function BlockView({ block, live }: { block: Block; live: boolean }) {
   if (block.t === "text") {
+    // Ajanın metni markdown olarak çiziliyor: model kalın yazmaya, liste ve
+    // tablo kurmaya çalışıyor ve ham `**` ekranda duruyordu.
     return (
       <div style={{ display: "flex" }}>
-        <div className="bub" style={{ background: "var(--surface)", whiteSpace: "pre-wrap" }}>
-          {block.text}
+        <div className="bub" style={{ background: "var(--surface)" }}>
+          <Markdown text={block.text} />
         </div>
       </div>
     );

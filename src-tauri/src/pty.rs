@@ -150,6 +150,15 @@ impl Ptys {
             }
             // Zaten varsa hata döner; istediğimiz sonuç yine sağlanmış olur.
             let _ = yarat.output();
+
+            // **Durum çubuğu kapalı.** tmux'un yeşil şeridi bizim kabuğumuzda
+            // bir işe yaramıyor: oturum adı bölme başlığında zaten yazıyor,
+            // saat ve makine adı da öyle. Kanunda "işe yaramayan sayı ve
+            // rozet" yasak. Ayar **oturuma özgü** (`-t`), sunucuya değil:
+            // kullanıcının kendi terminalindeki öteki oturumlar etkilenmiyor.
+            let _ = std::process::Command::new("tmux")
+                .args(["set-option", "-t", &session, "status", "off"])
+                .output();
         }
 
         let mut cmd = CommandBuilder::new("tmux");

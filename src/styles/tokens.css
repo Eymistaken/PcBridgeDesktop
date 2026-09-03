@@ -60,8 +60,11 @@
   --av-l: 0.62;
   --av-c: 0.14;
 
-  /* köşeler — üç değer, arası yok */
-  --r-sm: 10px; /* satır · alan · düğme */
+  /* köşeler — üç değer, arası yok.
+   *
+   * Kullanıcının 2026-09-03 isteğiyle yumuşatıldı: 10 → 12, iç içe 7 → 9.
+   * Oran korundu — iç içe yüzeyde yarıçap **dış − dolgu** (12 − 3 = 9). */
+  --r-sm: 12px; /* satır · alan · düğme */
   --r-lg: 20px; /* baloncuk · kuyu · panel */
   /* üçüncüsü 9999px, doğrudan yazılır */
 
