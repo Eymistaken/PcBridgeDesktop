@@ -18,6 +18,15 @@ interface Props {
   mono?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  /**
+   * Küçük satır içi biçim — besteci altındaki şerit için.
+   *
+   * Orada denetimler 12 punto ve zeminsiz; 40 px'lik bir form alanı satırı
+   * bozardı. Liste ve klavye davranışı aynı kalıyor, yalnızca tetik küçülüyor.
+   */
+  chip?: boolean;
+  /** Yukarı açılsın — besteci zaten en altta, aşağısı pencerenin dışı. */
+  up?: boolean;
   onChange: (value: string) => void;
 }
 
@@ -41,6 +50,8 @@ export default function Picker({
   mono,
   disabled,
   ariaLabel,
+  chip,
+  up,
   onChange,
 }: Props) {
   const [acik, setAcik] = useState(false);
@@ -65,11 +76,11 @@ export default function Picker({
   const secili = options.find((o) => o.value === value);
 
   return (
-    <div className="picker" ref={kok}>
+    <div className={chip ? "picker picker--chip" : "picker"} ref={kok}>
       <button
         type="button"
         id={id}
-        className="picker__dugme"
+        className={chip ? "picker__dugme picker__dugme--chip" : "picker__dugme"}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={acik}
@@ -79,13 +90,17 @@ export default function Picker({
         <span className={secili ? (mono ? "mono" : undefined) : "muted"}>
           {secili?.label ?? placeholder}
         </span>
-        <div style={{ flexGrow: 1 }} />
+        {!chip && <div style={{ flexGrow: 1 }} />}
         {secili?.note && <span className="picker__not">{secili.note}</span>}
         <IconChevron acik={acik} />
       </button>
 
       {acik && (
-        <div className="picker__pop" role="listbox" aria-label={ariaLabel}>
+        <div
+          className={up ? "picker__pop picker__pop--up" : "picker__pop"}
+          role="listbox"
+          aria-label={ariaLabel}
+        >
           {options.length === 0 && <span className="picker__bos">{placeholder}</span>}
           {options.map((o) => (
             <button

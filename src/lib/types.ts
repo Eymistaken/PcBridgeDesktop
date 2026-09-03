@@ -270,6 +270,51 @@ export type JobEvent =
    */
   | { kind: "summary"; text: string; dropped: number };
 
+/**
+ * Bir koşumun bağlam defteri — `runs/<id>/ctx.json`.
+ *
+ * `promptTokens` sunucunun **ölçtüğü** sayı (`stream_options.include_usage`),
+ * tahmin değil; özetleme eşiği de besteci altındaki bar da buna bakıyor.
+ */
+export interface RunCtx {
+  promptTokens: number;
+  /** Doluysa bu koşum bir **denetim noktası**: öncesi bu özetle değişti. */
+  summary: string | null;
+  dropped: number;
+  breakdown: Dokum;
+}
+
+/**
+ * Bağlamın parçaları — **karakter cinsinden, ölçülerek.**
+ *
+ * Toplam `promptTokens` kesin; bu kırılım değil. Modelin tokenizer'ı elimizde
+ * yok ve olmayan bir kesinliği varmış gibi göstermek yanlış olurdu — arayüz
+ * bu satırları `≈` ile yazıyor.
+ */
+export interface Dokum {
+  systemChars: number;
+  toolChars: number;
+  tools: number;
+  historyChars: number;
+  messages: number;
+  /** Görüntü **karakter değil**; maliyeti ayrı bir kalem. */
+  images: number;
+}
+
+/** `job://ctx` — her turda bir kez, bar canlı aksın diye. */
+export interface CtxPayload {
+  runId: string;
+  botId: string;
+  ctx: RunCtx;
+}
+
+/** `job://compacting` — anlık durum, diske yazılmıyor. */
+export interface CompactPayload {
+  runId: string;
+  botId: string;
+  active: boolean;
+}
+
 export interface JobMeta {
   id: string;
   kind: string | null;

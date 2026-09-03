@@ -16,6 +16,7 @@ import type {
   ModelConfig,
   ModelInfo,
   PendingPermission,
+  RunCtx,
   Shots,
   TerminalsView,
   Turn,
@@ -111,6 +112,22 @@ export const suggestAvatar = () => call<Avatar>("suggest_avatar");
 
 /** Botun tüm turları — diskteki `jobs/<id>/` kayıtlarından kurulur. */
 export const botHistory = (id: string) => call<Turn[]>("bot_history", { id });
+
+/**
+ * Botun son **yerel** koşumundan bağlam defteri.
+ *
+ * `pcbridge-agent` yolunda `null` döner: koşumu pcbridge yürütüyor ve `usage`
+ * bize hiç gelmiyor. O botlarda bar çizilmiyor, uydurma bir sayı gösterilmiyor.
+ */
+export const botCtx = (id: string) => call<RunCtx | null>("bot_ctx", { id });
+
+/**
+ * Kullanıcının açıkça istediği özetleme; düşen mesaj sayısını döner.
+ *
+ * Otomatik yoldan farkı kazanç tabanının atlanması. **Koşum sürerken
+ * çağrılmaz** — akıştaki mesaj listesi o sırada diskle aynı değil.
+ */
+export const compactBot = (id: string) => call<number>("compact_bot", { id });
 
 /** Kenar çubuğu satırları — her botun son koşum özeti. */
 export const botSummaries = () => call<BotSummary[]>("bot_summaries");

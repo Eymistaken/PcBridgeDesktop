@@ -12,9 +12,11 @@ import { t, type Lang } from "./lib/i18n";
 import { botDraft } from "./lib/types";
 import {
   answerPermission,
+  botCtx,
   botHistory,
   botSummaries,
   cancelJob,
+  compactBot,
   deleteBot,
   detailText,
   desktopState as fetchDesktop,
@@ -35,11 +37,14 @@ import type {
   BotDraft,
   BotSummary,
   ChunkPayload,
+  CompactPayload,
+  CtxPayload,
   ConnError,
   ConnSnapshot,
   DesktopState,
   Mode,
   PendingPermission,
+  RunCtx,
   StatusPayload,
   TerminalsView,
   Theme,
@@ -87,6 +92,15 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   const [turns, setTurns] = useState<Turn[]>([]);
   const [chatError, setChatError] = useState<string>();
   const [sending, setSending] = useState(false);
+
+  /**
+   * Seçili botun son bağlam ölçümü ve özetleme durumu.
+   *
+   * Kaynak **koşumun kendisi**: `job://ctx` her turda geliyor, bar koşum
+   * sürerken de akıyor. Koşum yokken diskteki son `ctx.json` okunuyor.
+   */
+  const [ctx, setCtx] = useState<RunCtx | null>(null);
+  const [compacting, setCompacting] = useState(false);
 
   const [forge, setForge] = useState<{ bot?: Bot; tone: Avatar }>();
   const [silinecek, setSilinecek] = useState<Bot>();
@@ -208,6 +222,27 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     })();
   }, [botlariYukle]);
 
+  // Seçili botun son bağlam ölçümü. Koşum başlayınca `job://ctx` devralıyor.
+  useEffect(() => {
+    setCompacting(false);
+    if (!selectedId) {
+      setCtx(null);
+      return;
+    }
+    let iptal = false;
+    void botCtx(selectedId)
+      .then((c) => {
+        if (!iptal) setCtx(c);
+      })
+      .catch(() => {
+        // Bağlam çubuğu kozmetik: okunamazsa çizilmez, sohbet çalışır.
+        if (!iptal) setCtx(null);
+      });
+    return () => {
+      iptal = true;
+    };
+  }, [selectedId]);
+
   // Seçili botun geçmişi diskten kurulur.
   useEffect(() => {
     if (!selectedId) {
@@ -280,6 +315,14 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
           ),
         );
       }),
+      listen<CtxPayload>("job://ctx", (e) => {
+        if (e.payload.botId !== seciliRef.current) return;
+        setCtx(e.payload.ctx);
+      }),
+      listen<CompactPayload>("job://compacting", (e) => {
+        if (e.payload.botId !== seciliRef.current) return;
+        setCompacting(e.payload.active);
+      }),
       listen<StatusPayload>("job://status", (e) => {
         const p = e.payload;
         if (p.botId === seciliRef.current) {
@@ -290,6 +333,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         if (p.done) {
           // Koşum bitti: bekleyen isteği Rust zaten düşürdü, kart da kalkmalı.
           setPending((q) => q.filter((x) => x.runId !== p.jobId));
+          // Koşum yarıda kesilmişse "özetleniyor" şeridi asılı kalırdı.
+          if (p.botId === seciliRef.current) setCompacting(false);
           void ozetleriYukle();
         }
       }),
@@ -429,6 +474,27 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     }
   }
 
+  /**
+   * Kullanıcının istediği özetleme.
+   *
+   * Bittikten sonra bağlam yeniden okunuyor: denetim noktası diske yazıldı ve
+   * bar hâlâ eski sayıyı gösteriyor olurdu. Sayının kendisi ancak **sonraki
+   * koşumda** düşer — özetin kazancını ölçen şey sunucunun `usage`'ı.
+   */
+  const ozetle = useCallback(async (bot: Bot) => {
+    setCompacting(true);
+    setChatError(undefined);
+    try {
+      await compactBot(bot.id);
+      setTurns(await botHistory(bot.id));
+      setCtx(await botCtx(bot.id));
+    } catch (e) {
+      setChatError(detailText(e));
+    } finally {
+      setCompacting(false);
+    }
+  }, []);
+
   // Süren iş: seçili botun bitmemiş son turu.
   const suren = [...turns].reverse().find((t) => {
     const s = t.meta.status;
@@ -519,6 +585,15 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
               if (secili.permission !== p) void alanDegistir(secili, { permission: p });
             }}
             onForce={(v) => void alanDegistir(secili, { forceWhenBusy: v })}
+            ctx={ctx}
+            compacting={compacting}
+            onCompact={() => void ozetle(secili)}
+            efforts={
+              snap.agents
+                .find((a) => a.id === secili.agent)
+                ?.models.find((m) => m.id === secili.model)?.efforts ?? []
+            }
+            onEffort={(e) => void alanDegistir(secili, { effort: e })}
             onEditBot={() => setForge({ bot: secili, tone: secili.avatar })}
           />
         ) : (

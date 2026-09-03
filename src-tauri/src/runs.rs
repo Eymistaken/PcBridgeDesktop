@@ -285,10 +285,45 @@ pub struct RunCtx {
     pub summary: Option<String>,
     #[serde(default)]
     pub dropped: u32,
+    /// Bağlamın neden bu kadar dolu olduğunun dökümü.
+    #[serde(default)]
+    pub breakdown: Dokum,
+}
+
+/// İsteme giden bağlamın parçaları — **karakter cinsinden, ölçülerek.**
+///
+/// Toplam `prompt_tokens` sunucunun kendi sayısı ve kesin. Bu kırılım ise
+/// karakter sayımı: elimizde modelin tokenizer'ı yok ve olmayan bir kesinliği
+/// varmış gibi göstermek yanlış olurdu. Arayüz bu satırları `≈` ile yazıyor —
+/// `ozetle_in`'deki `/4` kabası da aynı gerekçeyle orada duruyor.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dokum {
+    /// Sistem mesajı: kalıcı yönerge + masaüstü notu + varsa özet.
+    #[serde(default)]
+    pub system_chars: u64,
+    /// Araç tanımlarının (ad + açıklama + JSON şema) toplam boyu.
+    #[serde(default)]
+    pub tool_chars: u64,
+    #[serde(default)]
+    pub tools: u32,
+    /// Sistem dışındaki bütün mesajlar.
+    #[serde(default)]
+    pub history_chars: u64,
+    #[serde(default)]
+    pub messages: u32,
+    /// O anda bağlamda duran görüntü sayısı. Görüntü **karakter değil**;
+    /// maliyeti ayrı bir kalem ve diske hiç yazılmıyor.
+    #[serde(default)]
+    pub images: u32,
 }
 
 fn ctx_path(kok: &Path, id: &str) -> PathBuf {
     kok.join(id).join("ctx.json")
+}
+
+pub fn read_ctx(id: &str) -> RunCtx {
+    read_ctx_in(&runs_dir(), id)
 }
 
 pub(crate) fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
@@ -306,14 +341,21 @@ pub(crate) fn read_ctx_in(kok: &Path, id: &str) -> RunCtx {
 /// siliniyordu. Sonraki koşum geçmişin tamamını yeniden yükler, eşik yine
 /// aşılır ve özetleme her seferinde bir model turu harcayarak yeniden çalışır.
 /// İki yazıcı ayrı olunca üzerine yazmak yapısal olarak imkânsız.
-pub fn write_ctx_tokens(id: &str, prompt_tokens: u64) {
-    write_ctx_tokens_in(&runs_dir(), id, prompt_tokens)
+pub fn write_ctx_tokens(id: &str, prompt_tokens: u64, breakdown: Dokum) -> RunCtx {
+    write_ctx_tokens_in(&runs_dir(), id, prompt_tokens, breakdown)
 }
 
-pub(crate) fn write_ctx_tokens_in(kok: &Path, id: &str, prompt_tokens: u64) {
+pub(crate) fn write_ctx_tokens_in(
+    kok: &Path,
+    id: &str,
+    prompt_tokens: u64,
+    breakdown: Dokum,
+) -> RunCtx {
     let mut ctx = read_ctx_in(kok, id);
     ctx.prompt_tokens = prompt_tokens;
+    ctx.breakdown = breakdown;
     write_ctx_in(kok, id, &ctx);
+    ctx
 }
 
 /// Yalnızca denetim noktasını yazar, ölçülen token sayısına dokunmaz.
@@ -573,14 +615,14 @@ mod tests {
 
         // Önce işaret, sonra token: işaret durmalı.
         write_ctx_summary_in(&k, "local-a", Some("önceki konuşmanın özeti".into()), 4);
-        write_ctx_tokens_in(&k, "local-a", 5000);
+        write_ctx_tokens_in(&k, "local-a", 5000, Dokum::default());
         let c = read_ctx_in(&k, "local-a");
         assert_eq!(c.prompt_tokens, 5000);
         assert_eq!(c.summary.as_deref(), Some("önceki konuşmanın özeti"));
         assert_eq!(c.dropped, 4);
 
         // Ters sıra da bozmamalı: token, sonra işaret.
-        write_ctx_tokens_in(&k, "local-b", 1234);
+        write_ctx_tokens_in(&k, "local-b", 1234, Dokum::default());
         write_ctx_summary_in(&k, "local-b", Some("özet".into()), 2);
         let c = read_ctx_in(&k, "local-b");
         assert_eq!(c.prompt_tokens, 1234, "işaret yazması token'ı sıfırlamamalı");

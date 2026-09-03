@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "../ui/Avatar";
+import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import PermAsk from "../ui/PermAsk";
 import PermMenu from "../ui/PermMenu";
+import Picker from "../ui/Picker";
 import { IconAttach, IconCheck, IconClose, IconCross, IconSend, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
-import type { Bot, PendingPermission, Permission, Turn } from "../lib/types";
+import type { Bot, PendingPermission, Permission, RunCtx, Turn } from "../lib/types";
 
 interface Props {
   bot: Bot;
@@ -26,6 +28,14 @@ interface Props {
   onPermission: (p: Permission) => void;
   /** "Ben makinedeyken de çalışsın" — o da botun kendi alanı. */
   onForce: (v: boolean) => void;
+  /** Son bağlam ölçümü; `null` → yerel koşum yok ya da eski arka uç. */
+  ctx: RunCtx | null;
+  /** Özetleme şu an çalışıyor mu (`job://compacting`). */
+  compacting: boolean;
+  onCompact: () => void;
+  /** Effort **botun kendi alanı**; seçici onu doğrudan yazar. */
+  efforts: string[];
+  onEffort: (e: string) => void;
   /** Kip menüsündeki sayaçtan bot ayarlarına geçiş. */
   onEditBot: () => void;
 }
@@ -42,6 +52,11 @@ export default function Chat({
   onAnswer,
   onPermission,
   onForce,
+  ctx,
+  compacting,
+  onCompact,
+  efforts,
+  onEffort,
   onEditBot,
 }: Props) {
   const [text, setText] = useState("");
@@ -164,6 +179,15 @@ export default function Chat({
         </div>
       )}
 
+      {compacting && (
+        <div className="jobstrip">
+          <div className="jobstrip__box">
+            <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
+            <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("ctx.compacting")}</span>
+          </div>
+        </div>
+      )}
+
       {pending && (
         <PermAsk
           istek={pending}
@@ -241,6 +265,47 @@ export default function Chat({
             onForce={onForce}
             onEditTools={onEditBot}
           />
+
+          <CtxMenu
+            model={bot.model}
+            budget={bot.contextBudget}
+            // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
+            // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
+            ctx={bot.backend === "yerel-model" ? ctx : null}
+            busy={busy || !!running}
+            compacting={compacting}
+            onCompact={onCompact}
+          />
+
+          {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
+            * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
+          {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
+            <Picker
+              chip
+              up
+              value={bot.effort ?? ""}
+              options={efforts.map((e) => ({ value: e, label: e }))}
+              placeholder={t("forge.effort")}
+              ariaLabel={t("forge.effort")}
+              onChange={onEffort}
+            />
+          )}
+
+          <div style={{ flexGrow: 1 }} />
+
+          {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
+            * dolduğunu fark etmeden koşum başlatıyordu. */}
+          {ctx &&
+            bot.backend === "yerel-model" &&
+            bot.contextBudget > 0 &&
+            ctx.promptTokens / bot.contextBudget >= UYARI &&
+            !busy &&
+            !running &&
+            !compacting && (
+              <button type="button" className="ctxoneri" onClick={onCompact}>
+                {t("ctx.suggest")}
+              </button>
+            )}
         </div>
       </div>
     </>

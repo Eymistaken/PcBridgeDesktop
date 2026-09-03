@@ -38,6 +38,24 @@ const OZET_BASARISIZ: &str = "#summaryFailed";
 /// taşar ve kimse nedenini bilmez.
 const BUTCE_YETMIYOR: &str = "#budgetTooSmall";
 
+/// Özetin sistem mesajındaki başlığı.
+///
+/// **Sistem mesajının içinde**, ikinci bir `system` mesajı olarak değil: kimi
+/// sunucu ikinci sistem mesajını ya da sohbetin ortasına düşen bir özeti
+/// reddediyor. Tek yerde duruyor çünkü tur içi özetleme de aynı bölümü
+/// söküp yenisini koyuyor.
+const OZET_BASLIK: &str = "\n## Önceki konuşmanın özeti\n";
+
+/// Tur içi özetlemede sondan korunan mesaj sayısı.
+///
+/// Koşumlar arası özetleme koşum sınırından kesiyor; tur içinde öyle bir sınır
+/// yok, o yüzden sayıyla korunuyor ve kesme noktası araç çağrısı sınırına
+/// **yuvarlanıyor** (`kesme_noktasi`).
+const KORUNAN_MESAJ: usize = 6;
+
+/// Tur içi özetlemenin anlamlı olması için en az bu kadar mesaj düşmeli.
+const EN_AZ_DUSEN: usize = 4;
+
 // ─────────────────────────── kayıt yüzeyi ───────────────────────────
 
 /// Koşumun dışa dokunan yüzü: olaylar, modelin mesajları, bağlam defteri.
@@ -48,8 +66,15 @@ const BUTCE_YETMIYOR: &str = "#budgetTooSmall";
 pub trait Kayit: Send + Sync {
     fn olay(&self, events: &[Event]);
     fn mesaj(&self, msgs: &[Message]);
-    /// Bu koşumun ölçülen `prompt_tokens`'ı.
-    fn ctx_tokens(&self, prompt_tokens: u64);
+    /// Bu koşumun ölçülen `prompt_tokens`'ı ve bağlam dökümü.
+    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum);
+    /// Özetleme başladı / bitti.
+    ///
+    /// **Diske yazılmıyor:** anlık bir durum, geçmişe ait bir olgu değil.
+    /// Kalıcı kayıt zaten özet baloncuğu (`Event::Summary`). Yerel modelde
+    /// özetleme dakikalar sürebiliyor ve başlarken ekranda hiçbir şey
+    /// olmuyordu — kullanıcı yalnızca bekliyordu.
+    fn ozetleniyor(&self, aktif: bool);
     /// Özet denetim noktası — **başka bir koşuma** yazılır (`hedef`).
     ///
     /// İki yazıcı bilerek ayrı: tek bir `write_ctx` ikisini de taşıyınca tur
@@ -241,8 +266,30 @@ impl Kayit for AppKayit {
     fn mesaj(&self, msgs: &[Message]) {
         runs::append_messages(&self.run_id, msgs);
     }
-    fn ctx_tokens(&self, prompt_tokens: u64) {
-        runs::write_ctx_tokens(&self.run_id, prompt_tokens);
+    fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum) {
+        let ctx = runs::write_ctx_tokens(&self.run_id, prompt_tokens, dokum);
+        // Bar koşum sürerken de aksın: arayüz her turun ölçümünü görüyor.
+        // Diske zaten yazıldı; olay yalnızca canlılık için.
+        let _ = tauri::Emitter::emit(
+            &self.app,
+            "job://ctx",
+            CtxPayload {
+                run_id: self.run_id.clone(),
+                bot_id: self.bot_id.clone(),
+                ctx,
+            },
+        );
+    }
+    fn ozetleniyor(&self, aktif: bool) {
+        let _ = tauri::Emitter::emit(
+            &self.app,
+            "job://compacting",
+            CompactPayload {
+                run_id: self.run_id.clone(),
+                bot_id: self.bot_id.clone(),
+                active: aktif,
+            },
+        );
     }
     fn ctx_ozet(&self, hedef: &str, ozet: Option<String>, dusen: u32) {
         runs::write_ctx_summary(hedef, ozet, dusen);
@@ -270,6 +317,24 @@ struct Bekleyen {
     yanit: tokio::sync::oneshot::Sender<bool>,
 }
 
+/// `job://compacting` yükü. Diske yazılmıyor: anlık durum.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactPayload {
+    pub run_id: String,
+    pub bot_id: String,
+    pub active: bool,
+}
+
+/// `job://ctx` yükü — her turda bir kez.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CtxPayload {
+    pub run_id: String,
+    pub bot_id: String,
+    pub ctx: runs::RunCtx,
+}
+
 /// Arayüze giden bekleyen istek — `bot_id` ile birlikte.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -293,6 +358,15 @@ impl Runs {
     }
 
     /// Bekleyen isteği haritadan çıkarır. Kanalı düşürmek reddetmek demek.
+    /// Bu koşum şu an bizde sürüyor mu? Elle özetleme bunu soruyor:
+    /// akıştaki mesaj listesi koşum sürerken diskle aynı değil.
+    pub fn suruyor_mu(&self, run_id: &str) -> bool {
+        self.inner
+            .try_lock()
+            .map(|m| m.contains_key(run_id))
+            .unwrap_or(true)
+    }
+
     fn izni_dus(&self, run_id: &str) -> Option<Bekleyen> {
         self.bekleyen.lock().ok()?.remove(run_id)
     }
@@ -512,7 +586,12 @@ async fn kos(
     // Geçmiş + gerekiyorsa özetleme.
     let (mut ozet, mut gecmis_msg) = gecmis(&bot);
     if ozetleme_gerek(&bot) {
-        if let Ok(o) = ozetle(&base_url, &model_id, &bot, &ozet, &gecmis_msg).await {
+        // Yerel modelde özetleme dakikalar sürebiliyor; başlarken ekranda bir
+        // şey olmalı. Bitişi `Event::Summary` zaten anlatıyor.
+        kayit.ozetleniyor(true);
+        let sonuc = ozetle(&base_url, &model_id, &bot, &ozet, &gecmis_msg).await;
+        kayit.ozetleniyor(false);
+        if let Ok(o) = sonuc {
             let basarisiz = o.ozet.is_empty();
             // İşaret **korunan pencerenin ilk koşumuna** gidiyor, bu koşuma
             // değil: `gecmis` işaretten itibarenini taşıyor.
@@ -556,6 +635,7 @@ async fn kos(
             },
             max_tur: bot.max_turns,
             force_when_busy: bot.force_when_busy,
+            butce: bot.context_budget,
         },
     )
     .await;
@@ -581,6 +661,9 @@ pub struct Baglam<'a> {
     pub max_tur: u32,
     /// Masaüstü araçlarına `force=true` eklensin mi (`Bot.force_when_busy`).
     pub force_when_busy: bool,
+    /// Bağlam bütçesi (token). **Tur içinde** aşılırsa döngü kendi durur,
+    /// özetler ve devam eder. 0 = tur içi özetleme kapalı.
+    pub butce: u32,
 }
 
 pub struct Sonuc {
@@ -599,7 +682,8 @@ pub async fn tur_dongusu(
     baglam: Baglam<'_>,
 ) -> Sonuc {
     let baglam_kapi = baglam.kapi;
-    let mut mesajlar = vec![Message::system(baglam.sistem)];
+    let mut sistem = baglam.sistem;
+    let mut mesajlar = vec![Message::system(sistem.clone())];
     mesajlar.extend(baglam.gecmis);
 
     let kullanici = Message::user(baglam.text);
@@ -611,6 +695,9 @@ pub async fn tur_dongusu(
     let mut son_prompt_tokens: u64 = 0;
     // Tavan aşılabilir: kullanıcı "devam et" derse bir tur payı daha açılır.
     let mut tavan = baglam.max_tur.max(1);
+    // "Bütçe yetmiyor" koşum başına **bir kez** söylenir; her turda bir
+    // baloncuk basmak sohbeti boğardı ve söylenecek yeni bir şey yok.
+    let mut butce_uyarildi = false;
 
     loop {
         tur += 1;
@@ -626,6 +713,10 @@ pub async fn tur_dongusu(
             }
         }
 
+        // Döküm **isteğin kendisini** anlatmalı: `prompt_tokens` bu istek için
+        // ölçülüyor, kırılım da aynı istekten sayılıyor. Yanıt eklendikten
+        // sonra ölçmek ikisini birbirinden ayırırdı.
+        let dokum = dokum_olc(&mesajlar, &baglam.araclar);
         let istek = ChatRequest::streaming(
             baglam.model_id.to_string(),
             mesajlar.clone(),
@@ -676,12 +767,15 @@ pub async fn tur_dongusu(
             };
         }
 
+        // **Her turda.** Bar koşum sürerken de aksın; ayrıca uzun bir koşum
+        // yarıda kesilirse (iptal, çökme) son ölçüm yine diskte kalır.
+        kayit.ctx_olcum(son_prompt_tokens, dokum);
+
         let yanit = Message::assistant(metin.clone(), cagrilar.clone());
         mesajlar.push(yanit.clone());
         kayit.mesaj(&[yanit]);
 
         if cagrilar.is_empty() {
-            kayit.ctx_tokens(son_prompt_tokens);
             return Sonuc {
                 ok: true,
                 turlar: tur,
@@ -704,7 +798,97 @@ pub async fn tur_dongusu(
             kayit.mesaj(&[msg.without_images()]);
             mesajlar.push(msg);
         }
+
+        // **Bütçe tur içinde doldu.** Koşumlar arası eşik (%75) burada işe
+        // yaramıyor: tek bir masaüstü koşumu onlarca tur sürebiliyor ve tavan
+        // 100'e çıktığı için bağlam koşumun ortasında taşıyor. Döngü kendi
+        // duruyor, özetliyor ve devam ediyor.
+        if baglam.butce > 0 && son_prompt_tokens >= u64::from(baglam.butce) {
+            tur_ici_ozetle(
+                kayit,
+                baglam.base_url,
+                baglam.model_id,
+                &mut mesajlar,
+                &mut sistem,
+                &mut butce_uyarildi,
+            )
+            .await;
+            // Ölçüm eskidi: kesme yeni bir sayı doğuracak. Sıfırlanmazsa
+            // özetleme sonraki turda aynı eski sayıyla yeniden tetiklenirdi.
+            son_prompt_tokens = 0;
+        }
     }
+}
+
+/// Koşum ortasında bağlamı özetler ve `mesajlar`'ı yerinde küçültür.
+///
+/// Kesme **araç çağrısı sınırından** (`kesme_noktasi`): `tool_calls` taşıyan
+/// bir `assistant` mesajı `tool` yanıtlarından ayrılırsa sunucu 400 döndürür.
+/// Özet sistem mesajının içine giriyor, ikinci bir `system` mesajı olarak
+/// değil.
+async fn tur_ici_ozetle(
+    kayit: &dyn Kayit,
+    base_url: &str,
+    model_id: &str,
+    mesajlar: &mut Vec<Message>,
+    sistem: &mut String,
+    uyarildi: &mut bool,
+) {
+    // Güvenli bir kesme noktası yok (her şey tek bir açık araç zinciri), ya da
+    // düşecek kadar mesaj yok: kazandırmayan özetleme yapılmaz — tam bir model
+    // turu harcayıp hiçbir şey kazanmamak, özetlememekten kötü.
+    let yetersiz = match kesme_noktasi(mesajlar) {
+        None => true,
+        Some(k) => k - 1 < EN_AZ_DUSEN,
+    };
+    if yetersiz {
+        // Sessizce taşmıyor: kullanıcının bütçeyi büyütmesi gerekiyor ve
+        // bunu bilmesi lazım. Ama koşum başına bir kez söyleniyor.
+        if !*uyarildi {
+            *uyarildi = true;
+            kayit.olay(&[Event::Summary {
+                text: BUTCE_YETMIYOR.to_string(),
+                dropped: 0,
+            }]);
+        }
+        return;
+    }
+    let k = kesme_noktasi(mesajlar).expect("az önce bulundu");
+
+    kayit.ozetleniyor(true);
+    let onceki = ozetsiz(sistem).len();
+    let yeni_ozet = ozetle_mesajlar(
+        base_url,
+        model_id,
+        sistem.get(onceki..).map(|o| o.trim_start_matches(OZET_BASLIK)),
+        &mesajlar[1..k],
+    )
+    .await;
+    kayit.ozetleniyor(false);
+
+    let basarisiz = yeni_ozet.trim().is_empty();
+    let dusen = (k - 1) as u32;
+
+    // Başarısızlıkta bile kesiliyor: bağlamı taşıran şey o mesajlardı.
+    if !basarisiz {
+        *sistem = sistem_ozetle(ozetsiz(sistem), &yeni_ozet);
+    }
+    let kalan: Vec<Message> = mesajlar.split_off(k);
+    mesajlar.truncate(1);
+    mesajlar[0] = Message::system(sistem.clone());
+    mesajlar.extend(kalan);
+    // Model kaldığı yerden sürsün: kesmeden sonra son sözü araç sonucu olan
+    // bir listeye bakıp durabiliyor.
+    mesajlar.push(Message::user("Devam et.".into()));
+
+    kayit.olay(&[Event::Summary {
+        text: if basarisiz {
+            OZET_BASARISIZ.to_string()
+        } else {
+            yeni_ozet
+        },
+        dropped: dusen,
+    }]);
 }
 
 /// Tek bir araç çağrısı: izni alır, olayları yayar, sonucu modele verilecek
@@ -780,6 +964,50 @@ async fn arac_calistir(
         ok: !sonuc.hata,
     }]);
     sonuc
+}
+
+/// İsteme giden bağlamın dökümü — **karakter cinsinden, sayarak.**
+///
+/// Toplamı sunucu ölçüyor (`usage.prompt_tokens`); bu kırılım karakter
+/// sayımı, çünkü modelin tokenizer'ı elimizde yok. Olmayan bir kesinliği
+/// varmış gibi göstermemek için arayüz bu satırları `≈` ile yazıyor.
+fn dokum_olc(mesajlar: &[Message], araclar: &[model::ToolDef]) -> runs::Dokum {
+    let uzunluk = |m: &Message| -> u64 {
+        let govde = m.content.as_deref().map_or(0, str::len) as u64;
+        // Araç çağrıları da isteme gidiyor: ad + argüman JSON'ı.
+        let cagri: u64 = m
+            .tool_calls
+            .iter()
+            .map(|t| (t.function.name.len() + t.function.arguments.len()) as u64)
+            .sum();
+        govde + cagri
+    };
+
+    // Sistem mesajı her zaman ilk sırada (`tur_dongusu` onu başa koyuyor).
+    let sistem = mesajlar
+        .first()
+        .filter(|m| m.role == "system")
+        .map_or(0, uzunluk);
+    let gecmis: Vec<&Message> = mesajlar
+        .iter()
+        .filter(|m| m.role != "system")
+        .collect();
+
+    runs::Dokum {
+        system_chars: sistem,
+        tool_chars: araclar
+            .iter()
+            .map(|t| {
+                (t.function.name.len()
+                    + t.function.description.as_deref().map_or(0, str::len)
+                    + t.function.parameters.to_string().len()) as u64
+            })
+            .sum(),
+        tools: araclar.len() as u32,
+        history_chars: gecmis.iter().copied().map(uzunluk).sum(),
+        messages: gecmis.len() as u32,
+        images: gecmis.iter().map(|m| m.images.len() as u32).sum(),
+    }
 }
 
 /// `force` argümanını **yalnızca kabul eden** araçlara ekler.
@@ -1011,13 +1239,47 @@ fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> S
         s.push_str(&masaustu_notu(araclar, bot.force_when_busy));
     }
     if let Some(o) = ozet.filter(|o| !o.trim().is_empty()) {
-        // Özet **sistem mesajının içinde**: kimi sunucu ikinci bir `system`
-        // mesajını ya da sohbetin ortasına düşen bir özeti kabul etmiyor.
-        s.push_str("\n## Önceki konuşmanın özeti\n");
-        s.push_str(o);
-        s.push('\n');
+        s.push_str(&sistem_ozetle("", o));
     }
     s
+}
+
+/// Sistem metnine özet bölümünü ekler.
+fn sistem_ozetle(temel: &str, ozet: &str) -> String {
+    format!("{temel}{OZET_BASLIK}{}\n", ozet.trim())
+}
+
+/// Sistem metninin özet bölümünü söker — tur içi özetleme yenisini koyacak.
+///
+/// Üst üste eklenseydi her özetlemede bir öncekinin tam metni de bağlamda
+/// kalırdı; özetlemenin amacı tam olarak onu düşürmek.
+fn ozetsiz(sistem: &str) -> &str {
+    match sistem.find(OZET_BASLIK) {
+        Some(i) => &sistem[..i],
+        None => sistem,
+    }
+}
+
+/// Tur içi kesme noktası: `[1..k]` düşürülünce hem düşen hem kalan kısım
+/// kendi içinde tutarlı kalır.
+///
+/// **Araç çağrısı sınırından kesilmek zorunda.** `tool_calls` taşıyan bir
+/// `assistant` mesajı `tool` yanıtlarından ayrılırsa sunucu isteği 400 ile
+/// reddediyor. Sondan `KORUNAN_MESAJ` mesaj her zaman kalıyor; oradan geriye
+/// doğru en yakın güvenli nokta aranıyor.
+fn kesme_noktasi(mesajlar: &[Message]) -> Option<usize> {
+    let tavan = mesajlar.len().saturating_sub(KORUNAN_MESAJ);
+    for k in (1..=tavan).rev() {
+        // Kalan kısım yanıtsız bir `tool` ile başlayamaz.
+        if mesajlar.get(k).is_some_and(|m| m.role == "tool") {
+            continue;
+        }
+        // Düşen kısımdaki her çağrının yanıtı da düşen kısımda olmalı.
+        if yanitsizlar(&mesajlar[1..k]).is_empty() {
+            return Some(k);
+        }
+    }
+    None
 }
 
 // ─────────────────────────── bağlam ───────────────────────────
@@ -1063,102 +1325,26 @@ fn ozetleme_gerek_in(kok: &std::path::Path, bot: &Bot) -> bool {
     kullanilan > 0 && kullanilan as f64 > bot.context_budget as f64 * OZET_ESIGI
 }
 
-/// Bir özetleme denemesinin sonucu.
+/// Verilen mesajları modele özetletir. **Tek model çağrısı burada.**
 ///
-/// `ozet` boş dizgeyse özetleme başarısız olmuş ve **sert kırpmaya**
-/// düşülmüştür — eski mesajlar yine de atılır, çünkü bağlamı taşıran şey
-/// onlardı.
-#[derive(Debug)]
-pub struct Ozetleme {
-    pub ozet: String,
-    /// Kaç mesaj özetin içine girip listeden düştü.
-    pub dusen: u32,
-    /// Özetin **kapsamadığı**, olduğu gibi taşınan mesajlar.
-    pub korunan: Vec<Message>,
-    /// Denetim noktasının yazılacağı koşum: korunan pencerenin **ilk** koşumu.
-    ///
-    /// `gecmis_in` işareti taşıyan koşumdan **itibaren** mesajları alıyor.
-    /// İşaret yeni koşuma konursa korunan pencere bir sonraki koşumda sessizce
-    /// düşer; pencerenin başına konunca özet + korunan koşumlar birlikte geri
-    /// gelir.
-    pub hedef: String,
-}
-
-/// Eski turları modele özetletir.
-async fn ozetle(
+/// Hem koşumlar arası yol (`ozetle_in`) hem tur içi yol (`tur_dongusu`) bunu
+/// çağırıyor: özetin dili, ne koruyacağı ve kırpma kuralı tek yerde kalsın.
+///
+/// Dönüş boş dizgeyse özetleme başarısız — çağıran **sert kırpmaya** düşer.
+/// Koşum ölmüyor: bağlamı taşıran şey zaten o eski mesajlardı.
+async fn ozetle_mesajlar(
     base_url: &str,
     model_id: &str,
-    bot: &Bot,
-    onceki_ozet: &Option<String>,
-    gecmis_msg: &[Message],
-) -> Result<Ozetleme, ModelError> {
-    ozetle_in(&runs::runs_dir(), base_url, model_id, bot, onceki_ozet, gecmis_msg).await
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn ozetle_in(
-    kok: &std::path::Path,
-    base_url: &str,
-    model_id: &str,
-    bot: &Bot,
-    onceki_ozet: &Option<String>,
-    gecmis_msg: &[Message],
-) -> Result<Ozetleme, ModelError> {
-    let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
-    if yerel.len() <= KORUNAN_KOSUM {
-        return Err(ModelError::Protocol("özetlenecek koşum yok".into()));
-    }
-
-    // **Koşum sınırından** kesiliyor: bir koşumun mesajları araç çağrısıyla
-    // sonucunu birlikte taşıdığı için çift asla bölünmüyor.
-    let korunan_ids: Vec<&&String> = yerel.iter().rev().take(KORUNAN_KOSUM).collect();
-    let mut korunan: Vec<Message> = Vec::new();
-    for r in korunan_ids.iter().rev() {
-        korunan.extend(runs::messages_in(kok, r));
-    }
-    // Korunan pencerenin ilk koşumu — işaret oraya gidiyor.
-    let hedef = korunan_ids
-        .last()
-        .map(|r| (**r).clone())
-        .expect("KORUNAN_KOSUM > 0 ve yerel.len() ondan büyük");
-
-    let dusen = gecmis_msg.len().saturating_sub(korunan.len());
-    if dusen == 0 {
-        return Err(ModelError::Protocol("düşecek mesaj yok".into()));
-    }
-
-    // **Kazanç taban kontrolü — model çağrısından önce.**
-    //
-    // Ölçüldü (2026-09-03): bütçesi 8192 olan bir botta 30 mesajlık bir koşum
-    // 12.714 token'a çıktı, ama o koşum korunan pencerenin içindeydi ve
-    // dışarıda yalnızca iki satırlık bir selamlaşma kaldı. Özetleme yine de
-    // çalıştı: tam bir yerel model turu harcadı, kullanıcıyı bekletti,
-    // "Kullanıcının amacı: Selamlaşmak" diyen yanıltıcı bir özet üretti ve
-    // ~50 token kazandırdı. Sonraki koşumda aynısı yeniden olacaktı.
-    //
-    // Hiçbir şey kazandırmayan bir özetleme, özetlememekten kötüdür.
-    let dusecek_karakter: usize = gecmis_msg
-        .iter()
-        .take(dusen)
-        .map(|m| m.content.as_deref().map_or(0, str::len))
-        .sum();
-    // Kaba çeviri; kesin sayı yalnızca sunucudan gelir ve o da ancak istek
-    // gönderildikten sonra. Burada gereken kesinlik değil, büyüklük mertebesi.
-    let kazanc = dusecek_karakter / 4;
-    let taban = (bot.context_budget as usize / 10).max(512);
-    if kazanc < taban {
-        return Err(ModelError::Protocol(format!(
-            "özetleme kazancı düşük ({kazanc} ≈ token, taban {taban})"
-        )));
-    }
-
+    onceki_ozet: Option<&str>,
+    dusecek: &[Message],
+) -> String {
     let mut dokum = String::new();
-    if let Some(o) = onceki_ozet {
+    if let Some(o) = onceki_ozet.filter(|o| !o.trim().is_empty()) {
         dokum.push_str("Daha önceki özet:\n");
         dokum.push_str(o);
         dokum.push_str("\n\n");
     }
-    for m in gecmis_msg.iter().take(dusen) {
+    for m in dusecek {
         let govde = m.content.clone().unwrap_or_default();
         let arac = if m.tool_calls.is_empty() {
             String::new()
@@ -1188,12 +1374,168 @@ async fn ozetle_in(
         ],
     );
 
-    // Başarısızlıkta koşum ölmüyor: boş özetle sert kırpmaya düşülüyor.
-    let ozet = model::chat_once(base_url, istek)
+    model::chat_once(base_url, istek)
         .await
         .unwrap_or_default()
         .trim()
-        .to_string();
+        .to_string()
+}
+
+/// Kullanıcının düğmeye basarak istediği özetleme.
+///
+/// Otomatik yoldan tek farkı **kazanç tabanının atlanması**: taban, boşuna
+/// bir model turu harcanmasını engellemek için var ve kullanıcı açıkça
+/// istediyse o karar onun. Düşecek mesaj yoksa yine reddediliyor.
+///
+/// Dönüş: düşen mesaj sayısı.
+pub async fn elle_ozetle(bot: &Bot) -> Result<u32, ModelError> {
+    let cfg = model::read_config();
+    if cfg.base_url.is_empty() {
+        return Err(ModelError::NoServer);
+    }
+    let Some(model_id) = bot.model.clone() else {
+        return Err(ModelError::Protocol("#noModel".into()));
+    };
+
+    let (onceki, gecmis_msg) = gecmis(bot);
+    let o = ozetle_taban_yok(&cfg.base_url, &model_id, bot, &onceki, &gecmis_msg).await?;
+    let dusen = o.dusen;
+    runs::write_ctx_summary(
+        &o.hedef,
+        Some(if o.ozet.is_empty() { String::new() } else { o.ozet }),
+        dusen,
+    );
+    Ok(dusen)
+}
+
+/// Bir özetleme denemesinin sonucu.
+///
+/// `ozet` boş dizgeyse özetleme başarısız olmuş ve **sert kırpmaya**
+/// düşülmüştür — eski mesajlar yine de atılır, çünkü bağlamı taşıran şey
+/// onlardı.
+#[derive(Debug)]
+pub struct Ozetleme {
+    pub ozet: String,
+    /// Kaç mesaj özetin içine girip listeden düştü.
+    pub dusen: u32,
+    /// Özetin **kapsamadığı**, olduğu gibi taşınan mesajlar.
+    pub korunan: Vec<Message>,
+    /// Denetim noktasının yazılacağı koşum: korunan pencerenin **ilk** koşumu.
+    ///
+    /// `gecmis_in` işareti taşıyan koşumdan **itibaren** mesajları alıyor.
+    /// İşaret yeni koşuma konursa korunan pencere bir sonraki koşumda sessizce
+    /// düşer; pencerenin başına konunca özet + korunan koşumlar birlikte geri
+    /// gelir.
+    pub hedef: String,
+}
+
+/// Eski turları modele özetletir.
+async fn ozetle(
+    base_url: &str,
+    model_id: &str,
+    bot: &Bot,
+    onceki_ozet: &Option<String>,
+    gecmis_msg: &[Message],
+) -> Result<Ozetleme, ModelError> {
+    ozetle_in(
+        &runs::runs_dir(),
+        base_url,
+        model_id,
+        bot,
+        onceki_ozet,
+        gecmis_msg,
+        true,
+    )
+    .await
+}
+
+/// Kazanç tabanı **uygulanmadan** özetler — kullanıcı düğmeye bastığında.
+async fn ozetle_taban_yok(
+    base_url: &str,
+    model_id: &str,
+    bot: &Bot,
+    onceki_ozet: &Option<String>,
+    gecmis_msg: &[Message],
+) -> Result<Ozetleme, ModelError> {
+    ozetle_in(
+        &runs::runs_dir(),
+        base_url,
+        model_id,
+        bot,
+        onceki_ozet,
+        gecmis_msg,
+        false,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn ozetle_in(
+    kok: &std::path::Path,
+    base_url: &str,
+    model_id: &str,
+    bot: &Bot,
+    onceki_ozet: &Option<String>,
+    gecmis_msg: &[Message],
+    // Kazanç tabanı uygulansın mı. Kullanıcı açıkça istediğinde `false`:
+    // taban, kendiliğinden boşa çalışmayı kesmek için var.
+    taban_uygula: bool,
+) -> Result<Ozetleme, ModelError> {
+    let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
+    if yerel.len() <= KORUNAN_KOSUM {
+        return Err(ModelError::Protocol("#compactNoRuns".into()));
+    }
+
+    // **Koşum sınırından** kesiliyor: bir koşumun mesajları araç çağrısıyla
+    // sonucunu birlikte taşıdığı için çift asla bölünmüyor.
+    let korunan_ids: Vec<&&String> = yerel.iter().rev().take(KORUNAN_KOSUM).collect();
+    let mut korunan: Vec<Message> = Vec::new();
+    for r in korunan_ids.iter().rev() {
+        korunan.extend(runs::messages_in(kok, r));
+    }
+    // Korunan pencerenin ilk koşumu — işaret oraya gidiyor.
+    let hedef = korunan_ids
+        .last()
+        .map(|r| (**r).clone())
+        .expect("KORUNAN_KOSUM > 0 ve yerel.len() ondan büyük");
+
+    let dusen = gecmis_msg.len().saturating_sub(korunan.len());
+    if dusen == 0 {
+        return Err(ModelError::Protocol("#compactNothing".into()));
+    }
+
+    // **Kazanç taban kontrolü — model çağrısından önce.**
+    //
+    // Ölçüldü (2026-09-03): bütçesi 8192 olan bir botta 30 mesajlık bir koşum
+    // 12.714 token'a çıktı, ama o koşum korunan pencerenin içindeydi ve
+    // dışarıda yalnızca iki satırlık bir selamlaşma kaldı. Özetleme yine de
+    // çalıştı: tam bir yerel model turu harcadı, kullanıcıyı bekletti,
+    // "Kullanıcının amacı: Selamlaşmak" diyen yanıltıcı bir özet üretti ve
+    // ~50 token kazandırdı. Sonraki koşumda aynısı yeniden olacaktı.
+    //
+    // Hiçbir şey kazandırmayan bir özetleme, özetlememekten kötüdür.
+    let dusecek_karakter: usize = gecmis_msg
+        .iter()
+        .take(dusen)
+        .map(|m| m.content.as_deref().map_or(0, str::len))
+        .sum();
+    // Kaba çeviri; kesin sayı yalnızca sunucudan gelir ve o da ancak istek
+    // gönderildikten sonra. Burada gereken kesinlik değil, büyüklük mertebesi.
+    let kazanc = dusecek_karakter / 4;
+    let taban = (bot.context_budget as usize / 10).max(512);
+    if taban_uygula && kazanc < taban {
+        return Err(ModelError::Protocol(format!(
+            "özetleme kazancı düşük ({kazanc} ≈ token, taban {taban})"
+        )));
+    }
+
+    let ozet = ozetle_mesajlar(
+        base_url,
+        model_id,
+        onceki_ozet.as_deref(),
+        &gecmis_msg[..dusen],
+    )
+    .await;
 
     Ok(Ozetleme {
         ozet,
@@ -1248,6 +1590,7 @@ mod tests {
         olaylar: StdMutex<Vec<Event>>,
         mesajlar: StdMutex<Vec<Message>>,
         ctxler: StdMutex<Vec<runs::RunCtx>>,
+        ozetlemeler: StdMutex<Vec<bool>>,
     }
 
     impl Kayit for VecKayit {
@@ -1257,11 +1600,15 @@ mod tests {
         fn mesaj(&self, msgs: &[Message]) {
             self.mesajlar.lock().unwrap().extend_from_slice(msgs);
         }
-        fn ctx_tokens(&self, prompt_tokens: u64) {
+        fn ctx_olcum(&self, prompt_tokens: u64, dokum: runs::Dokum) {
             self.ctxler.lock().unwrap().push(runs::RunCtx {
                 prompt_tokens,
+                breakdown: dokum,
                 ..Default::default()
             });
+        }
+        fn ozetleniyor(&self, aktif: bool) {
+            self.ozetlemeler.lock().unwrap().push(aktif);
         }
         fn ctx_ozet(&self, _hedef: &str, _ozet: Option<String>, _dusen: u32) {}
     }
@@ -1401,6 +1748,7 @@ mod tests {
                 prompt_tokens: 0,
                 summary: Some("ilk iki koşumun özeti".into()),
                 dropped: 4,
+                ..Default::default()
             },
         );
         let (ozet, msgs) = gecmis_in(&k, &b);
@@ -1420,6 +1768,7 @@ mod tests {
                 prompt_tokens: 0,
                 summary: Some(String::new()),
                 dropped: 4,
+                ..Default::default()
             },
         );
         let (ozet, msgs) = gecmis_in(&k, &b);
@@ -1453,7 +1802,7 @@ mod tests {
         // `kos`'un yaptığı: işaret **korunan pencerenin ilk koşumuna**.
         runs::write_ctx_summary_in(&k, &ids[3], Some("ilk üç koşumun özeti".into()), 6);
         // `tur_dongusu`'nün koşum bitince yaptığı: kendi koşumuna token.
-        runs::write_ctx_tokens_in(&k, &ids[5], 4096);
+        runs::write_ctx_tokens_in(&k, &ids[5], 4096, runs::Dokum::default());
 
         let (ozet, msgs) = gecmis_in(&k, &b);
         assert_eq!(
@@ -1490,7 +1839,7 @@ mod tests {
             .enable_all()
             .build()
             .unwrap();
-        let sonuc = rt.block_on(ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &None, &msgs));
+        let sonuc = rt.block_on(ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &None, &msgs, true));
         assert!(sonuc.is_err(), "özetlenecek koşum yokken denenmemeli");
 
         let _ = std::fs::remove_dir_all(&k);
@@ -1620,6 +1969,7 @@ mod tests {
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -1672,10 +2022,211 @@ mod tests {
         assert_eq!(roller, vec!["user", "assistant", "tool", "assistant"]);
 
         // Ölçülen `prompt_tokens` bağlam defterine yazılmalı: özetleme eşiği
-        // tahminle değil bununla tetikleniyor.
+        // tahminle değil bununla tetikleniyor. **Tur başına bir ölçüm**:
+        // besteci altındaki bar koşum sürerken de akıyor.
         let ctxler = kayit.ctxler.lock().unwrap().clone();
-        assert_eq!(ctxler.len(), 1);
-        assert_eq!(ctxler[0].prompt_tokens, 512);
+        assert_eq!(ctxler.len(), 2, "iki tur, iki ölçüm");
+        // İlk turun yanıtında `usage` yok (araç çağrısı turu); ikincide var.
+        assert_eq!(ctxler[1].prompt_tokens, 512);
+
+        // Döküm isteğin kendisini anlatıyor: ilk turda yalnızca sistem +
+        // kullanıcı mesajı vardı, ikinciye araç sonucu da eklendi.
+        assert_eq!(ctxler[0].breakdown.tools, 1, "bir araç tanımı gönderildi");
+        assert!(ctxler[0].breakdown.system_chars > 0, "sistem mesajı sayılmalı");
+        assert_eq!(ctxler[0].breakdown.messages, 1, "yalnızca kullanıcı mesajı");
+        assert_eq!(
+            ctxler[1].breakdown.messages, 3,
+            "kullanıcı + asistan + araç sonucu"
+        );
+        assert!(
+            ctxler[1].breakdown.history_chars > ctxler[0].breakdown.history_chars,
+            "geçmiş büyümüş olmalı"
+        );
+        assert_eq!(ctxler[0].breakdown.images, 0);
+    }
+
+    /// Bir araç çağrısı zinciri kuran yardımcı: `assistant(tool_calls)` +
+    /// yanıtları.
+    fn zincir(id: &str) -> Vec<Message> {
+        vec![
+            Message::assistant(
+                String::new(),
+                vec![ToolCall {
+                    id: id.into(),
+                    tip: "function".into(),
+                    function: FnCall {
+                        name: "fs_list".into(),
+                        arguments: "{}".into(),
+                    },
+                }],
+            ),
+            Message::tool("sonuç".into(), id.into()),
+        ]
+    }
+
+    /// **Kesme araç çağrısı sınırından olmak zorunda.**
+    ///
+    /// `tool_calls` taşıyan bir `assistant` mesajı `tool` yanıtlarından
+    /// ayrılırsa sunucu isteği 400 ile reddediyor — koşum ortasında özetleme
+    /// yaparken en kolay düşülecek tuzak bu.
+    #[test]
+    fn kesme_noktasi_arac_zincirini_bolmez() {
+        let mut m = vec![Message::system("y".into()), Message::user("başla".into())];
+        for id in ["a", "b", "c", "d", "e", "f"] {
+            m.extend(zincir(id));
+        }
+        // 1 sistem + 1 kullanıcı + 12 zincir mesajı = 14.
+        assert_eq!(m.len(), 14);
+
+        let k = kesme_noktasi(&m).expect("güvenli bir nokta olmalı");
+
+        // Sondan KORUNAN_MESAJ mesaj her zaman kalıyor.
+        assert!(m.len() - k >= KORUNAN_MESAJ, "k={k}");
+        // Kalan kısım yanıtsız bir `tool` ile başlamıyor.
+        assert_ne!(m[k].role, "tool", "k={k}");
+        // **Asıl ölçüt:** iki parça da kendi içinde tutarlı.
+        assert!(yanitsizlar(&m[1..k]).is_empty(), "düşen kısımda açık çağrı: k={k}");
+        let mut kalan = vec![m[0].clone()];
+        kalan.extend_from_slice(&m[k..]);
+        assert!(yanitsizlar(&kalan).is_empty(), "kalan kısımda açık çağrı: k={k}");
+    }
+
+    /// Zincirin ortasına denk gelen bir nokta **atlanıyor**, kesme geriye
+    /// kayıyor.
+    #[test]
+    fn kesme_noktasi_yanitsiz_cagriyi_disarida_birakmaz() {
+        // Sonda **yanıtsız** bir çağrı var: kesme onu bölmemeli.
+        let mut m = vec![Message::system("y".into()), Message::user("başla".into())];
+        m.extend(zincir("a"));
+        m.extend(zincir("b"));
+        m.extend(zincir("c"));
+        m.extend(zincir("d"));
+
+        for k in 1..m.len() {
+            let guvenli = m[k].role != "tool" && yanitsizlar(&m[1..k]).is_empty();
+            // Zincirin `assistant` ile `tool` arasına düşen her nokta güvensiz.
+            if m[k].role == "tool" {
+                assert!(!guvenli, "k={k} `tool` ile başlıyor");
+            }
+        }
+
+        let k = kesme_noktasi(&m).expect("nokta bulunmalı");
+        assert!(yanitsizlar(&m[1..k]).is_empty());
+    }
+
+    /// Her şey tek bir açık zincirse kesilecek yer yok; özetleme atlanmalı.
+    #[test]
+    fn kesme_noktasi_yoksa_none_doner() {
+        let m = vec![
+            Message::system("y".into()),
+            Message::user("başla".into()),
+            Message::assistant("peki".into(), vec![]),
+        ];
+        // 3 mesaj, KORUNAN_MESAJ 6: düşürecek yer yok.
+        assert!(kesme_noktasi(&m).is_none());
+    }
+
+    /// Özet bölümü **değiştirilir**, üst üste eklenmez: yenisi konurken
+    /// eskisinin tam metni bağlamda kalsaydı özetlemenin amacı boşa çıkardı.
+    #[test]
+    fn sistem_ozeti_ust_uste_binmez() {
+        let temel = "Sen bir yardımcısın.";
+        let bir = sistem_ozetle(temel, "ilk özet");
+        assert!(bir.starts_with(temel));
+        assert!(bir.contains("ilk özet"));
+
+        let iki = sistem_ozetle(ozetsiz(&bir), "ikinci özet");
+        assert!(iki.contains("ikinci özet"));
+        assert!(!iki.contains("ilk özet"), "eski özet düşmeliydi: {iki}");
+        assert_eq!(iki.matches("## Önceki konuşmanın özeti").count(), 1);
+        assert_eq!(ozetsiz(&iki), temel);
+
+        // Özeti olmayan metin olduğu gibi kalıyor.
+        assert_eq!(ozetsiz(temel), temel);
+    }
+
+    /// **Bütçe koşumun ortasında dolarsa döngü kendi durur, özetler ve devam
+    /// eder.**
+    ///
+    /// Koşumlar arası %75 eşiği burada işe yaramıyor: tavan 100'e çıktığı için
+    /// tek bir masaüstü koşumu onlarca tur sürebiliyor ve bağlam koşumun
+    /// ortasında taşıyor.
+    #[tokio::test]
+    async fn butce_tur_icinde_dolunca_ozetlenir() {
+        // Her turda araç çağırıyor ve bütçenin çok üstünde `usage` bildiriyor.
+        let arac_turu = concat!(
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c\",",
+            "\"function\":{\"name\":\"fs_list\",\"arguments\":\"{}\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":5000}}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let biten = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Bitti.\"}}]}\n\n",
+            "data: {\"choices\":[{\"finish_reason\":\"stop\"}]}\n\n",
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":40}}\n\n",
+            "data: [DONE]\n\n",
+        );
+        // Özetleme **akış değil** düz JSON istiyor (`chat_once`).
+        let ozet_yaniti = "{\"choices\":[{\"message\":{\"content\":\"Kısa özet.\"}}]}";
+
+        // Beş araç turu → mesaj listesi kesme için yeterince uzuyor; altıncı
+        // sırada özetleme çağrısı, sonra bitiren tur.
+        let mut sira = vec![arac_turu.to_string(); 5];
+        sira.push(ozet_yaniti.to_string());
+        sira.push(biten.to_string());
+        let port = sirali_sunucu(sira);
+        let base = format!("http://127.0.0.1:{port}/v1");
+
+        let kayit = VecKayit::default();
+        let sonuc = tur_dongusu(
+            &kayit,
+            &crate::mcp::McpState::default(),
+            Baglam {
+                base_url: &base,
+                model_id: "m",
+                sistem: "Sen bir yardımcısın.".into(),
+                araclar: vec![arac("fs_list")],
+                gecmis: Vec::new(),
+                text: "uzun masaüstü işi".into(),
+                kapi: Kapi::serbest(),
+                max_tur: TEST_MAX_TUR,
+                force_when_busy: false,
+                butce: 100,
+            },
+        )
+        .await;
+
+        assert!(sonuc.ok, "özetleme koşumu düşürmemeli: {:?}", sonuc.hata);
+
+        let olaylar = kayit.olaylar.lock().unwrap().clone();
+        let ozetler: Vec<&Event> = olaylar
+            .iter()
+            .filter(|e| matches!(e, Event::Summary { .. }))
+            .collect();
+
+        // İlk turlarda düşecek kadar mesaj yok: "bütçe yetmiyor" **bir kez**
+        // söyleniyor, her turda baloncuk basılmıyor.
+        let yetmez = ozetler
+            .iter()
+            .filter(|e| matches!(e, Event::Summary { text, .. } if text == BUTCE_YETMIYOR))
+            .count();
+        assert_eq!(yetmez, 1, "uyarı koşum başına bir kez: {ozetler:?}");
+
+        // Liste yeterince uzayınca gerçek özetleme çalışıyor.
+        let gercek = ozetler
+            .iter()
+            .find(|e| matches!(e, Event::Summary { text, .. } if text == "Kısa özet."))
+            .unwrap_or_else(|| panic!("tur içi özetleme çalışmalıydı: {ozetler:?}"));
+        let Event::Summary { dropped, .. } = gercek else {
+            unreachable!()
+        };
+        assert!(*dropped >= EN_AZ_DUSEN as u32, "az mesaj düştü: {dropped}");
+
+        // Kullanıcı beklerken ekranda bir şey olmalı: özetleme dakikalar
+        // sürebiliyor ve bitişi zaten özet baloncuğu anlatıyor.
+        let bildirimler = kayit.ozetlemeler.lock().unwrap().clone();
+        assert_eq!(bildirimler, vec![true, false], "başladı/bitti bildirimi");
     }
 
     /// Tavan sabiti değil **botun alanı**, ve tavana gelince koşum sessizce
@@ -1728,6 +2279,7 @@ mod tests {
                 },
                 max_tur: 2,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -1775,6 +2327,7 @@ mod tests {
                 },
                 max_tur: 2,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -1814,6 +2367,7 @@ mod tests {
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -1847,6 +2401,7 @@ mod tests {
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -1902,7 +2457,7 @@ mod tests {
         let (onceki, msgs) = gecmis_in(&k, &b);
         assert_eq!(msgs.len(), 8);
 
-        let o = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs)
+        let o = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs, true)
             .await
             .expect("özetleme çağrısı kurulmalı");
 
@@ -1981,6 +2536,7 @@ mod tests {
                 kapi: Kapi::serbest(),
                 max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -2050,6 +2606,7 @@ mod tests {
                 },
             max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -2135,6 +2692,7 @@ mod tests {
                 },
             max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -2173,6 +2731,7 @@ mod tests {
                 },
             max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
             },
         )
         .await;
@@ -2250,6 +2809,7 @@ mod tests {
                     },
                 max_tur: TEST_MAX_TUR,
                 force_when_busy: false,
+                butce: 0,
                 },
             )
             .await;
@@ -2299,9 +2859,42 @@ mod tests {
 
         // Adres kapalı bir port: model çağrısı yapılsaydı **bağlantı hatası**
         // dönerdi. Taban çağrıdan önce kestiği için gerekçe onu söylemeli.
-        let rt_sonuc = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs).await;
+        let rt_sonuc = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true).await;
         let hata = rt_sonuc.unwrap_err().to_string();
         assert!(hata.contains("kazancı düşük"), "taban devreye girmeliydi: {hata}");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
+    /// **Kullanıcı düğmeye bastıysa taban uygulanmaz.**
+    ///
+    /// Taban, hiçbir şey kazandırmayan bir özetlemenin *kendiliğinden*
+    /// çalışmasını engellemek için var. Elle istendiğinde karar kullanıcının;
+    /// sessizce hiçbir şey yapmayan bir düğme daha kötü olurdu.
+    #[tokio::test]
+    async fn elle_ozetleme_kazanc_tabanini_atlar() {
+        let k = std::env::temp_dir().join(format!("pcbd-elle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // `kazandirmayan_ozetleme_modele_hic_gitmez` ile aynı kurulum:
+        // dışarıda kalan tek koşum küçücük, taban geçilmiyor.
+        let ids = sahte_kosumlar(&k, 3);
+        let mut b = bot("");
+        b.jobs = ids;
+        b.context_budget = 8192;
+        let (onceki, msgs) = gecmis_in(&k, &b);
+
+        // Otomatik yol taban yüzünden çağrıyı hiç yapmıyor…
+        let oto = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true).await;
+        assert!(oto.unwrap_err().to_string().contains("kazancı düşük"));
+
+        // …elle istenince yapıyor. Sunucu kapalı olduğu için özet boş döndü
+        // (sert kırpma yolu), ama taban artık kapıyı kapatmıyor.
+        let elle = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, false)
+            .await
+            .expect("taban atlanmalıydı");
+        assert_eq!(elle.dusen, 2);
 
         let _ = std::fs::remove_dir_all(&k);
     }
@@ -2334,7 +2927,7 @@ mod tests {
         // Taban geçildi ve model çağrısına gidildi. Sunucu kapalı olduğu için
         // özet boş döndü — bu bir hata değil, belgelenmiş sert kırpma yolu:
         // özetleme başarısız olsa da koşum ölmüyor.
-        let o = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs)
+        let o = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true)
             .await
             .expect("taban geçilmeliydi, çağrı denenmeliydi");
         assert!(o.ozet.is_empty(), "sunucu kapalıyken özet boş olmalı");

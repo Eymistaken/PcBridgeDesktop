@@ -188,6 +188,47 @@ fn bot_summaries() -> Result<Vec<BotSummary>, BotError> {
         .collect())
 }
 
+/// Botun son yerel koşumundan bağlam defteri — besteci altındaki bar bunu
+/// gösteriyor.
+///
+/// **Yalnızca yerel koşumların `ctx`'i var** (`runs::bizim`): `agent_run`
+/// yolunda koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor. O botlarda
+/// bar çizilmiyor, uydurma bir sayı gösterilmiyor.
+#[tauri::command]
+fn bot_ctx(id: String) -> Result<Option<runs::RunCtx>, BotError> {
+    let bot = bots::get(&id)?;
+    Ok(bot
+        .jobs
+        .iter()
+        .rev()
+        .find(|j| runs::bizim(j))
+        .map(|j| runs::read_ctx(j)))
+}
+
+/// Kullanıcının açıkça istediği özetleme.
+///
+/// Otomatik yoldan iki farkı var. **Kazanç tabanı uygulanmıyor:** taban,
+/// hiçbir şey kazandırmayan bir özetlemenin kendiliğinden çalışmasını
+/// engellemek için var; kullanıcı düğmeye bastıysa karar onun. Ama düşecek
+/// mesaj yoksa yine reddediliyor ve nedeni söyleniyor — sessizce hiçbir şey
+/// yapmayan bir düğme daha kötü olurdu.
+///
+/// **Koşum sürerken çağrılmamalı:** akıştaki mesaj listesi o sırada diskle
+/// aynı değil. Arayüz düğmeyi kapatıyor, burada da kontrol ediliyor.
+#[tauri::command]
+async fn compact_bot(
+    runs_state: tauri::State<'_, Arc<Runs>>,
+    id: String,
+) -> Result<u32, BotError> {
+    let bot = bots::get(&id)?;
+    if bot.jobs.iter().any(|j| runs_state.suruyor_mu(j)) {
+        return Err(BotError::Gecersiz("#compactWhileRunning".into()));
+    }
+    agent::elle_ozetle(&bot)
+        .await
+        .map_err(|e| BotError::Gecersiz(e.to_string()))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Started {
@@ -524,6 +565,8 @@ pub fn run() {
             delete_bot,
             suggest_avatar,
             bot_history,
+            bot_ctx,
+            compact_bot,
             bot_summaries,
             send_message,
             cancel_job,

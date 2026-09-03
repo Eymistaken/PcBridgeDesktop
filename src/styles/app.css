@@ -229,6 +229,35 @@ input:focus {
   white-space: nowrap;
 }
 
+/* Küçük satır içi biçim — besteci altındaki şerit. `PermMenu` ve `CtxMenu`
+ * ile aynı ölçü: 12 px, zeminsiz, hover'da `--field`. */
+.picker--chip {
+  align-self: flex-start;
+}
+
+.picker__dugme--chip {
+  width: auto;
+  min-height: 0;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.picker__dugme--chip:hover:not(:disabled),
+.picker__dugme--chip[aria-expanded="true"] {
+  background: var(--field);
+  color: var(--text);
+}
+
+/* Besteci en altta: aşağı açılan liste pencerenin dışına taşardı. */
+.picker__pop--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .picker__pop {
   position: absolute;
   top: calc(100% + 5px);
@@ -917,6 +946,154 @@ pre.well {
  * satırda ipucu `--text`'e yükseliyor (9.86:1). */
 .permmenu__sec[aria-checked="true"] .permmenu__ipucu {
   color: var(--text);
+}
+
+/* ── model · bağlam düğmesi ──────────────────────────────────────── */
+/*
+ * Model adı ve doluluk **tek düğmede**: ikisi de "bu koşum neye benziyor"
+ * sorusunun parçası. Çubuk renksiz — dolu kısım `--text`, boş `--surface-2`.
+ * Renk yalnızca eşikte geliyor (%90 `--run`, %100 `--fail`) ve o bir aksan
+ * değil **durum**: bağlam taşmak üzere.
+ */
+.ctxmenu__dugme {
+  gap: 8px;
+  max-width: 320px;
+}
+
+.ctxmenu__model {
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctxbar {
+  flex: none;
+  width: 46px;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.ctxbar__dolu {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--text);
+  transition: width 0.25s ease, background-color 0.2s ease;
+}
+
+.ctxbar[data-durum="run"] .ctxbar__dolu {
+  background: var(--run);
+}
+
+.ctxbar[data-durum="fail"] .ctxbar__dolu {
+  background: var(--fail);
+}
+
+.ctxmenu__yuzde {
+  font-size: 11.5px;
+  flex: none;
+}
+
+.ctxmenu__pop {
+  width: 340px;
+}
+
+.ctxmenu__ust {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px 5px;
+}
+
+.ctxmenu__toplam {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ctxmenu__bos {
+  padding: 10px 11px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.ctxmenu__kirilim {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 4px 11px 9px;
+}
+
+.ctxmenu__satir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.ctxmenu__ad {
+  flex: none;
+  width: 74px;
+  color: var(--text);
+}
+
+.ctxmenu__adet {
+  flex: none;
+  width: 22px;
+  text-align: right;
+}
+
+/* Pay çubuğu `--field` üstünde: `--surface-2` orada ayırt edilebiliyor. */
+.ctxmenu__pay {
+  flex-grow: 1;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ctxmenu__payDolu {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--text-muted);
+}
+
+.ctxmenu__yaklasik {
+  flex: none;
+  width: 46px;
+  text-align: right;
+}
+
+.ctxmenu__compact:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ctxmenu__compact:disabled:hover {
+  background: var(--surface);
+}
+
+/* Bağlam %90'ı geçince bestecinin altında çıkan öneri. Kendi başına bir
+ * eylem, menünün içinde değil: kullanıcı menüyü açmadan görebilmeli. */
+.ctxoneri {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--run);
+  background: var(--field);
+  transition: background-color 0.12s ease;
+}
+
+.ctxoneri:hover {
+  background: var(--surface);
 }
 
 /* "Ben makinedeyken de çalışsın" anahtarı.
