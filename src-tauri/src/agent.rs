@@ -2413,11 +2413,13 @@ mod tests {
     /// yanıtsız bir `tool_calls` sonraki koşumu 400'e düşürürdü.
     #[tokio::test]
     async fn sunucu_yoksa_kosum_duser_ama_mesaj_listesi_saglam_kalir() {
-        let port = {
-            let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-            l.local_addr().unwrap().port()
-        };
-        let base = format!("http://127.0.0.1:{port}/v1");
+        // **Port 1, `:0` ile ayrılıp bırakılan bir port değil.** Öyleydi ve
+        // testler paralel koştuğu için işletim sistemi o portu bu arada başka
+        // bir testin sahte sunucusuna verebiliyordu; koşum bağlanıyor ve
+        // "erişilemez" iddiası kararsız düşüyordu. Port 1'e bağlanmak ayrıcalık
+        // istediği için orada hiçbir zaman dinleyen olmuyor — bu dosyadaki
+        // öteki testler de aynı adresi kullanıyor.
+        let base = "http://127.0.0.1:1/v1".to_string();
 
         let kayit = VecKayit::default();
         let sonuc = tur_dongusu(
