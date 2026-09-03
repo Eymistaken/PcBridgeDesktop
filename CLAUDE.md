@@ -303,10 +303,15 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
   Antigravity) çerçevelerini `─ │ ╭ ╯` ve blok karakterleriyle çiziyor;
   1.62'de bu karakterler hücreyi doldurmuyor ve logo ile çerçeveler kopuk
   kopuk görünüyordu. Şimdi **1.15**.
-- **WebGL çizici yalnızca hız için değil.** `customGlyphs` kutu-çizim ve blok
-  karakterlerini hücreye tam oturacak şekilde kendi çiziyor, yazı tipinin
-  glif metriğine bırakmıyor. `@xterm/addon-webgl`; bağlam kaybolursa DOM
-  çiziciye düşülüyor.
+- ⚠️ **WebGL çizici KULLANILMIYOR — WebKitGTK'da hiç çizmiyor.**
+  `@xterm/addon-webgl` 2026-09-03'te kaldırıldı. Ölçüm: aynı sayfa, aynı 1,5
+  saniye, **hiçbir girdi olayı olmadan** alınan gerçek widget görüntüsü
+  (`WebKit2.WebView.get_snapshot`, JS piksel okuması değil) — WebGL açıkken
+  tuval **bomboş**, kapalıyken yazı yerinde. Hız gerekçesi de düştü: 2000
+  satır DOM çizicide 46 ms, WebGL'de 43 ms.
+  `customGlyphs` artık bir **`Terminal` seçeneği** ve DOM çizicide de
+  geçerli; kutu-çizim ve blok karakterleri hücreye tam oturuyor (çerçeve
+  görüntüsüyle doğrulandı).
 - **Punto tam sayı** (13). Kesirli punto hücre genişliğini kesirli yapıyor.
 - **Yazı tipi ÖNCE yüklenir, terminal SONRA kurulur.** xterm hücre
   genişliğini `open()` anında bir kez ölçüyor. `document.fonts.ready` tek
@@ -539,26 +544,33 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
   elimizde yok; toplam `usage.prompt_tokens` kesin, kırılım değil. Arayüz o
   yüzden `≈` yazıyor.
 
-### Terminal klavye gecikmesi — 2026-09-03'te ölçüldü
+### Terminal klavye gecikmesi — 2026-09-03'te bulundu ve düzeltildi
 
-Kullanıcı "harfler bir basım geç geliyor" dedi. **Uygulamanın kendi hattı
-temiz**, üç katman da ölçüldü:
+Kullanıcı "harfler bir basım geç geliyor, genel tepki de hantal" dedi.
+**Sebep `@xterm/addon-webgl`'di:** WebKitGTK'da hiç çizmiyor, ekran ancak bir
+girdi olayı tam yeniden çizim tetikleyince güncelleniyordu. Addon kaldırıldı.
+
+Kanıt — aynı sayfa, aynı 1,5 saniye, hiç girdi yok, **gerçek widget
+görüntüsü**: WebGL açık → boş; WebGL kapalı → yazı yerinde. JS'ten piksel
+okumak WebGL tuvalinde güvenilmez (çizim tamponu sunumdan sonra siliniyor),
+o yüzden `get_snapshot` kullanıldı.
+
+Yol boyunca elenen katmanlar — hepsi temiz çıktı:
 
 | Katman | Ölçüm |
 |---|---|
 | PTY + tmux yankısı (`Ptys`'in okuma/yazma deseninin aynısı) | **0,1–0,3 ms** |
 | xterm `write` → ekrana çizim (geri çağrıyla) | **11 ms** |
 | WebKitGTK `requestAnimationFrame`, boşta | **62 fps**, ortanca aralık 16 ms |
+| Tauri `emit` (arka plan iş parçacığı) → `listen` | **0–1 ms** |
+| WebKitGTK'da WebGL bağlamı (piksel geri okuma) | çalışıyor — **ama sunmuyor** |
 
 - `portable_pty`'nin yazıcısı **tamponsuz** (`UnixMasterWriter`, doğrudan fd).
-- Kalan tek şüpheli **GTK girdi yöntemi**: klavye düzeni `tr+intl` (ölü
-  tuşlu) ve `ibus-daemon` çalışıyor (`XMODIFIERS=@im=ibus`). Ölü tuş
-  düzenlerinde GTK'nın IM bağlamı bir tuşu, bir sonraki tuş diziyi
-  netleştirene kadar **tutabiliyor** — belirti tam olarak bu. Sentetik tuş
-  olayları IM'yi atladığı için bu katman buradan ölçülemedi.
-- **Doğrulama yolu:** aynı düzenle GNOME Terminal'de de gecikiyorsa hata
-  uygulamada değil; düzeni düz `tr`'ye almak ya da ölü tuşsuz bir düzen
-  seçmek çözer.
+- **Girdi yöntemi (ibus + `tr+intl`) şüphesi elendi:** kullanıcı aynı düzenle
+  GNOME Terminal ve Kitty'de gecikme olmadığını söyledi.
+- **Ders:** tarayıcı ölçümü Chromium'da yapılırsa uygulamayı temsil etmez.
+  Uygulama WebKitGTK; grafik yolunu ilgilendiren her ölçüm
+  `gi.require_version("WebKit2", "4.1")` ile **asıl motorda** yapılmalı.
 - Ayrıca ölçüldü: `tmux` sunucusunda **`escape-time 500`**. Düz harfleri
   etkilemiyor ama ESC ile başlayan her diziyi (ok tuşları, Alt bileşimleri,
   TUI'lerde ESC) yarım saniye geciktiriyor. Sunucu ayarı, oturuma özgü

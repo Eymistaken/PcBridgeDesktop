@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import "@xterm/xterm/css/xterm.css";
 
@@ -96,6 +95,9 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
       fontSize: PUNTO,
       lineHeight: SATIR,
       cursorBlink: true,
+      // Kutu-çizim ve blok karakterlerini xterm kendi çiziyor, yazı tipinin
+      // glif metriğine bırakmıyor: TUI çerçeveleri hücreye tam oturuyor.
+      customGlyphs: true,
       // Kabuk paletiyle aynı; ayrı bir tema uydurmuyoruz.
       theme: palet(),
       allowProposedApi: true,
@@ -112,17 +114,20 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
 
     term.open(kap);
 
-    // WebGL yalnızca hız için değil: kutu çizim ve blok karakterlerini
-    // (`customGlyphs`) hücreye TAM oturacak şekilde kendi çiziyor, yazı
-    // tipinin glif metriğine bırakmıyor. DOM çizicide çerçeveler kopuk çıkar.
-    try {
-      const gl = new WebglAddon();
-      // Bağlam kaybolursa (GPU sıfırlaması) DOM çiziciye düş; çökmek yok.
-      gl.onContextLoss(() => gl.dispose());
-      term.loadAddon(gl);
-    } catch {
-      // WebGL yoksa DOM çizici devreye girer — çalışır, yalnızca daha yavaş.
-    }
+    /*
+     * **WebGL çizici YOK — WebKitGTK'da hiç çizmiyor.**
+     *
+     * Ölçüldü (2026-09-03): aynı sayfa, aynı 1,5 saniye, hiçbir girdi olayı
+     * olmadan alınan gerçek widget görüntüsü — WebGL açıkken tuval **bomboş**,
+     * kapalıyken yazı yerinde. Belirti kullanıcının tarif ettiğinin aynısı:
+     * bir harf, bir sonraki tuşa basılana kadar hiç belirmiyor. Girdi olayı
+     * tam yeniden çizim tetikliyor ve o zaman görünüyor.
+     *
+     * Hız gerekçesi de düştü: 2000 satırlık yazma DOM çizicide 46 ms, WebGL'de
+     * 43 ms — ölçülebilir bir fark yok. `customGlyphs` artık `Terminal`
+     * seçeneği; kutu-çizim ve blok karakterleri DOM çizicide de hücreye tam
+     * oturuyor (çerçeve görüntüsüyle doğrulandı).
+     */
 
     const cozucu = new TextDecoder();
     let sonCols = 0;
