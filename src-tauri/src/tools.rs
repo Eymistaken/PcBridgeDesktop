@@ -119,9 +119,23 @@ const SILME_TUSLARI: &[&str] = &["delete"];
 /// Dizi `+` ile ayrılıyor (`ctrl+a`, `shift+delete`); parçalar tek tek
 /// karşılaştırılıyor ki `delete` içeren başka bir ad yanlışlıkla eşleşmesin.
 pub fn silme_tusu_mu(keys: &str) -> bool {
-    keys.split('+')
-        .map(|p| p.trim().to_ascii_lowercase())
-        .any(|p| SILME_TUSLARI.contains(&p.as_str()))
+    parcalar(keys).any(|p| SILME_TUSLARI.contains(&p.as_str()))
+}
+
+/// **Kalıcı** silme mi — çöp kutusunu atlayan `shift+delete`?
+///
+/// Bu, odaktan bağımsız olarak reddediliyor. Gerekçe kullanıcının kendi
+/// sözü: masaüstü silindiğinde *"şükürler olsun model shift delete yapmadı,
+/// yoksa bütün kodlarım gidecekti"*. Çöpe atılan geri alınabilir; bu
+/// alınamaz. Bir modelin kalıcı silmeye ihtiyacı olduğu bir durum yok —
+/// gerekiyorsa kullanıcı kendisi yapar.
+pub fn kalici_silme_mi(keys: &str) -> bool {
+    let p: Vec<String> = parcalar(keys).collect();
+    p.iter().any(|x| x == "shift") && p.iter().any(|x| SILME_TUSLARI.contains(&x.as_str()))
+}
+
+fn parcalar(keys: &str) -> impl Iterator<Item = String> + '_ {
+    keys.split('+').map(|p| p.trim().to_ascii_lowercase())
 }
 
 /// Bir aracın grubu.
@@ -263,6 +277,19 @@ mod tests {
         assert!(!silme_tusu_mu("backspace"), "metin alanında olağan");
         // Adın içinde geçmesi yetmez, parça olarak eşleşmeli.
         assert!(!silme_tusu_mu("deletex"));
+    }
+
+    /// Kalıcı silme **odaktan bağımsız** reddedilir: çöpten geri alınamaz.
+    #[test]
+    fn kalici_silme_ayri_taninir() {
+        assert!(kalici_silme_mi("shift+delete"));
+        assert!(kalici_silme_mi("Shift+Delete"));
+        assert!(kalici_silme_mi("ctrl+shift+delete"));
+        // Çöpe atan silme kalıcı değil — o odağa bakılarak karara bağlanıyor.
+        assert!(!kalici_silme_mi("delete"));
+        // Shift tek başına bir şey silmiyor.
+        assert!(!kalici_silme_mi("shift+a"));
+        assert!(!kalici_silme_mi("ctrl+a"));
     }
 
     #[test]

@@ -71,9 +71,10 @@ gerçek terminal ızgarası.
   masaüstünde bir kez ofseti unuttu, tıklama komşu ekrandaki **masaüstüne**
   düştü, ardından gönderdiği `ctrl+a` + `delete` kullanıcının bütün masaüstünü
   çöpe attı — ve orada bütün kod dizinleri duruyordu. `agent.rs::tehlike_kapisi`
-  iki şeyi engelliyor: son `screen_capture`'ın **dışına** düşen `mouse`
-  çağrısı, ve odak masaüstündeyken gönderilen **silme** tuşu. İkisi de izin
-  kipinden **bağımsız**: kullanıcı "serbest" dese bile sorulmaz, engellenir.
+  üç şeyi engelliyor: son `screen_capture`'ın **dışına** düşen `mouse`
+  çağrısı, odak masaüstündeyken gönderilen **silme** tuşu, ve her koşulda
+  **kalıcı silme** (`shift+delete`). Üçü de izin kipinden **bağımsız**:
+  kullanıcı "serbest" dese bile sorulmaz, engellenir.
   Bir prompt satırı bunun yerine geçmez — model aynı koşumda dört kez doğru
   yapıp beşincide unuttu.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
@@ -594,7 +595,7 @@ adres çubuğuna yazdığını **sanıyordu**. Kullanıcının bütün kod dizin
 masaüstündeydi; elle durdurdu ve çöpten geri aldı. `shift+delete`
 olsaydı kalıcı olurdu.
 
-**Kondu — `agent.rs::tehlike_kapisi`, iki kapı:**
+**Kondu — `agent.rs::tehlike_kapisi`, üç kapı:**
 
 - **`mouse` son görüntünün dışına düşemez.** `screen_capture` yanıtındaki
   `… @ (1920, 0) …` satırlarından ekranın global dikdörtgeni okunuyor
@@ -609,8 +610,12 @@ olsaydı kalıcı olurdu.
   tıklandığında odak `gjs — Desktop Icons 2` oluyor, yani sorgu olay anında
   doğru yanıtı verirdi. `backspace` **bilerek listede değil**: metin
   alanlarında olağan, masaüstünde bir şey silmiyor.
+- **`shift+delete` her yerde reddediliyor**, odağa bakılmadan. Çöpe atılan
+  geri alınabilir, kalıcı silinen alınamaz — ve bir modelin buna ihtiyacı
+  olduğu bir durum yok. Kullanıcının kendi sözü: *"şükürler olsun model
+  shift delete yapmadı"*.
 
-İkisi de **izin kipinden bağımsız** ve red **sessiz değil**: modele ne
+Üçü de **izin kipinden bağımsız** ve red **sessiz değil**: modele ne
 yapması gerektiğini anlatan bir metin, kullanıcıya sohbette bir `⛔` satırı
 gidiyor. Reddin gerekçesi yazılı olmasaydı model çağrıyı arıza sanıp
 yineleyecekti — bu daha önce ölçüldü.

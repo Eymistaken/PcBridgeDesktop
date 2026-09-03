@@ -1059,6 +1059,18 @@ async fn tehlike_kapisi(
 
     if tool == "keyboard" {
         let keys = args.get("keys").and_then(serde_json::Value::as_str).unwrap_or("");
+
+        // **Kalıcı silme her yerde reddedilir**, odağa bakılmadan. Çöpe atılan
+        // geri alınabilir, bu alınamaz — ve bir modelin buna ihtiyacı olduğu
+        // bir durum yok. Kullanıcının kendi sözü: masaüstü silindiğinde
+        // "şükürler olsun model shift delete yapmadı".
+        if crate::tools::kalici_silme_mi(keys) {
+            return Some(
+                "Engellendi: `shift+delete` dosyayı **kalıcı** siler, çöp                  kutusuna göndermez ve geri alınamaz. Bu uygulama modelin                  kalıcı silme yapmasına izin vermiyor. Silinmesi gereken bir                  şey varsa kullanıcıya söyle, kendisi yapsın."
+                    .to_string(),
+            );
+        }
+
         if crate::tools::silme_tusu_mu(keys) && masaustu_odakta(mcp).await {
             return Some(
                 "Engellendi: odak **masaüstünde** ve bu tuş orada dosya siler.                  Yazmak istediğin yere (adres çubuğu, metin kutusu) önce                  tıkla ve `window_list` ile odağın oraya geçtiğini doğrula,                  sonra tekrar dene."

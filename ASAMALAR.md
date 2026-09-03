@@ -778,7 +778,7 @@ Model adres çubuğuna yazdığını **sanıyordu**. Kullanıcının bütün kod
 masaüstündeydi; elle durdurup çöpten geri aldı. `shift+delete` olsaydı kalıcı
 olurdu.
 
-**Kondu — `agent.rs::tehlike_kapisi`, iki kapı:**
+**Kondu — `agent.rs::tehlike_kapisi`, üç kapı:**
 
 - **`mouse` son görüntünün dışına düşemez.** `screen_capture` yanıtından
   ekranın global dikdörtgeni okunup saklanıyor; sonraki `mouse` çağrısının
@@ -789,8 +789,11 @@ olurdu.
 - **Odak masaüstündeyken silme tuşu geçmez.** `window_list` sorulup odağa
   bakılıyor; ölçüldü ki masaüstüne tıklandığında odak `gjs — Desktop Icons 2`
   oluyor, yani sorgu olay anında doğru yanıtı verirdi.
+- **`shift+delete` her koşulda reddediliyor.** Çöpten geri alınabilir, kalıcı
+  silinen alınamaz. Kullanıcının kendi sözü: *"şükürler olsun model shift
+  delete yapmadı"*.
 
-İkisi de **izin kipinden bağımsız** — kullanıcı "serbest" dese bile sorulmaz,
+Üçü de **izin kipinden bağımsız** — kullanıcı "serbest" dese bile sorulmaz,
 engellenir — ve red **sessiz değil**: modele ne yapması gerektiğini anlatan
 bir metin, kullanıcıya sohbette bir `⛔` satırı gidiyor.
 
