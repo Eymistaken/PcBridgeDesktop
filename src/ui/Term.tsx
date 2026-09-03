@@ -34,8 +34,10 @@ function palet() {
   const v = (n: string) => s.getPropertyValue(n).trim();
   return {
     background: v("--well"),
-    foreground: v("--text"),
-    cursor: v("--text"),
+    // Kuyu iki temada da koyu; metni `--text`'ten almak aydınlıkta 1.09:1
+    // veriyordu — terminal okunmuyordu. `--well-text` tema değişse de sabit.
+    foreground: v("--well-text"),
+    cursor: v("--well-text"),
     selectionBackground: v("--surface-2"),
     black: v("--well"),
     red: v("--fail"),
@@ -44,15 +46,15 @@ function palet() {
     blue: v("--blue"),
     magenta: v("--magenta"),
     cyan: v("--cyan"),
-    white: v("--text"),
-    brightBlack: v("--text-muted"),
+    white: v("--well-text"),
+    brightBlack: v("--well-muted"),
     brightRed: v("--fail"),
     brightGreen: v("--ok"),
     brightYellow: v("--run"),
     brightBlue: v("--blue"),
     brightMagenta: v("--magenta"),
     brightCyan: v("--cyan"),
-    brightWhite: v("--text"),
+    brightWhite: v("--well-text"),
   };
 }
 

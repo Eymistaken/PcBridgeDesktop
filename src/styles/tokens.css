@@ -26,6 +26,15 @@
   --line: #2f3033;
   --well: #08090b;
 
+  /* Kuyunun metni — **iki temada da aynı.**
+   *
+   * Kuyu (terminal, ham çıktı, onaylanan komut) aydınlık temada da koyu
+   * kalıyor; metni `--text`'ten almak aydınlıkta 1.09:1 veriyordu, yani
+   * görünmez. Ölçüldü: sabit değerlerle 15.72 ve 6.49 — ikisi de AA üstünde.
+   * Bu yüzden aşağıdaki tema bloklarında **yeniden tanımlanmıyorlar.** */
+  --well-text: #eaebed; /* 15.72:1 */
+  --well-muted: #96989c; /* 6.49:1 */
+
   /* metin — iki seviye, üçüncüsü YOK (her denemede AA altında kaldı) */
   --text: #eaebed; /* 15.2:1 */
   --text-muted: #96989c; /* 6.3:1 — --surface-2 üstünde KULLANILMAZ (4.08:1) */

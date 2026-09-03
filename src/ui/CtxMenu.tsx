@@ -130,19 +130,28 @@ export default function CtxMenu({
  * ölçülmüş bir token sayısı, bu satırlar değil.
  */
 function Kirilim({ d }: { d: Dokum }) {
-  const satirlar: { ad: string; kar: number; ek?: string }[] = [
-    { ad: t("ctx.system"), kar: d.systemChars },
+  // `ek` boş dizge olabilir ama sütun **her zaman çiziliyor**: yoksa o
+  // satırın çubuğu 30 px sola kayıyor ve tablo eğri duruyor (ölçüldü).
+  const satirlar: { ad: string; kar: number; ek: string }[] = [
+    { ad: t("ctx.system"), kar: d.systemChars, ek: "" },
     { ad: t("ctx.tools"), kar: d.toolChars, ek: String(d.tools) },
     { ad: t("ctx.history"), kar: d.historyChars, ek: String(d.messages) },
   ];
-  const toplam = satirlar.reduce((n, s) => n + s.kar, 0) || 1;
+  const toplam = satirlar.reduce((n, s) => n + s.kar, 0);
+
+  // Bu alan Aşama 8'de geldi; ondan önceki koşumların `ctx.json`'ında yok ve
+  // `serde` sıfıra düşürüyor. Sıfır uzunluklu çubuklar ve "≈0" göstermek
+  // ölçülmemiş bir şeyi ölçülmüş gibi gösterirdi.
+  if (toplam === 0) {
+    return <div className="ctxmenu__bos">{t("ctx.noBreakdown")}</div>;
+  }
 
   return (
     <div className="ctxmenu__kirilim">
       {satirlar.map((s) => (
         <div key={s.ad} className="ctxmenu__satir">
           <span className="ctxmenu__ad">{s.ad}</span>
-          {s.ek && <span className="mono muted ctxmenu__adet">{s.ek}</span>}
+          <span className="mono muted ctxmenu__adet">{s.ek}</span>
           <span className="ctxmenu__pay">
             <span className="ctxmenu__payDolu" style={{ width: `${(s.kar / toplam) * 100}%` }} />
           </span>

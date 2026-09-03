@@ -35,12 +35,32 @@ export default function Thinking({ text, ms, live }: Props) {
 
   // Kapalı kutuda son satırları göster: içeriği yukarı kaydır. `translateY`
   // üstünde geçiş var, o yüzden yeni token gelince satırlar zıplamıyor akıyor.
+  //
+  // **Ölçüm düzene bağlı, tek seferlik değil.** Bir kez ölçmek yetmiyordu:
+  // ilk `useLayoutEffect`'te kap henüz sıfır genişlikteydi, `overflow-wrap`
+  // yüzünden her karakter ayrı satıra düşüyordu ve `scrollHeight` 7130px
+  // çıkıyordu — metin görünür alanın çok yukarısına itiliyor, kutu boş
+  // görünüyordu. `ResizeObserver` genişlik oturunca ve yazı tipi yüklenince
+  // yeniden ölçüyor.
   useLayoutEffect(() => {
     const kap = kaydirilan.current;
     const ic = govde.current;
-    if (!kap || !ic || acik) return;
-    const tasma = Math.max(0, ic.scrollHeight - kap.clientHeight);
-    ic.style.transform = `translateY(${-tasma}px)`;
+    if (!kap || !ic) return;
+
+    const olc = () => {
+      if (acik) {
+        ic.style.transform = "";
+        return;
+      }
+      const tasma = Math.max(0, ic.scrollHeight - kap.clientHeight);
+      ic.style.transform = `translateY(${-tasma}px)`;
+    };
+
+    olc();
+    const gozcu = new ResizeObserver(olc);
+    gozcu.observe(ic);
+    gozcu.observe(kap);
+    return () => gozcu.disconnect();
   }, [text, acik]);
 
   // Açıkken dibe yapış — akış sürerken okunan yer sonu olmalı.
