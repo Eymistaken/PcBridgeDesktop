@@ -37,11 +37,12 @@ derse **başka bir şey sormadan** şunu yap:
 
    Kullanıcı boşlukları **tek tek saydı** ve hepsi kodda doğrulanıp
    "Kullanıcının saydığı somut boşluklar" başlığına (a)–(h) diye yazıldı.
-   ⚠️ İkisi tuzaklı: **token akışının** bugünkü mimarisi token başına DOM
-   düğümü vermiyor (blok bütün olarak yeniden çiziliyor) — **yol seçildi,
-   açığa çıkarma maskesi**; ve **terminal ızgarasını** animasyonlamak Aşama
-   9'un 90 ms'lik yeniden boyutlandırma kuralını bozabilir. İkisi de orada
-   yazılı.
+   ⚠️ **Token akışı** "CSS ekle" ile çözülmüyor: bugünkü mimari token başına
+   DOM düğümü vermiyor, blok bütün olarak yeniden çiziliyor. **Yol seçildi —
+   açığa çıkarma maskesi** (`mask-image`, opaklık).
+
+   ⛔ **Terminal kapsam dışı, tamamı.** Kullanıcının kararı: *"terminal
+   sonuçta animasyon olmaz."* Ne tuval, ne bölme kabuğu, ne ızgara.
 
    Arayüz işi olduğu için **yasak kapsamında değil** (madde 5).
 5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
