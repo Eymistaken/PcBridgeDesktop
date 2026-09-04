@@ -615,6 +615,12 @@ olsaydı kalıcı olurdu.
   olduğu bir durum yok. Kullanıcının kendi sözü: *"şükürler olsun model
   shift delete yapmadı"*.
 
+⚠️ **Kapılar sonucu yakalıyor, sebebi değil.** Sebep açık kaldı: model bir
+koordinatı doğru hesaplayıp **birkaç tur sonra unutuyor** — aynı koşumda dört
+kez doğru yapıp beşincide. Yani sorun bilmemek değil, **tutmamak**. Kullanıcı
+buna bir usul düşünüyor (bulunan koordinat kaydedilsin, kullanılırken
+defterden okunsun, ekran değişince doğrulansın); ayrıntı YAPILACAKLAR.md'de.
+
 Üçü de **izin kipinden bağımsız** ve red **sessiz değil**: modele ne
 yapması gerektiğini anlatan bir metin, kullanıcıya sohbette bir `⛔` satırı
 gidiyor. Reddin gerekçesi yazılı olmasaydı model çağrıyı arıza sanıp
