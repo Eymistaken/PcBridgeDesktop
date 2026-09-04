@@ -8,6 +8,7 @@ mod parse;
 mod pty;
 mod runs;
 mod secrets;
+mod servers;
 mod tools;
 
 use agent::Runs;
@@ -72,6 +73,69 @@ fn update_bot(id: String, draft: BotDraft) -> Result<Bot, BotError> {
 #[tauri::command]
 fn delete_bot(id: String) -> Result<(), BotError> {
     bots::delete(&id)
+}
+
+// ─────────────────────────── eklentiler ───────────────────────────
+
+#[tauri::command]
+fn list_servers() -> Result<Vec<servers::Server>, servers::ServerError> {
+    servers::list()
+}
+
+/// Kaydeder **ve hemen bağlar**: kullanıcı "Ekle"ye bastığında satırın
+/// bağlanıp bağlanmadığını aynı anda görmeli.
+#[tauri::command]
+async fn create_server(
+    draft: servers::ServerDraft,
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
+    let s = servers::create(draft)?;
+    state.eklenti_bagla(&s).await;
+    Ok(state.eklenti_durumlari().await)
+}
+
+/// Günceller ve yeniden bağlar. Komut ya da argüman değişmiş olabilir;
+/// eski süreci yaşatmak kullanıcıya yanlış bir araç listesi gösterirdi.
+#[tauri::command]
+async fn update_server(
+    id: String,
+    draft: servers::ServerDraft,
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
+    let s = servers::update(&id, draft)?;
+    state.eklenti_bagla(&s).await;
+    Ok(state.eklenti_durumlari().await)
+}
+
+#[tauri::command]
+async fn delete_server(
+    id: String,
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
+    servers::delete(&id)?;
+    state.eklenti_kes(&id).await;
+    Ok(state.eklenti_durumlari().await)
+}
+
+#[tauri::command]
+async fn plugin_status(
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<Vec<mcp::EklentiSnapshot>, ConnError> {
+    Ok(state.eklenti_durumlari().await)
+}
+
+/// Tek bir eklentiyi yeniden bağlar — panelin "Yeniden bağlan" eylemi.
+#[tauri::command]
+async fn reconnect_plugin(
+    id: String,
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
+    let s = servers::list()?
+        .into_iter()
+        .find(|s| s.id == id)
+        .ok_or_else(|| servers::ServerError::Yok(id.clone()))?;
+    state.eklenti_bagla(&s).await;
+    Ok(state.eklenti_durumlari().await)
 }
 
 // ─────────────────────────── koşumlar ───────────────────────────
@@ -583,6 +647,14 @@ pub fn run() {
         .manage(Arc::new(Runs::default()))
         .manage(Watchers::default())
         .manage(Ptys::default())
+        // **Eklentiler açılışta arka planda bağlanır.** `npx` ilk çalıştırmada
+        // ağdan indiriyor ve saniyeler sürebiliyor; pencerenin açılmasını
+        // bekletmemeli. pcbridge'e bağlı da değil: eklenti token istemiyor.
+        .setup(|app| {
+            let state = tauri::Manager::state::<Arc<McpState>>(app).inner().clone();
+            tauri::async_runtime::spawn(async move { state.eklentileri_bagla().await });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             endpoint,
             has_token,
@@ -590,6 +662,12 @@ pub fn run() {
             refresh,
             sign_out,
             list_bots,
+            list_servers,
+            create_server,
+            update_server,
+            delete_server,
+            plugin_status,
+            reconnect_plugin,
             create_bot,
             update_bot,
             delete_bot,

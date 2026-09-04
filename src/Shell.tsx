@@ -28,6 +28,7 @@ import {
   listBots,
   modelConfig,
   pendingPermissions,
+  pluginStatus,
   refresh as refreshConn,
   resumeWatches,
   sendMessage,
@@ -47,6 +48,7 @@ import type {
   DesktopState,
   Mode,
   PendingPermission,
+  PluginStatus,
   RunCtx,
   StatusPayload,
   TerminalsView,
@@ -304,6 +306,27 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
    * siliniyordu; koşum ise sessizce beklemeye devam ediyordu.
    */
   const [pending, setPending] = useState<PendingPermission[]>([]);
+
+  /**
+   * Eklenti durumları **burada** duruyor, panelde değil: hem şerit hem
+   * Eklentiler kartı gösteriyor ve iki ayrı kopya ilk değişiklikte ayrışırdı.
+   * Panel değiştirdiğinde listeyi geri veriyor.
+   */
+  const [plugins, setPlugins] = useState<PluginStatus[]>([]);
+  useEffect(() => {
+    let iptal = false;
+    void (async () => {
+      try {
+        const l = await pluginStatus();
+        if (!iptal) setPlugins(l);
+      } catch {
+        // Eklenti yoksa ya da okunamıyorsa şerit eskisi gibi çalışır.
+      }
+    })();
+    return () => {
+      iptal = true;
+    };
+  }, []);
 
   const izinYanitla = useCallback(async (runId: string, allow: boolean) => {
     // Kart hemen kalksın: yanıt yolda ve iki kez tıklamanın anlamı yok.
@@ -650,6 +673,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         refreshing={busyConn}
         connError={connError}
         waiting={pending.map((p) => p.botId)}
+        plugins={plugins}
       />
 
       <div className="main" key="agents">
@@ -731,6 +755,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
                 onLang={onLang}
                 desktop={desktop}
                 onDesktop={setDesktop}
+                plugins={plugins}
+                onPlugins={setPlugins}
               />
             </div>
           </>

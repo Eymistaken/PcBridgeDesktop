@@ -1515,10 +1515,11 @@ async fn arac_listesi(
         .into_iter()
         .filter(|t| bot.tools.iter().any(|s| s == &t.name))
         .collect();
-    let gruplar = secili
-        .iter()
-        .map(|t| (t.name.clone(), crate::tools::grup(&t.name, t.read_only)))
-        .collect();
+    // **Grup burada yeniden hesaplanmıyor**, `mcp.rs` ne dediyse o. Eskiden
+    // ad üstünden yeniden çıkarılıyordu; eklentiler gelince o yol yanlış
+    // cevap verirdi — `gmail__mouse` gibi bir ad pcbridge'in masaüstü
+    // listesine çarpar ya da çarpmaz, ve arayüzle kapı ayrışırdı.
+    let gruplar = secili.iter().map(|t| (t.name.clone(), t.group)).collect();
 
     let defler = secili
         .into_iter()

@@ -944,6 +944,112 @@ birim testleriyle sınandı, prompt canlı `screen_info` ile doğrulandı, ama
   masaüstü, tablo okundu ve prompt üretildi.
 - `npm run tauri dev` 90 saniye ayakta, hata yok.
 
+## Aşama 12 — Eklentiler: MCP kayıt defteri ✅ BİTTİ (A)
+
+*2026-09-04.* `mcp.rs` tek sunucuya çakılıydı; bir bot yalnızca pcbridge'in
+33 aracını görebiliyordu. Artık uygulama birden çok MCP sunucusu tanıyor.
+
+**Kapsam kullanıcının kararıyla A.** B (bağlantıyı `pcbridge-agent` botlarına
+vermek) yazılmadı çünkü ölçüldü: kullanıcının **iki botu da**
+`backend: "yerel-model"`. O botlarda argv diye bir şey yok, araçları modele
+uygulama veriyor — yani yeni bir sunucuyu bağlamak yalnızca A'yı gerektiriyor.
+B bugün **sıfır bota** hizmet ederdi ve pcbridge'de iş isterdi.
+
+### Rust
+
+- **`Conn` ikinci bir taşıyıcı kazandı, ikinci bir tür değil.** `().serve(..)`
+  her iki taşıyıcıda da `RunningService<RoleClient, ()>` döndürüyor, o yüzden
+  `call_for_agent`, `tool_defs` ve `close` hiç değişmedi; eklenen tek şey
+  `Conn::child`. rmcp özelliği `transport-child-process`; **`auth` ve TLS
+  gerekmedi.**
+- **`servers.rs`** — `bots.json`'ın ikizi: tmp + fsync + rename, 0600, sır yok.
+  Kimlik bir **slug** (`gmail`, `dev`), hex değil: modele giden araç adının
+  öneki o ve orada okunur bir şey olmalı.
+- **Araç adları öneklidir: `<sunucu>__<araç>`.** İki sunucu aynı adı
+  verebiliyor (ölçülen sunucu `click`, `drag`, `fill` veriyor) ve önek
+  çakışmayı yapısal olarak imkânsız kılıyor. pcbridge'inkiler **öneksiz**:
+  adları `bots.json`'da, `tools.rs`'te ve koşum kayıtlarında geçiyor.
+- **Grup tek yerde hesaplanıyor** (`mcp.rs::tool_defs`); `agent.rs` artık
+  yeniden hesaplamıyor. Eklentilere `tools::grup_eklenti` bakıyor ve
+  pcbridge'in ad listelerine hiç sokulmuyorlar — `mouse` adında bir eklenti
+  aracı masaüstü grubuna düşerdi. **Eklentiye masaüstü grubu verilmiyor.**
+- **pcbridge `HashMap`'e konmadı, ayrı alanda duruyor.** O kritik: uygulamanın
+  kendi özellikleri (`agent_run`, `tmux_*`, `desktop_*`) doğrudan ona çağrı
+  yapıyor. Eklentinin düşmesi arıza değil, yalnızca kendi satırının düşmesi.
+- **Eklenti düşünce koşum düşmüyor:** çağrı `Err` değil, modele "eklenti bağlı
+  değil, tekrar deneme" diyen bir `AracSonuc` dönüyor.
+- Açılışta eklentiler **arka planda** bağlanıyor (`.setup`): `npx` ilk
+  seferde ağdan indiriyor ve pencerenin açılmasını bekletmemeli.
+
+### İki denetim konmadı — bilerek
+
+Taslak `Bot.servers` ve sunucu kaydında `readOnly`/`toolFilter` öngörüyordu.
+**İkisi de yazılmadı:** `Bot.tools` zaten önekli adları tutuyor, yani "bu bot
+hangi sunucuyu ve hangi aracı görüyor" sorusunun yanıtı orada. İkinci bir
+liste bu depodaki ölü-anahtar hatasını tekrarlardı (`Bot.desktop`, Aşama 7).
+
+Güvenlik yine de üç yerden sağlanıyor:
+
+1. Yeni bir araç hiçbir botun listesine kendiliğinden girmiyor.
+2. `grup_eklenti` tanımadığı aracı `Write` sayıyor → `Izin::Sor` kipinde
+   `send_email` gibi bir araç her çağrıda onay istiyor.
+3. ⚠️ **Yeni bot varsayılanı yalnızca pcbridge'in okuma araçlarını seçiyor.**
+   Eskiden "bütün `read` araçları"ydı; bir eklentinin salt-okunur aracı da
+   (Gmail'in `read_email`'i) her yeni bota kendiliğinden girerdi ve kullanıcı
+   hiçbir şey seçmeden botuna postasını okutmuş olurdu.
+
+### Arayüz
+
+Panel **üçüncü bir sekme değil**, sistem panelinde bir kart — o panel
+zaten kart yığını, sekmeli değil. Satır: durum noktası · ad · durum cümlesi ·
+sağda eylem; ayırıcı çizgi değil yüzey kademesi. Eklentinin **kimlik rengi
+yok** (avatar tonları bota ait), renk yalnızca durumdan.
+
+İki hata gözle bulundu ve düzeltildi (geçici önizleme sayfası, CLAUDE.md'nin
+2. yöntemi):
+
+- **`textarea` `.fld` içine konunca kabından taşıyordu** — `.fld` 42 px'lik bir
+  satır, `textarea`'nın kendi zemini ve dolgusu var. Sarmalayıcı kaldırıldı.
+- **Yerel onay kutusu sistem aksan rengiyle çiziliyordu** — tasarım kanununda
+  sistem aksan rengi yok. Yerine uygulamanın kendi `.tgl` anahtarı;
+  `<select>` yerine `Picker` olmasıyla aynı gerekçe.
+
+Şeritte eklenti sayısı **yalnızca bağlı eklenti varsa** görünüyor (sıfır yazan
+bir sayı işe yaramaz) ve ⚠️ **bir eklentinin düşmesi şeridi kırmızıya
+çevirmiyor** — `ok` yalnızca pcbridge'e bakıyor.
+
+### Yaşam tespiti iki sinyalli — ölçüm bunu zorladı
+
+⚠️ **Bir eklenti birden çok süreç açabiliyor.** Test önce **düştü**: süreç
+dışarıdan öldürüldüğü hâlde satır "bağlı · 29 araç" demeye devam ediyordu.
+Sebep ölçüldü — `chrome-devtools-mcp` **iki** süreç açıyor ve yalnızca içteki
+öldürülünce dıştaki stderr'i açık tutuyor, yani EOF gelmiyor.
+
+İki sinyal kondu: **stderr'in EOF'u** (ağacın tamamı ölünce) ve **çağrının
+düşmesi** (kısmi ölümde, kesin bilgi). İkisi de yoklama yapmıyor.
+
+### Doğrulama — fiilen koşuldu
+
+- `cargo test --lib` → **137 geçti**, 7 `#[ignore]`.
+- `cargo test --lib gercek_eklenti -- --ignored --nocapture` → gerçek stdio
+  sunucusu, **29 araç**, hepsi `dev__` önekli, hiçbiri masaüstü grubunda.
+- `cargo test --lib eklenti_oldurulunce -- --ignored --nocapture` → bitiş
+  ölçütü 3: `servers.json` **0600** ve sır yok (içeriği basılıyor), süreç
+  dışarıdan öldürülünce satır düşüyor, araç sayısı sıfırlanıyor, kayıt
+  duruyor, çağrı koşumu düşürmüyor ve **pcbridge yolu etkilenmiyor**.
+- **Testin dişi var:** iki yaşam sinyali de sökülünce test kırmızıya döndü.
+- `npm run tauri dev` 75 saniye ayakta, panik yok, açılış kancası boş kayıt
+  defteriyle sorunsuz.
+- `tsc --noEmit` ve `check-i18n` temiz (358 anahtar, iki sözlük de tam).
+- Panel iki temada gözle görüldü: renkli düğme yok, durum dışında renk yok.
+
+⚠️ **Doğrulama sunucusu Gmail değil.** `chrome-devtools-mcp` npx önbelleğinde
+zaten duruyordu; kimlik istemiyor ve **hiçbir şey indirilmedi**. Gmail için
+kullanıcının Google Cloud Console'da bir OAuth client oluşturup
+`~/.gmail-mcp/gcp-oauth.keys.json` koyması gerekiyor — o adım kullanıcının.
+Bitiş ölçütü 2 (uygulama kapanıp açılınca tekrar giriş istememesi) bu yüzden
+**ölçülmedi**: sınanacak bir oturum yok.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

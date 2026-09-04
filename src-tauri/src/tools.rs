@@ -160,6 +160,28 @@ pub fn grup(name: &str, read_only: Option<bool>) -> Grup {
     Grup::Write
 }
 
+/// Bir **eklenti** aracının grubu.
+///
+/// pcbridge'in ad listeleri burada kullanılmaz ve kullanılmamalı: bir eklenti
+/// `mouse` ya da `shell_run` adında bir araç verebilir ve o ad bizim
+/// listemizde eşleşirse araç, hiç ilgisi olmayan bir gruba düşerdi —
+/// "masaüstü" diye sorulan bir e-posta aracı gibi.
+///
+/// Elimizdeki tek dayanak sunucunun **kendi ipucu**. Yoksa `Write` sayılıyor:
+/// tanımadığımız bir aracı zararsız varsaymak yanlış olur, ve `Izin::Sor`
+/// kipinde `send_email` gibi bir araç böylece her çağrıda onay ister.
+///
+/// **Masaüstü grubu bir eklentiye verilmiyor.** O grup pcbridge'in kilidini
+/// ve `tehlike_kapisi`'nın kapılarını anlatıyor; başka bir sunucunun aracı
+/// için o anlatı yanlış olurdu.
+pub fn grup_eklenti(read_only: Option<bool>) -> Grup {
+    if read_only == Some(true) {
+        Grup::Read
+    } else {
+        Grup::Write
+    }
+}
+
 /// Botun izin kipi: hangi grup çalışmadan önce kullanıcıya sorulacak.
 ///
 /// Araç **filtresi** "bu bot neyi görebilir" sorusunun yanıtı; kip ise "gördüğü
@@ -290,6 +312,21 @@ mod tests {
         // Shift tek başına bir şey silmiyor.
         assert!(!kalici_silme_mi("shift+a"));
         assert!(!kalici_silme_mi("ctrl+a"));
+    }
+
+    /// Eklenti araçları pcbridge'in ad listelerine **çarpmaz**.
+    #[test]
+    fn eklenti_araci_pcbridge_adlarina_bakmaz() {
+        // Aynı adı taşıyan bir eklenti aracı masaüstü grubuna düşmemeli:
+        // o grup pcbridge'in kilidini ve kapılarını anlatıyor.
+        assert_eq!(grup("mouse", None), Grup::Desktop);
+        assert_eq!(grup_eklenti(None), Grup::Write, "eklentide masaüstü yok");
+        assert_eq!(grup_eklenti(Some(false)), Grup::Write);
+        // Sunucu açıkça "hiçbir şeyi değiştirmiyorum" diyorsa ona güveniliyor.
+        assert_eq!(grup_eklenti(Some(true)), Grup::Read);
+        for ro in [None, Some(true), Some(false)] {
+            assert_ne!(grup_eklenti(ro), Grup::Desktop);
+        }
     }
 
     #[test]

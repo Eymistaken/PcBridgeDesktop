@@ -5,7 +5,14 @@ import ConnStrip from "./ui/ConnStrip";
 import ModeSwitch from "./ui/ModeSwitch";
 import { IconPencil, IconPlus, IconSearch, IconTrash } from "./ui/Icon";
 import { locale, t } from "./lib/i18n";
-import type { Bot, BotSummary, ConnSnapshot, DesktopState, Mode } from "./lib/types";
+import type {
+  Bot,
+  BotSummary,
+  ConnSnapshot,
+  DesktopState,
+  Mode,
+  PluginStatus,
+} from "./lib/types";
 
 interface Props {
   snap: ConnSnapshot;
@@ -25,6 +32,8 @@ interface Props {
   onDelete: (bot: Bot) => void;
   refreshing: boolean;
   connError?: string;
+  /** Bağlı eklentiler — şeritteki sayıya giriyor. */
+  plugins: PluginStatus[];
   /**
    * İzin yanıtı bekleyen botların kimlikleri.
    *
@@ -51,6 +60,7 @@ export default function Sidebar({
   onDelete,
   refreshing,
   connError,
+  plugins,
   waiting,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -198,7 +208,7 @@ export default function Sidebar({
             ? connError
             : refreshing
               ? t("side.refreshing")
-              : sayilar(snap.toolCount, snap.agents.length)
+              : sayilar(snap.toolCount, snap.agents.length, plugins)
         }
         ok={!connError}
         desktop={desktop}
@@ -209,9 +219,24 @@ export default function Sidebar({
   );
 }
 
-/** `33 araç · 2 ajan`. İki parça ayrı çekimleniyor. */
-export function sayilar(tools: number, agents: number): string {
-  return `${t("side.toolCount", { n: tools })} · ${t("side.agentCount", { n: agents })}`;
+/**
+ * `33 araç · 2 ajan`, bağlı eklenti varsa başında `1 eklenti · `.
+ *
+ * **Eklenti parçası yalnızca varsa görünüyor.** Sıfır yazan bir sayı
+ * kullanıcıya hiçbir şey söylemez ve tasarım kanunu işe yaramayan sayıyı
+ * yasaklıyor. Sayılar da **bağlı** olanı sayıyor, kayıtlı olanı değil:
+ * şeridin işi o anki durumu göstermek.
+ *
+ * ⚠️ Bir eklentinin düşmesi şeridi **kırmızıya çevirmez** — `ok` yalnızca
+ * pcbridge'e bakıyor. pcbridge kritik, eklenti değil.
+ */
+export function sayilar(tools: number, agents: number, plugins: PluginStatus[] = []): string {
+  const bagli = plugins.filter((p) => p.connected);
+  const ek = bagli.length
+    ? `${t("side.pluginCount", { n: bagli.length })} · `
+    : "";
+  const toplam = tools + bagli.reduce((n, p) => n + p.toolCount, 0);
+  return `${ek}${t("side.toolCount", { n: toplam })} · ${t("side.agentCount", { n: agents })}`;
 }
 
 /** Şeritte kimlik host:port'tur — Main.dc.html'de yol gösterilmiyor. */

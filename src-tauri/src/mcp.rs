@@ -11,8 +11,8 @@ use rmcp::{
     ServiceError,
     service::{ClientInitializeError, RunningService},
     transport::{
-        DynamicTransportError, StreamableHttpClientTransport,
-        streamable_http_client::StreamableHttpClientTransportConfig,
+        ConfigureCommandExt, DynamicTransportError, StreamableHttpClientTransport,
+        TokioChildProcess, streamable_http_client::StreamableHttpClientTransportConfig,
     },
 };
 use serde::Serialize;
@@ -98,6 +98,10 @@ pub struct ToolDef {
     /// uyguluyor ve iki ayrı listenin ayrışması "arayüzde masaüstü yazıyordu
     /// ama sormadan çalıştı" hatasına açık kapı bırakırdı.
     pub group: crate::tools::Grup,
+    /// Aracı hangi sunucu veriyor (`pcbridge` ya da bir eklenti kimliği).
+    /// Arayüz araçları buna göre öbekliyor; `name` zaten öneki taşıyor ama
+    /// ayrıştırmayı iki yerde yapmamak için ayrı alan.
+    pub server: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -329,7 +333,12 @@ pub struct Conn {
 }
 
 impl Conn {
-    async fn open(uri: &'static str, token: &str) -> Result<Self, ConnError> {
+    /// pcbridge'e HTTP ile bağlanır.
+    ///
+    /// `uri` **`&'static` değil**: `with_uri` `impl Into<Arc<str>>` alıyor
+    /// (kaynaktan okundu), eski kısıt bizim kendi koyduğumuzdu — araç
+    /// adındaki `&'static str` kısıtı gibi.
+    async fn open(uri: &str, token: &str) -> Result<Self, ConnError> {
         let config = StreamableHttpClientTransportConfig::with_uri(uri).auth_header(token);
         let transport = StreamableHttpClientTransport::from_config(config);
         let client = match ().serve(transport).await {
@@ -343,6 +352,44 @@ impl Conn {
             client,
             token: token.to_string(),
         })
+    }
+
+    /// Bir eklenti sunucusunu **çocuk süreç** olarak başlatır (stdio).
+    ///
+    /// Taşıyıcı farklı, gerisi aynı: `().serve(..)` her iki taşıyıcıda da
+    /// `RunningService<RoleClient, ()>` döndürüyor, yani `call_for_agent`,
+    /// `tool_defs` ve `close` olduğu gibi çalışıyor. Ayrı bir bağlantı türü
+    /// yazmaya gerek yok.
+    ///
+    /// **`token` yok.** `scrub` 6 karakterden kısa bir dizgeyi zaten yok
+    /// sayıyor, o yüzden boş dizge güvenli bir "temizlenecek sır yok" demek.
+    ///
+    /// **stderr yutulmuyor:** ayrı bir kanala alınıp son satırı saklanıyor.
+    /// `npx` paketi bulamadığında ya da sunucu kimlik dosyasını göremediğinde
+    /// söyleyeceği tek şey orada; panel onu gösteriyor.
+    async fn child(
+        command: &str,
+        args: &[String],
+    ) -> Result<(Self, Option<tokio::process::ChildStderr>), ConnError> {
+        let cmd = tokio::process::Command::new(command).configure(|c| {
+            c.args(args);
+            // Çocuğun kendi çocukları da bizimle ölsün; `npx` gerçek sunucuyu
+            // bir alt süreç olarak başlatıyor.
+            c.kill_on_drop(true);
+        });
+        let (transport, stderr) = TokioChildProcess::builder(cmd)
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| ConnError::Unreachable(e.to_string()))?;
+
+        let client = ().serve(transport).await.map_err(|e| classify(&e, ""))?;
+        Ok((
+            Self {
+                client,
+                token: String::new(),
+            },
+            stderr,
+        ))
     }
 
     /// Bir aracı çağırıp **ham** yanıtı döndürür. Görüntü bloğu gibi metin
@@ -434,7 +481,13 @@ impl Conn {
     /// Araçların adı, açıklaması ve girdi şeması. `snapshot()` bunu zaten
     /// çağırıyor ama yalnızca sayısını tutuyordu; şemalar kilobaytlarca
     /// olduğu için `ConnSnapshot`'a konmuyor, ayrı istendiğinde geliyor.
-    async fn tool_defs(&self, token: &str) -> Result<Vec<ToolDef>, ConnError> {
+    /// Araçların adı, sunucusu, açıklaması ve girdi şeması.
+    ///
+    /// `server` pcbridge değilse ad **öneklenir** (`gmail__send_email`): iki
+    /// sunucu aynı adı verebilir ve o zaman çağrı kime gideceğini bilemezdi.
+    /// Grup **önekten önceki** adla hesaplanıyor — `tools.rs`'in listeleri
+    /// pcbridge'in çıplak adlarını tanıyor, önekli hâli hiçbirine uymazdı.
+    async fn tool_defs(&self, token: &str, server: &str) -> Result<Vec<ToolDef>, ConnError> {
         let tools = self
             .client
             .list_all_tools()
@@ -443,14 +496,26 @@ impl Conn {
         Ok(tools
             .into_iter()
             .map(|t| {
-                let name = t.name.to_string();
+                let ham = t.name.to_string();
                 let read_only = t.annotations.and_then(|a| a.read_only_hint);
+                let pcb = server == crate::servers::PCBRIDGE;
                 ToolDef {
-                    group: crate::tools::grup(&name, read_only),
-                    name,
+                    // Grup **tek yerde** hesaplanıyor: burada. Eklentinin adı
+                    // pcbridge'in listelerine hiç sokulmuyor.
+                    group: if pcb {
+                        crate::tools::grup(&ham, read_only)
+                    } else {
+                        crate::tools::grup_eklenti(read_only)
+                    },
+                    name: if pcb {
+                        ham
+                    } else {
+                        crate::servers::onekle(server, &ham)
+                    },
                     description: t.description.map(|d| d.to_string()),
                     input_schema: serde_json::Value::Object((*t.input_schema).clone()),
                     read_only,
+                    server: server.to_string(),
                 }
             })
             .collect())
@@ -492,10 +557,115 @@ impl Conn {
     }
 }
 
-/// Uygulama ömrü boyunca tek bağlantı.
+/// Bağlı olmayan bir eklentiye yapılan çağrının modele dönen yanıtı.
+///
+/// **`Err` değil `Ok`:** `Err` koşumu düşürür ve bir eklentinin düşmesi
+/// koşumu düşürmemeli. Metin modele ne yapacağını söylüyor.
+fn eklenti_yok(sunucu: &str, e: Option<ConnError>) -> AracSonuc {
+    let neden = e.map(|e| format!(" ({e})")).unwrap_or_default();
+    AracSonuc {
+        metin: format!(
+            "Hata: `{sunucu}` eklentisi şu an bağlı değil, bu araç \
+             çalıştırılamıyor{neden}. Kullanıcıya söyle; Eklentiler \
+             panelinden bağlaması gerekiyor. Bu aracı tekrar deneme."
+        ),
+        hata: true,
+        gorseller: Vec::new(),
+    }
+}
+
+/// Çocuk sürecin dışarıya söylediği son şey — ve yaşayıp yaşamadığı.
+#[derive(Default)]
+struct StderrIzi {
+    /// Son boş olmayan satır. Tamamını tutmuyoruz: bazı sunucular her istekte
+    /// log basıyor ve bellekte büyürdü. Panelde gösterilecek olan zaten son
+    /// satır — `npx` paketi bulamadığında söylediği tek şey.
+    son: std::sync::Mutex<Option<String>>,
+    /// Süreç öldü mü.
+    oldu: std::sync::atomic::AtomicBool,
+}
+
+impl StderrIzi {
+    fn oldu(&self) -> bool {
+        self.oldu.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    fn son(&self) -> Option<String> {
+        self.son.lock().ok()?.clone()
+    }
+}
+
+/// Çocuğun stderr'ini izler.
+///
+/// **EOF bedava bir yaşam sinyali.** Süreç dışarıdan öldürülürse stderr
+/// kapanıyor ve okuma döngüsü bitiyor; bu, sürecin gittiğini yoklama yapmadan
+/// öğrenmenin yolu. Olmasaydı panel ölmüş bir eklenti için "bağlı · 29 araç"
+/// yazmaya devam ederdi.
+fn izle_stderr(stderr: tokio::process::ChildStderr) -> std::sync::Arc<StderrIzi> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    let iz = std::sync::Arc::new(StderrIzi::default());
+    let yaz = iz.clone();
+    tokio::spawn(async move {
+        let mut satirlar = BufReader::new(stderr).lines();
+        while let Ok(Some(l)) = satirlar.next_line().await {
+            let l = l.trim().to_string();
+            if l.is_empty() {
+                continue;
+            }
+            if let Ok(mut g) = yaz.son.lock() {
+                *g = Some(l);
+            }
+        }
+        yaz.oldu.store(true, std::sync::atomic::Ordering::Relaxed);
+    });
+    iz
+}
+
+/// Bir eklentinin arayüze anlatılabilecek hâli.
+///
+/// Durumların **hepsinin** ayrı bir insan cümlesi olmalı: "bağlanamadı" tek
+/// başına kullanıcıya hiçbir şey söylemiyor. `hata` sunucunun stderr'inden
+/// gelen son satır — `npx` paketi bulamadığında söylediği tek şey orası.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EklentiSnapshot {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub enabled: bool,
+    pub connected: bool,
+    pub tool_count: usize,
+    pub error: Option<String>,
+}
+
+/// Bağlı (ya da bağlanamamış) bir eklenti.
+struct Eklenti {
+    conn: Option<Conn>,
+    tool_count: usize,
+    /// Son hata: bağlantı hatası ya da çocuğun stderr'inin son satırı.
+    hata: Option<String>,
+    /// Sürecin stderr izi: son satır ve öldü mü.
+    stderr: Option<std::sync::Arc<StderrIzi>>,
+}
+
+impl Eklenti {
+    /// Bağlantı **ve** süreç yaşıyor mu.
+    fn bagli(&self) -> bool {
+        self.conn.is_some() && !self.stderr.as_ref().is_some_and(|s| s.oldu())
+    }
+}
+
+/// pcbridge bağlantısı **ve** eklenti kayıt defteri.
+///
+/// ⚠️ **pcbridge ayrı bir alanda duruyor, `HashMap`'e konmadı.** O kritik:
+/// uygulamanın kendi özellikleri (`agent_run`, `tmux_*`, `desktop_*`,
+/// `screen_capture`) doğrudan ona çağrı yapıyor ve düşmesi bir arıza.
+/// Eklentinin düşmesi arıza değil, yalnızca kendi satırının düşmesi. İkisini
+/// aynı kaba koymak bu ayrımı ilk gün kaybettirirdi.
 #[derive(Default)]
 pub struct McpState {
     inner: tokio::sync::Mutex<Option<Conn>>,
+    eklentiler: tokio::sync::Mutex<std::collections::HashMap<String, Eklenti>>,
 }
 
 impl McpState {
@@ -587,23 +757,182 @@ impl McpState {
     }
 
     /// Araç tanımları — ajan döngüsü ve BotForge'daki filtre bunu kullanıyor.
+    ///
+    /// pcbridge'inkiler **öneksiz**, eklentilerinkiler `<id>__<araç>`.
+    /// Bağlı olmayan bir eklenti listeye hiçbir şey katmıyor ve **hata
+    /// vermiyor**: pcbridge ayakta olduğu sürece bot çalışabilmeli.
     pub async fn tools(&self) -> Result<Vec<ToolDef>, ConnError> {
         let token = secrets::get_async().await?.ok_or(ConnError::NoToken)?;
-        let guard = self.inner.lock().await;
-        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
-        conn.tool_defs(&token).await
+        let mut out = {
+            let guard = self.inner.lock().await;
+            let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+            conn.tool_defs(&token, crate::servers::PCBRIDGE).await?
+        };
+
+        let ekler = self.eklentiler.lock().await;
+        for (id, e) in ekler.iter() {
+            let Some(conn) = e.conn.as_ref().filter(|_| e.bagli()) else { continue };
+            // Bir eklentinin araç listesi alınamazsa yalnızca o eklenti
+            // eksik kalır; pcbridge'in 33 aracı ve koşum etkilenmez.
+            if let Ok(mut t) = conn.tool_defs("", id).await {
+                out.append(&mut t);
+            }
+        }
+        Ok(out)
     }
 
-    /// Ajan döngüsünün araç çağrısı. `(metin, araç_hata_verdi_mi)` döner;
-    /// yalnızca **bağlantı** hatası `Err` olur.
+    /// Ajan döngüsünün araç çağrısı. Yalnızca **bağlantı** hatası `Err` olur.
+    ///
+    /// Ad öneki hangi sunucuya gideceğini söylüyor (`servers::coz`); önek
+    /// eklentiye ait olduğu için sunucuya **çıplak** adla gidiyor.
     pub async fn call_for_agent(
         &self,
         name: String,
         args: serde_json::Map<String, serde_json::Value>,
     ) -> Result<AracSonuc, ConnError> {
-        let guard = self.inner.lock().await;
-        let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
-        conn.call_for_agent(name, args).await
+        let (sunucu, arac) = crate::servers::coz(&name);
+        if sunucu == crate::servers::PCBRIDGE {
+            let guard = self.inner.lock().await;
+            let conn = guard.as_ref().ok_or(ConnError::NoToken)?;
+            return conn.call_for_agent(name, args).await;
+        }
+
+        let (sunucu, arac) = (sunucu.to_string(), arac.to_string());
+        let mut ekler = self.eklentiler.lock().await;
+        // **Bağlı olmayan eklentiye yapılan çağrı modele anlatılır**, koşumu
+        // düşürmez: model aracı listede gördüyse çağırması doğaldır, ve
+        // "eklenti bağlı değil" cümlesi ona başka bir yol seçtirir.
+        let Some(conn) = ekler
+            .get(&sunucu)
+            .filter(|e| e.bagli())
+            .and_then(|e| e.conn.as_ref())
+        else {
+            return Ok(eklenti_yok(&sunucu, None));
+        };
+
+        match conn.call_for_agent(arac, args).await {
+            Ok(r) => Ok(r),
+            // **Çağrı hatası ikinci yaşam sinyali.** stderr'in EOF'u tek
+            // başına yetmiyor: ölçüldü ki bir eklenti iki süreç açabiliyor ve
+            // içteki ölünce dıştaki stderr'i açık tutuyor — satır "bağlı"
+            // görünmeye devam ederdi. Çağrının düşmesi kesin bilgi.
+            Err(e) => {
+                if let Some(k) = ekler.get_mut(&sunucu) {
+                    k.conn = None;
+                    k.tool_count = 0;
+                    k.hata = Some(e.to_string());
+                }
+                Ok(eklenti_yok(&sunucu, Some(e)))
+            }
+        }
+    }
+
+    /// Kayıt defterinin arayüze giden hâli — kapalı ve düşmüş olanlar dahil.
+    pub async fn eklenti_durumlari(&self) -> Vec<EklentiSnapshot> {
+        let kayitli = crate::servers::list().unwrap_or_default();
+        let ekler = self.eklentiler.lock().await;
+        kayitli
+            .into_iter()
+            .map(|s| {
+                let e = ekler.get(&s.id);
+                EklentiSnapshot {
+                    id: s.id,
+                    name: s.name,
+                    command: s.command,
+                    args: s.args,
+                    enabled: s.enabled,
+                    connected: e.is_some_and(Eklenti::bagli),
+                    // Ölmüş bir sürecin araç sayısını göstermek yalan olurdu.
+                    tool_count: e.filter(|e| e.bagli()).map_or(0, |e| e.tool_count),
+                    error: e.and_then(|e| {
+                        e.hata
+                            .clone()
+                            .or_else(|| e.stderr.as_ref().and_then(|s| s.son()))
+                    }),
+                }
+            })
+            .collect()
+    }
+
+    /// Bir eklentiyi başlatır (varsa öncekini kapatarak).
+    ///
+    /// **Hiçbir hata yukarı fırlamıyor:** eklenti bağlanamazsa durumu
+    /// kaydedilip `false` dönüyor. Bir eklentinin düşmesi uygulamanın hatası
+    /// değil ve pcbridge'i etkilememeli.
+    pub async fn eklenti_bagla(&self, s: &crate::servers::Server) -> bool {
+        self.eklenti_kes(&s.id).await;
+        if !s.enabled {
+            return false;
+        }
+
+        let sonuc = tokio::time::timeout(CONNECT_TIMEOUT, Conn::child(&s.command, &s.args)).await;
+        let (conn, stderr) = match sonuc {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
+                self.eklenti_yaz(&s.id, None, 0, Some(e.to_string()), None).await;
+                return false;
+            }
+            Err(_) => {
+                self.eklenti_yaz(
+                    &s.id,
+                    None,
+                    0,
+                    Some(format!("{} saniyede yanıt yok", CONNECT_TIMEOUT.as_secs())),
+                    None,
+                )
+                .await;
+                return false;
+            }
+        };
+
+        let son_satir = stderr.map(izle_stderr);
+        // Araç sayısı **sunucudan** geliyor, gömülü bir sayı değil.
+        let sayi = conn.tool_defs("", &s.id).await.map(|t| t.len());
+        let (sayi, hata) = match sayi {
+            Ok(n) => (n, None),
+            Err(e) => (0, Some(e.to_string())),
+        };
+        self.eklenti_yaz(&s.id, Some(conn), sayi, hata, son_satir).await;
+        true
+    }
+
+    async fn eklenti_yaz(
+        &self,
+        id: &str,
+        conn: Option<Conn>,
+        tool_count: usize,
+        hata: Option<String>,
+        stderr: Option<std::sync::Arc<StderrIzi>>,
+    ) {
+        self.eklentiler.lock().await.insert(
+            id.to_string(),
+            Eklenti {
+                conn,
+                tool_count,
+                hata,
+                stderr,
+            },
+        );
+    }
+
+    /// Bir eklentinin bağlantısını kapatır; çocuk süreç `Drop` ile ölüyor.
+    pub async fn eklenti_kes(&self, id: &str) {
+        let eski = self.eklentiler.lock().await.remove(id);
+        if let Some(e) = eski {
+            if let Some(c) = e.conn {
+                c.close().await;
+            }
+        }
+    }
+
+    /// Açık bütün eklentileri (yeniden) bağlar. Açılışta ve panelden
+    /// "yenile" denince çağrılıyor.
+    pub async fn eklentileri_bagla(&self) {
+        for s in crate::servers::list().unwrap_or_default() {
+            if s.enabled {
+                self.eklenti_bagla(&s).await;
+            }
+        }
     }
 
     /// İşin durumunu sorar. **Yan etkisi asıl amaç:** pcbridge biten çocuğu
@@ -1100,6 +1429,174 @@ varsayilan calisma dizini: `/home/eymistaken`\n";
         assert_eq!(find_job_id(""), None);
         // Biçime benzeyen ama daha uzun bir dizgenin ortası alınmamalı.
         assert_eq!(find_job_id("x20260902-055719-3d3336aa"), None);
+    }
+
+    /// **Gerçek bir stdio MCP sunucusuyla** uçtan uca: çocuk süreç başlıyor,
+    /// araç listesi geliyor, adlar önekleniyor ve çağrı doğru yere gidiyor.
+    ///
+    /// ```text
+    /// cargo test --lib gercek_eklenti -- --ignored --nocapture
+    /// ```
+    ///
+    /// Sunucu `PLUGIN_CMD` ile verilir; varsayılan olarak npx önbelleğindeki
+    /// `chrome-devtools-mcp` kullanılıyor — **ağ gerektirmiyor** ve kimlik
+    /// istemiyor, yani bu testin çalışması için hiçbir şey indirilmiyor.
+    #[tokio::test]
+    #[ignore = "gerçek bir stdio MCP sunucusu gerekiyor"]
+    async fn gercek_eklenti_baglanir_ve_araclari_oneklenir() {
+        let cmd = std::env::var("PLUGIN_CMD").unwrap_or_else(|_| {
+            format!(
+                "{}/.npm/_npx/15c61037b1978c83/node_modules/.bin/chrome-devtools-mcp",
+                std::env::var("HOME").unwrap_or_default()
+            )
+        });
+
+        let (conn, stderr) = Conn::child(&cmd, &[])
+            .await
+            .expect("eklenti başlatılamadı");
+        // stderr yutulmuyor: bağlanamama sebebinin tek kaynağı orası.
+        assert!(stderr.is_some(), "stderr kanalı açık olmalı");
+
+        let araclar = conn.tool_defs("", "dev").await.expect("araç listesi yok");
+        assert!(!araclar.is_empty(), "sunucu hiç araç vermedi");
+        println!("{} araç", araclar.len());
+
+        for t in &araclar {
+            assert!(
+                t.name.starts_with("dev__"),
+                "eklenti aracı öneksiz kaldı: {}",
+                t.name
+            );
+            assert_eq!(t.server, "dev");
+            // **Hiçbir eklenti aracı masaüstü sayılamaz**: o grup pcbridge'in
+            // kilidini ve kapılarını anlatıyor.
+            assert_ne!(t.group, crate::tools::Grup::Desktop, "{}", t.name);
+        }
+
+        // Bu sunucu `click` ve `drag` adında araçlar veriyor — pcbridge'in
+        // masaüstü listesindeki adlara yakın. Önek olmasaydı yönlendirme
+        // belirsiz kalırdı; `coz` doğru sunucuyu buluyor.
+        let ilk = &araclar[0].name;
+        let (sunucu, arac) = crate::servers::coz(ilk);
+        assert_eq!(sunucu, "dev");
+        assert!(!arac.contains(crate::servers::AYIRAC), "{arac}");
+        println!("{ilk} → sunucu={sunucu} araç={arac}");
+
+        conn.close().await;
+    }
+
+    /// **Bitiş ölçütü 3:** eklenti süreci dışarıdan öldürülünce yalnız o satır
+    /// düşer — pcbridge etkilenmez, uygulama çökmez.
+    ///
+    /// ```text
+    /// cargo test --lib eklenti_oldurulunce -- --ignored --nocapture
+    /// ```
+    ///
+    /// `servers.json` **geçici bir dizine** yazılıyor (`XDG_CONFIG_HOME`);
+    /// kullanıcının gerçek yapılandırmasına dokunulmuyor.
+    #[tokio::test]
+    #[ignore = "gerçek bir stdio MCP sunucusu gerekiyor"]
+    async fn eklenti_oldurulunce_yalniz_o_satir_duser() {
+        let kok = std::env::temp_dir().join(format!("pcbd-eklenti-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&kok);
+        std::fs::create_dir_all(&kok).unwrap();
+        // SAFETY: bu test `#[ignore]` ve tek başına koşuyor; yalnızca kendi
+        // geçici dizinini gösteriyor.
+        unsafe { std::env::set_var("XDG_CONFIG_HOME", &kok) };
+
+        let cmd = std::env::var("PLUGIN_CMD").unwrap_or_else(|_| {
+            format!(
+                "{}/.npm/_npx/15c61037b1978c83/node_modules/.bin/chrome-devtools-mcp",
+                std::env::var("HOME").unwrap_or_default()
+            )
+        });
+        crate::servers::create(crate::servers::ServerDraft {
+            name: "Dev".into(),
+            command: cmd,
+            args: vec![],
+            enabled: true,
+        })
+        .expect("sunucu kaydedilemedi");
+
+        // **Sır taşımıyor ve 0600.**
+        let dosya = kok.join("pcbridge-desktop/servers.json");
+        let metin = std::fs::read_to_string(&dosya).unwrap();
+        println!("servers.json:\n{metin}");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&dosya).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "servers.json 0600 olmalı, {mode:o}");
+        }
+
+        let state = McpState::default();
+        state.eklentileri_bagla().await;
+
+        let d = state.eklenti_durumlari().await;
+        assert_eq!(d.len(), 1);
+        assert!(d[0].connected, "bağlanamadı: {:?}", d[0].error);
+        assert!(d[0].tool_count > 0, "araç sayısı sunucudan gelmeli");
+        println!("bağlı · {} araç", d[0].tool_count);
+
+        // Süreci **dışarıdan** öldür: gerçek senaryo bu.
+        let cikti = std::process::Command::new("pgrep")
+            .args(["-f", "chrome-devtools-mcp"])
+            .output()
+            .expect("pgrep koşmadı");
+        let pidler: Vec<String> = String::from_utf8_lossy(&cikti.stdout)
+            .lines()
+            .map(str::to_string)
+            .collect();
+        println!("eşleşen pid'ler: {pidler:?} (bizim pid: {})", std::process::id());
+        // ⚠️ **Bir eklenti birden çok süreç açabiliyor** — ölçüldü: bu sunucu
+        // iki tane açıyor ve yalnızca içteki öldürülünce dıştaki stderr'i
+        // açık tutuyor, yani EOF gelmiyor. Gerçek senaryoda ağacın tamamı
+        // ölür; kalan durumu çağrı hatası yakalıyor (`call_for_agent`).
+        assert!(!pidler.is_empty(), "eklenti süreci bulunamadı");
+        for pid in &pidler {
+            let st = std::process::Command::new("kill")
+                .arg("-9")
+                .arg(pid)
+                .status();
+            println!("kill {pid} → {st:?}");
+        }
+
+        // stderr'in EOF'u gelene kadar kısa bir pay.
+        for _ in 0..40 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            if !state.eklenti_durumlari().await[0].connected {
+                break;
+            }
+        }
+
+        let d = state.eklenti_durumlari().await;
+        assert!(!d[0].connected, "ölmüş süreç hâlâ bağlı görünüyor");
+        assert_eq!(d[0].tool_count, 0, "ölmüş sürecin araç sayısı yazılmamalı");
+        // Kayıt duruyor: satır kaybolmuyor, **düşüyor**.
+        assert_eq!(d[0].name, "Dev");
+
+        // Ölmüş eklentiye yapılan çağrı koşumu düşürmüyor, modele anlatılıyor.
+        let r = state
+            .call_for_agent("dev__list_pages".into(), serde_json::Map::new())
+            .await
+            .expect("çağrı Err dönmemeli — koşum düşerdi");
+        assert!(r.hata);
+        assert!(r.metin.contains("bağlı değil"), "{}", r.metin);
+        println!("çağrı yanıtı: {}", r.metin);
+
+        // **pcbridge etkilenmiyor.** Eklenti düştü ama pcbridge'e giden yol
+        // ayrı bir alanda; oraya yapılan çağrı hâlâ kendi hatasını veriyor
+        // ("token yok"), eklentinin hatasını değil.
+        let pcb = state
+            .call_for_agent("screen_info".into(), serde_json::Map::new())
+            .await;
+        match pcb {
+            Err(ConnError::NoToken) => println!("pcbridge yolu sağlam (bu testte token yok)"),
+            Ok(_) => println!("pcbridge yolu sağlam (bağlı)"),
+            Err(e) => panic!("pcbridge yolu eklentiden etkilendi: {e}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&kok);
     }
 
     #[test]

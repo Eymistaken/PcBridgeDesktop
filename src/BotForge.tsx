@@ -5,7 +5,7 @@ import Avatar from "./ui/Avatar";
 import Picker from "./ui/Picker";
 import { createBot, detailText, mcpTools, modelModels, updateBot } from "./lib/ipc";
 import { t } from "./lib/i18n";
-import { BACKENDS, PERMISSIONS, SORAR, hueFor } from "./lib/types";
+import { BACKENDS, PCBRIDGE, PERMISSIONS, SORAR, hueFor } from "./lib/types";
 import { TOOL_GROUPS, byGroup, type ToolGroup } from "./lib/tools";
 import type {
   Agent,
@@ -117,9 +117,16 @@ export default function BotForge({
 
         // Yeni bir botta okuma araçları açık başlar; yazma ve masaüstü
         // kapalı. Bir bota yazma aracı vermek ayrı ve bilinçli bir eylem.
+        //
+        // ⚠️ **Yalnızca pcbridge'inkiler.** Bir eklentinin salt-okunur aracı
+        // da (Gmail'in `read_email`'i gibi) yeni her bota kendiliğinden
+        // girseydi, kullanıcı hiçbir şey seçmeden botuna postasını okutmuş
+        // olurdu. Eklenti aracı **her zaman** açık bir seçimle giriyor.
         if (!bot && !varsayilanKonuldu.current) {
           varsayilanKonuldu.current = true;
-          const okuma = a.filter((x) => x.group === "read").map((x) => x.name);
+          const okuma = a
+            .filter((x) => x.group === "read" && x.server === PCBRIDGE)
+            .map((x) => x.name);
           setDraft((d) => (d.tools.length === 0 ? { ...d, tools: okuma } : d));
         }
       } catch (e) {

@@ -13,11 +13,12 @@ derse **başka bir şey sormadan** şunu yap:
    şey ölçüm**: yasak kalkınca sabit görev × 5 koşum, sonra
    `cargo test --lib skor_kosumlar -- --ignored --nocapture`. Taban ve
    "düzeldi" ölçütü o başlıkta yazılı.
-3. **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Başlamadan önce "Karar
-   verilmemiş: araçları kim tüketiyor" başlığını oku ve **A/B ayrımını sor** —
-   A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona yapılabilir,
-   B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş istiyor ve
-   `backend: "yerel-model"` botları için hiç gerekmiyor.
+3. ✅ **Eklentiler (MCP kayıt defteri) — A kısmı 2026-09-04'te bitti**
+   (Aşama 12). B yazılmadı ve şimdilik gerekmiyor: kullanıcının **iki botu da**
+   `yerel-model`, o botlarda argv yok ve araçları modele uygulama veriyor.
+   **Sıradaki iş Gmail'i bağlamak** — kayıt defteri hazır, eksik olan tek şey
+   kullanıcının Google Cloud adımı (`~/.gmail-mcp/gcp-oauth.keys.json`).
+   O bir hesap işi; **isteme, kullanıcıya söyle.** Ayrıntı YAPILACAKLAR.md.
 4. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
@@ -33,7 +34,7 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on bir aşama da bitti.**
+6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on iki aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
 7. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
@@ -236,6 +237,52 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
   `398 gecti, 0 kaldi` (aksansız, kaynakta öyle).
 - **`systemctl --user restart pcbridge` çalışan işleri öldürür** (cgroup).
   Bu depoda gerekmiyor — pcbridge değişmiyor — ama unutma.
+
+### Eklentiler (MCP kayıt defteri) — 2026-09-04'te ölçüldü (Aşama 12)
+
+- **`Conn` ikinci bir taşıyıcı kazandı, ikinci bir tür değil.** `().serve(..)`
+  hem HTTP hem stdio taşıyıcısında `RunningService<RoleClient, ()>` döndürüyor,
+  o yüzden `call_for_agent`, `tool_defs` ve `close` olduğu gibi çalışıyor —
+  değişen tek şey `Conn::child`. rmcp özelliği `transport-child-process`
+  (`tokio/process` + `process-wrap` çekiyor); **`auth` ve TLS gerekmedi.**
+- **`with_uri` `&'static str` istemiyor** (`impl Into<Arc<str>>`, kaynaktan
+  okundu) — araç adındaki gibi, o kısıt da bizimdi. `endpoint()` yine de
+  `&'static`: pcbridge'in adresi süreç ömrü boyunca tek ve öyle kalıyor.
+- **Araç adları öneklidir: `<sunucu>__<araç>`.** İki sunucu aynı adı
+  verebiliyor ve o zaman çağrının kime gideceği belirsiz kalırdı; ölçülen
+  sunucu `click`, `drag`, `fill` gibi adlar veriyor. pcbridge'inkiler
+  **öneksiz** kalıyor: adları `bots.json`'da, `tools.rs`'in gruplarında ve
+  onlarca koşum kaydında geçiyor.
+- **Grup tek yerde hesaplanıyor** (`mcp.rs::tool_defs`) ve `agent.rs` onu
+  yeniden hesaplamıyor. Eklenti araçlarına `tools::grup_eklenti` bakıyor:
+  pcbridge'in ad listelerine **hiç sokulmuyorlar**, yoksa `mouse` adında bir
+  eklenti aracı masaüstü grubuna düşerdi. Eklentiye **masaüstü grubu
+  verilmiyor** — o grup pcbridge'in kilidini anlatıyor.
+- ⚠️ **Bir eklenti birden çok süreç açabiliyor.** Ölçüldü: `chrome-devtools-mcp`
+  iki süreç açıyor ve yalnızca içteki öldürülünce dıştaki stderr'i açık
+  tutuyor. Bu yüzden yaşam tespiti **iki sinyalli**: stderr'in EOF'u (ağacın
+  tamamı ölünce) ve **çağrının düşmesi** (kısmi ölümde). Tek sinyalle satır
+  ölmüş bir eklenti için "bağlı · 29 araç" yazmaya devam ediyordu — test
+  bunu yakaladı.
+- **Bir eklentinin düşmesi koşumu düşürmez.** Çağrı `Err` değil, modele
+  "eklenti bağlı değil, tekrar deneme" diyen bir `AracSonuc` dönüyor.
+  pcbridge ayrı bir alanda duruyor (`HashMap`'e konmadı): o kritik, eklenti
+  değil, ve ikisini aynı kaba koymak bu ayrımı ilk gün kaybettirirdi.
+- **`Bot.servers` alanı YOK ve konmayacak.** `Bot.tools` zaten önekli adları
+  tutuyor, yani "bu bot hangi sunucuyu görüyor" sorusunun yanıtı onda. İkinci
+  bir liste bu depodaki ölü-anahtar hatasını (`Bot.desktop`, Aşama 7)
+  tekrarlardı. Sunucu kaydında da `readOnly`/`toolFilter` yok, aynı gerekçeyle.
+- ⚠️ **Yeni bot varsayılanı yalnızca pcbridge'in okuma araçlarını seçiyor.**
+  Eskiden "bütün `read` araçları"ydı; bir eklentinin salt-okunur aracı da
+  (Gmail'in `read_email`'i gibi) her yeni bota kendiliğinden girerdi ve
+  kullanıcı hiçbir şey seçmeden botuna postasını okutmuş olurdu.
+- **`servers.json` `bots.json`'ın ikizi:** aynı dizin, tmp + fsync + rename,
+  0600, sır yok (test dosyayı okuyup basıyor). Kimlik bir **slug**
+  (`gmail`, `dev`) çünkü araç adının öneki o; `create` benzersizliği sağlıyor
+  ve `pcbridge` kimliği alınamıyor.
+- **Doğrulama sunucusu ağ istemiyor:** `~/.npm/_npx/…/chrome-devtools-mcp`
+  npx önbelleğinde zaten duruyor, kimlik istemiyor, stdio konuşuyor ve 29
+  araç veriyor. `PLUGIN_CMD` ile değiştirilebilir.
 
 ### Masaüstü istemcisinin yığını — 2026-09-01'de ölçüldü
 

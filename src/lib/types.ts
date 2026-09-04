@@ -235,6 +235,50 @@ export interface McpTool {
   readOnly: boolean | null;
   /** Aracın grubu — **Rust'ta** hesaplanır, kipi uygulayan yer orası. */
   group: ToolGroup;
+  /**
+   * Aracı hangi sunucu veriyor: `"pcbridge"` ya da bir eklenti kimliği.
+   * `name` eklentilerde `<sunucu>__<araç>` biçiminde önekli; bu alan aynı
+   * bilgiyi ayrıştırmadan veriyor.
+   */
+  server: string;
+}
+
+/** pcbridge'in gömülü kimliği — `servers.rs::PCBRIDGE` ile birebir. */
+export const PCBRIDGE = "pcbridge";
+
+/**
+ * Bir eklenti MCP sunucusu (`servers.json`).
+ *
+ * Kimlik bir **slug** ve modele giden araç adının öneki; bu yüzden
+ * değiştirilemiyor.
+ */
+export interface McpServer {
+  id: string;
+  name: string;
+  transport: "stdio";
+  command: string;
+  args: string[];
+  enabled: boolean;
+}
+
+export interface ServerDraft {
+  name: string;
+  command: string;
+  args: string[];
+  enabled: boolean;
+}
+
+/** Bir eklentinin o anki durumu — kayıt + canlı bağlantı. */
+export interface PluginStatus {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  enabled: boolean;
+  connected: boolean;
+  toolCount: number;
+  /** Bağlantı hatası ya da sürecin stderr'inin son satırı. */
+  error: string | null;
 }
 
 /** Araç filtresindeki üç grup. Rust'taki `tools::Grup` ile birebir. */
