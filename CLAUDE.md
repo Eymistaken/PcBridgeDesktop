@@ -38,9 +38,10 @@ derse **başka bir şey sormadan** şunu yap:
    Kullanıcı boşlukları **tek tek saydı** ve hepsi kodda doğrulanıp
    "Kullanıcının saydığı somut boşluklar" başlığına (a)–(h) diye yazıldı.
    ⚠️ İkisi tuzaklı: **token akışının** bugünkü mimarisi token başına DOM
-   düğümü vermiyor (blok bütün olarak yeniden çiziliyor), ve **terminal
-   ızgarasını** animasyonlamak Aşama 9'un 90 ms'lik yeniden boyutlandırma
-   kuralını bozabilir. İkisi de orada yazılı.
+   düğümü vermiyor (blok bütün olarak yeniden çiziliyor) — **yol seçildi,
+   açığa çıkarma maskesi**; ve **terminal ızgarasını** animasyonlamak Aşama
+   9'un 90 ms'lik yeniden boyutlandırma kuralını bozabilir. İkisi de orada
+   yazılı.
 
    Arayüz işi olduğu için **yasak kapsamında değil** (madde 5).
 5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
@@ -192,12 +193,23 @@ adlardır: **`"Geist Sans"`** ve `"Geist Mono"` (`"Geist"` değil).
 
 ### Yasak
 
-Sistem aksan rengi · gradyan · cam/blur · neon · **renkli birincil düğme**
-(birincil eylem `--text` dolgu, `--bg` metin) · karışık köşe yarıçapı ·
-üçüncü metin seviyesi · emoji ve dingbat ikon (ikonlar 20px ızgarada inline
-SVG) · hover'da zıplama veya ölçeklenme · **sahte pencere düğmeleri**
-(GNOME kendi çiziyor) · shadcn/MUI/Chakra · Inter/Roboto/Arial/Fraunces ·
-işe yaramayan sayı ve rozet.
+Sistem aksan rengi · **renkli gradyan** (aşağıda) · cam/blur · neon ·
+**renkli birincil düğme** (birincil eylem `--text` dolgu, `--bg` metin) ·
+karışık köşe yarıçapı · üçüncü metin seviyesi · emoji ve dingbat ikon
+(ikonlar 20px ızgarada inline SVG) · hover'da zıplama veya ölçeklenme ·
+**sahte pencere düğmeleri** (GNOME kendi çiziyor) · shadcn/MUI/Chakra ·
+Inter/Roboto/Arial/Fraunces · işe yaramayan sayı ve rozet.
+
+**"Gradyan yok" ne demek — kullanıcının netleştirmesi (2026-09-04).** Yasak
+olan **renkli, dekoratif** gradyan: mavi-mor-neon geçişler, yani "AI slop"un
+imzası. **Nötr (siyah-beyaz) gradyan yasak değil** ve kullanıcının kendi
+sözüyle *"ChatGPT, Claude, Grok'ta standart, slop değil"*. Yani zeminde
+renkli bir geçiş **hâlâ yok**, ama işlevsel ve renksiz bir geçiş — metnin
+kenarını soluklaştıran `mask-image`, kaydırılabilir bir alanın kenar
+soluğu — **serbest.**
+
+Ölçüt renk: gradyanın iki ucu da nötrse (aynı hue, yalnızca açıklık ya da
+opaklık değişiyorsa) sorun yok; hue değişiyorsa yasak.
 
 Ayırıcı olarak çizgi değil **yüzey kademesi** kullanılır. Seçim yükselen
 yüzeyle anlatılır, renkli çubukla değil.
