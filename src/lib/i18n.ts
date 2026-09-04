@@ -396,6 +396,27 @@ const en: Record<string, string> = {
   "plg.secretsHint":
     "A plugin keeps its own credentials in its own files — outside this app and outside the OS keyring.",
   "plg.toolsOwn": "{name} — {n}",
+  "gml.title": "Gmail",
+  "gml.why":
+    "Gmail needs an OAuth client registered with Google. Apps that connect in one click ship their own; this one does not have one, so the client is yours — created once, in about five minutes.",
+  "gml.step1": "1 · Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID.",
+  "gml.step2": "2 · Application type: Desktop app. Enable the Gmail API for the project.",
+  "gml.step3": "3 · Paste the client ID and secret below. The app writes the credential file and opens your browser.",
+  "gml.callback": "Redirect URI the server uses:",
+  "gml.clientId": "Client ID",
+  "gml.clientSecret": "Client secret",
+  "gml.connect": "Save and authorize",
+  "gml.authorize": "Authorize",
+  "gml.reauthorize": "Authorize again",
+  "gml.working": "waiting for your browser…",
+  "gml.workingHint":
+    "A Google consent screen should have opened. Approve it there; this can take a minute.",
+  "gml.ready": "client saved, not authorized yet",
+  "gml.on": "signed in",
+  "gml.fileNote":
+    "This server keeps its credentials in its own files, not in the OS keyring: {keys} and {creds}, mode 0600. That is outside this app’s control and it is worth knowing.",
+  "gml.testingWarn":
+    "While the consent screen is in “Testing”, Google issues a refresh token that expires after 7 days — you will have to authorize again each week.",
   "sys.agents": "Agents — {n}",
   "sys.agentsUnparsed": "The server returned an agent list but it could not be parsed.",
   "sys.disabled": "Disabled: {list}",
@@ -795,6 +816,27 @@ const tr: Record<string, string> = {
   "plg.secretsHint":
     "Bir eklenti kendi kimliğini kendi dosyalarında tutar — bu uygulamanın da, işletim sisteminin kasasının da dışında.",
   "plg.toolsOwn": "{name} — {n}",
+  "gml.title": "Gmail",
+  "gml.why":
+    "Gmail, Google’da kayıtlı bir OAuth istemcisi ister. Tek tuşla bağlanan uygulamalarda o istemci ürünün kendisine ait; bu uygulamanın böyle bir kaydı yok, o yüzden istemci sizin — bir kez, beş dakikada oluşturuluyor.",
+  "gml.step1": "1 · Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID.",
+  "gml.step2": "2 · Uygulama türü: Desktop app. Projede Gmail API’sini etkinleştirin.",
+  "gml.step3": "3 · İstemci kimliğini ve sırrını aşağıya yapıştırın. Kimlik dosyasını uygulama yazar ve tarayıcınızı açar.",
+  "gml.callback": "Sunucunun kullandığı yönlendirme adresi:",
+  "gml.clientId": "İstemci kimliği",
+  "gml.clientSecret": "İstemci sırrı",
+  "gml.connect": "Kaydet ve yetkilendir",
+  "gml.authorize": "Yetkilendir",
+  "gml.reauthorize": "Yeniden yetkilendir",
+  "gml.working": "tarayıcınız bekleniyor…",
+  "gml.workingHint":
+    "Google onay ekranı açılmış olmalı. Onayı orada verin; bu bir dakika sürebilir.",
+  "gml.ready": "istemci kayıtlı, henüz yetkilendirilmedi",
+  "gml.on": "oturum açık",
+  "gml.fileNote":
+    "Bu sunucu kimliğini işletim sisteminin kasasında değil kendi dosyalarında tutuyor: {keys} ve {creds}, mod 0600. Bu uygulamanın denetiminin dışında ve bilinmesi gerekiyor.",
+  "gml.testingWarn":
+    "Onay ekranı “Testing” durumundayken Google 7 günde dolan bir refresh token veriyor — her hafta yeniden yetkilendirmeniz gerekir.",
   "sys.agents": "Ajanlar — {n}",
   "sys.agentsUnparsed": "Sunucu ajan listesi döndürdü ama ayrıştırılamadı.",
   "sys.disabled": "Engelli: {list}",

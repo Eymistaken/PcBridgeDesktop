@@ -16,9 +16,11 @@ derse **başka bir şey sormadan** şunu yap:
 3. ✅ **Eklentiler (MCP kayıt defteri) — A kısmı 2026-09-04'te bitti**
    (Aşama 12). B yazılmadı ve şimdilik gerekmiyor: kullanıcının **iki botu da**
    `yerel-model`, o botlarda argv yok ve araçları modele uygulama veriyor.
-   **Sıradaki iş Gmail'i bağlamak** — kayıt defteri hazır, eksik olan tek şey
-   kullanıcının Google Cloud adımı (`~/.gmail-mcp/gcp-oauth.keys.json`).
-   O bir hesap işi; **isteme, kullanıcıya söyle.** Ayrıntı YAPILACAKLAR.md.
+   Aynı gün **Gmail bloğu** da eklendi: kullanıcı `client_id`/`client_secret`'ı
+   panele yapıştırıyor, kimlik dosyasını uygulama yazıyor ve `auth`'u
+   çalıştırıyor. **Sıradaki iş bunu gerçek bir hesapla ölçmek** — kalan tek
+   adım kullanıcının Google Cloud Console adımı. O bir hesap işi;
+   **isteme, kullanıcıya söyle.** Ayrıntı YAPILACAKLAR.md.
 4. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
@@ -283,6 +285,42 @@ Kullanıcının isteğiyle; artboard'a geri çevrilmez.
 - **Doğrulama sunucusu ağ istemiyor:** `~/.npm/_npx/…/chrome-devtools-mcp`
   npx önbelleğinde zaten duruyor, kimlik istemiyor, stdio konuşuyor ve 29
   araç veriyor. `PLUGIN_CMD` ile değiştirilebilir.
+
+### Gmail eklentisi — 2026-09-04'te ölçüldü
+
+⚠️ **"Tek tuşla Gmail" teknik bir yetenek değil, bir kayıt meselesi.** Gmail'e
+bağlanan her uygulamanın Google'da kayıtlı bir OAuth istemcisi olmak zorunda.
+Tek tuşla bağlanan ürünlerde (Claude'un kendi Gmail bağlayıcısı dahil) o
+istemci ürünün sahibine ait ve ürüne gömülü — Gmail'in *restricted*
+kapsamları için Google'ın doğrulamasından geçirilmiş. PcBridgeDesktop'ın böyle
+bir kaydı **yok**, ve bir kullanıcı hesabında proje açmak uygulamanın işi
+değil. Bu yüzden konsol adımı bir kez kullanıcının.
+
+- **Seçilen sunucu istemciyi taşımıyor.** `GongRzhe/Gmail-MCP-Server`
+  deposundan doğrulandı: *"Create a Google Cloud Project… Download the JSON
+  file of your client's OAuth keys… Rename to `gcp-oauth.keys.json`"*.
+- **Dosyanın sözleşmesi `src/index.ts`'ten okundu**, tahmin edilmedi:
+  `keysContent.installed || keysContent.web`, sonra yalnızca `keys.client_id`
+  ve `keys.client_secret`. `redirect_uris` **okunmuyor**; yönlendirme adresi
+  kodda sabit: `http://localhost:3000/oauth2callback`. Kapsamlar
+  `gmail.modify` + `gmail.settings.basic`. Yetkilendirme `<komut> auth`,
+  kimlik `~/.gmail-mcp/credentials.json`'a yazılıyor.
+  Yollar `GMAIL_OAUTH_PATH` / `GMAIL_CREDENTIALS_PATH` ile değişiyor —
+  `gmail.rs` aynı değişkenlere bakıyor ki ayrışma olmasın.
+- ⚠️ **Testing kipinde refresh token 7 günde doluyor.** Google'ın kendi
+  belgesinden: *"a publishing status of 'Testing' is issued a refresh token
+  expiring in 7 days"* — Gmail kapsamları istendiğinde geçerli. Yani onay
+  ekranı yayınlanmadıkça haftada bir yeniden yetkilendirme gerekiyor. Panelde
+  önden yazılıyor; "In production"a geçmenin ne gerektirdiği **ölçülmedi.**
+- **Başarı ölçütü çıkış kodu değil, dosya.** `auth` komutu sıfırla çıkıp
+  hiçbir şey yazmayabiliyor; `gmail.rs::yetkilendir` `credentials.json`'ın
+  varlığına bakıyor. Sahte bir `auth` komutuyla iki dal da sınanıyor.
+- **Sır dosyada duruyor ve bu bilinçli.** "Token yalnızca keyring'de" kuralı
+  pcbridge'in **kendi** statik token'ı içindi; üçüncü taraf sunucu kimliğini o
+  yoldan okuyor ve başka yerden okumuyor. Buna karşılık sır geri okunmuyor,
+  arayüze dönmüyor, hata metnine girmiyor; dosya 0600, dizin 0700 ve panel
+  yolu **açıkça yazıyor**. Not: "Desktop app" istemcisinde `client_secret`
+  zaten gerçek bir sır değil — PKCE tam bunun için var.
 
 ### Masaüstü istemcisinin yığını — 2026-09-01'de ölçüldü
 

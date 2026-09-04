@@ -268,6 +268,24 @@ export interface ServerDraft {
   enabled: boolean;
 }
 
+/**
+ * Gmail eklentisinin tek seferlik kurulum durumu.
+ *
+ * ⚠️ **Sır burada yok ve olmayacak.** `client_secret` bir kez yazılıyor,
+ * bir daha okunmuyor ve arayüze dönmüyor; bu tip yalnızca "dosya var mı"
+ * bilgisini taşıyor.
+ */
+export interface GmailState {
+  /** Konsol adımı yapılmış mı — istemci dosyası yerinde mi. */
+  hasKeys: boolean;
+  /** Yetkilendirme yapılmış mı. */
+  authorized: boolean;
+  oauthPath: string;
+  credentialsPath: string;
+  /** Konsolda istemciye tanıtılması gereken yönlendirme adresi. */
+  callback: string;
+}
+
 /** Bir eklentinin o anki durumu — kayıt + canlı bağlantı. */
 export interface PluginStatus {
   id: string;

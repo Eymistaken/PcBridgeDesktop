@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   createServer,
   deleteServer,
   detailText,
+  gmailAuthorize,
+  gmailConnect,
+  gmailState,
+  pluginStatus,
   reconnectPlugin,
   updateServer,
 } from "../lib/ipc";
 import { t } from "../lib/i18n";
-import type { PluginStatus, ServerDraft } from "../lib/types";
+import type { GmailState, PluginStatus, ServerDraft } from "../lib/types";
 
 /**
  * Eklentiler kartı — ek MCP sunucularının kayıt defteri.
@@ -34,6 +38,15 @@ export default function Plugins({
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null);
   const [yeni, setYeni] = useState(false);
   const [mesgul, setMesgul] = useState<string | null>(null);
+
+  /** Gmail kendi kaydını kurabiliyor; liste sonrasında tazeleniyor. */
+  async function yenile() {
+    try {
+      onListe(await pluginStatus());
+    } catch {
+      // Tazeleme başarısızsa eldeki liste duruyor; bir sonraki eylem düzeltir.
+    }
+  }
 
   /** Her eylem tam listeyi geri veriyor: kayıt ve canlı bağlantı tek karede. */
   async function calistir(id: string, is: () => Promise<PluginStatus[]>) {
@@ -128,6 +141,8 @@ export default function Plugins({
             </button>
           </div>
         )}
+
+        <Gmail onBagli={() => void yenile()} />
       </div>
 
       {hata && (
@@ -324,6 +339,189 @@ function Form({
           {t("plg.cancel")}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Gmail'in tek seferlik kurulumu.
+ *
+ * **Neden ayrı bir blok:** Gmail, kayıt defterindeki öteki sunucular gibi
+ * "komut + argüman" değil; Google'da kayıtlı bir OAuth istemcisi istiyor ve o
+ * istemci **kullanıcının**. Tek tuşla bağlanan uygulamalarda istemci ürüne
+ * gömülü; bu uygulamanın öyle bir kaydı yok ve bir kullanıcı hesabında proje
+ * açmak uygulamanın işi değil. Blok tam olarak bunu anlatıyor, sonra
+ * yapılabilecek her şeyi tek tuşa indiriyor.
+ *
+ * ⚠️ **Sır tek yön.** `client_secret` yazılıyor, geri okunmuyor; alan her
+ * açılışta boş başlıyor ve durumda yalnızca "dosya var mı" duruyor.
+ */
+function Gmail({ onBagli }: { onBagli: () => void }) {
+  const [durum, setDurum] = useState<GmailState | null>(null);
+  const [id, setId] = useState("");
+  const [secret, setSecret] = useState("");
+  const [mesgul, setMesgul] = useState(false);
+  const [hata, setHata] = useState<string | null>(null);
+
+  useEffect(() => {
+    let iptal = false;
+    void (async () => {
+      try {
+        const d = await gmailState();
+        if (!iptal) setDurum(d);
+      } catch {
+        // Durum okunamazsa blok çizilmiyor; Gmail zaten isteğe bağlı.
+      }
+    })();
+    return () => {
+      iptal = true;
+    };
+  }, []);
+
+  async function calistir(is: () => Promise<GmailState>) {
+    setMesgul(true);
+    setHata(null);
+    try {
+      setDurum(await is());
+      // Sır ekranda kalmıyor.
+      setSecret("");
+      onBagli();
+    } catch (e) {
+      setHata(detailText(e));
+    } finally {
+      setMesgul(false);
+    }
+  }
+
+  if (!durum) return null;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 11,
+        padding: "13px 15px",
+        borderRadius: "var(--r-sm)",
+        background: "var(--surface)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          className="dot"
+          style={{
+            background: durum.authorized
+              ? "var(--ok)"
+              : durum.hasKeys
+                ? "var(--run)"
+                : "var(--text-muted)",
+            flex: "none",
+            alignSelf: "center",
+          }}
+        />
+        <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("gml.title")}</span>
+        <span className="muted" style={{ fontSize: 12.5 }}>
+          {mesgul ? t("gml.working") : durum.authorized ? t("gml.on") : durum.hasKeys ? t("gml.ready") : ""}
+        </span>
+      </div>
+
+      {!durum.hasKeys && (
+        <>
+          <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+            {t("gml.why")}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {[t("gml.step1"), t("gml.step2"), t("gml.step3")].map((x) => (
+              <span key={x} className="muted" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+                {x}
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontSize: 11.5 }}>
+              {t("gml.callback")}
+            </span>
+            <span className="mono" style={{ fontSize: 11.5, overflowWrap: "anywhere" }}>
+              {durum.callback}
+            </span>
+          </div>
+
+          <div className="grp">
+            <span className="lbl">{t("gml.clientId")}</span>
+            <div className="fld">
+              <input
+                className="mono"
+                value={id}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="…apps.googleusercontent.com"
+                style={{ flexGrow: 1 }}
+                onChange={(e) => setId(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grp">
+            <span className="lbl">{t("gml.clientSecret")}</span>
+            <div className="fld">
+              {/* `type="password"`: sır omuz üstünden okunmasın. Geri de
+                  gelmiyor — bir kez yazılıp dosyaya gidiyor. */}
+              <input
+                type="password"
+                value={secret}
+                autoComplete="off"
+                style={{ flexGrow: 1 }}
+                onChange={(e) => setSecret(e.target.value)}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {mesgul && (
+        <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+          {t("gml.workingHint")}
+        </span>
+      )}
+
+      <div style={{ display: "flex", gap: 8 }}>
+        {durum.hasKeys ? (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={mesgul}
+            onClick={() => void calistir(gmailAuthorize)}
+          >
+            {durum.authorized ? t("gml.reauthorize") : t("gml.authorize")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={mesgul || !id.trim() || !secret.trim()}
+            onClick={() => void calistir(() => gmailConnect(id.trim(), secret))}
+          >
+            {t("gml.connect")}
+          </button>
+        )}
+      </div>
+
+      {hata && (
+        <span
+          className="mono"
+          style={{ fontSize: 11.5, color: "var(--fail)", overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+        >
+          {hata}
+        </span>
+      )}
+
+      {/* ⚠️ Ölçülmüş bir tuzak, sürpriz olmasın diye önden yazılıyor. */}
+      <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+        {t("gml.testingWarn")}
+      </span>
+      <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+        {t("gml.fileNote", { keys: durum.oauthPath, creds: durum.credentialsPath })}
+      </span>
     </div>
   );
 }

@@ -1028,9 +1028,49 @@ Sebep ölçüldü — `chrome-devtools-mcp` **iki** süreç açıyor ve yalnızc
 İki sinyal kondu: **stderr'in EOF'u** (ağacın tamamı ölünce) ve **çağrının
 düşmesi** (kısmi ölümde, kesin bilgi). İkisi de yoklama yapmıyor.
 
+### Gmail kurulumu — aynı gün eklendi
+
+Kullanıcının sorusu haklıydı: *"başka uygulamalar bunu tek tuşla nasıl
+yapıyor?"* Cevap teknik bir sınır değil — **kayıt meselesi.** Gmail'e bağlanan
+her uygulamanın Google'da kayıtlı bir OAuth istemcisi olmak zorunda; tek tuşla
+bağlanan ürünlerde o istemci ürüne gömülü ve Google'ın doğrulamasından
+geçirilmiş. Bu uygulamanın öyle bir kaydı yok ve bir kullanıcı hesabında proje
+açmak uygulamanın işi değil.
+
+**Yapılan: istemci var olduktan sonraki her şeyi tek tuşa indirmek.**
+`gmail.rs` + panelde bir Gmail bloğu:
+
+- Kullanıcı `client_id`/`client_secret`'ı panele yapıştırıyor.
+- Uygulama `~/.gmail-mcp/gcp-oauth.keys.json`'ı **kendisi yazıyor**
+  (tmp + fsync + rename, dosya 0600, dizin 0700).
+- `servers.json`'a Gmail kaydını kuruyor (varsa dokunmuyor).
+- Sunucunun kendi `auth` komutunu çalıştırıp tarayıcıyı açtırıyor.
+- Bitince eklentiyi bağlıyor.
+
+Elle dizin açmak, dosya adı değiştirmek, gizli klasöre kopyalamak kalmadı.
+
+**Sözleşme sunucunun kaynağından okundu, tahmin edilmedi** (`src/index.ts`):
+kök anahtar `installed` (ya da `web`), okunan iki alan `client_id` ve
+`client_secret`, `redirect_uris` **okunmuyor** ve yönlendirme adresi kodda
+sabit (`http://localhost:3000/oauth2callback`). Yol değişkenleri
+`GMAIL_OAUTH_PATH` / `GMAIL_CREDENTIALS_PATH`; `gmail.rs` aynılarına bakıyor.
+
+⚠️ **Başarı ölçütü çıkış kodu değil, dosya.** `auth` sıfırla çıkıp hiçbir şey
+yazmayabiliyor. `yetkilendir` `credentials.json`'ın varlığına bakıyor; sahte
+bir `auth` komutuyla iki dal da sınanıyor (ağ yok, Google yok, ama süreç
+başlatma · `auth` argümanı · çıktı toplama · başarı ölçütü gerçek).
+
+⚠️ **Panel iki şeyi önden söylüyor** çünkü ikisi de sürpriz olurdu:
+Testing kipinde refresh token'ın **7 günde dolması** (Google'ın kendi
+belgesinden doğrulandı) ve sunucunun kimliğini **kendi dosyalarında**
+tutması (yol ve mod görünür).
+
+**Sır tek yön:** yazılıyor, geri okunmuyor, arayüze dönmüyor, hata metnine
+girmiyor. Alan her açılışta boş başlıyor.
+
 ### Doğrulama — fiilen koşuldu
 
-- `cargo test --lib` → **137 geçti**, 7 `#[ignore]`.
+- `cargo test --lib` → **140 geçti**, 7 `#[ignore]`.
 - `cargo test --lib gercek_eklenti -- --ignored --nocapture` → gerçek stdio
   sunucusu, **29 araç**, hepsi `dev__` önekli, hiçbiri masaüstü grubunda.
 - `cargo test --lib eklenti_oldurulunce -- --ignored --nocapture` → bitiş
@@ -1041,14 +1081,22 @@ düşmesi** (kısmi ölümde, kesin bilgi). İkisi de yoklama yapmıyor.
 - `npm run tauri dev` 75 saniye ayakta, panik yok, açılış kancası boş kayıt
   defteriyle sorunsuz.
 - `tsc --noEmit` ve `check-i18n` temiz (358 anahtar, iki sözlük de tam).
-- Panel iki temada gözle görüldü: renkli düğme yok, durum dışında renk yok.
+- Panel **ve Gmail bloğu** iki temada gözle görüldü: renkli düğme yok, durum
+  dışında renk yok, sistem aksan rengi yok.
+- Gmail `auth` yolu sahte bir komutla uçtan uca koşuldu: başarısız dal
+  (`credentials.json` yazılmadı → başarı sayılmıyor, onay adresi kullanıcıya
+  gösteriliyor) ve başarılı dal (`auth` argümanı gerçekten gidiyor).
+- Uygulama açıldı, `~/.gmail-mcp/` **yazılmadı** — kullanıcı bir şey
+  göndermeden hiçbir dosya oluşmuyor.
 
-⚠️ **Doğrulama sunucusu Gmail değil.** `chrome-devtools-mcp` npx önbelleğinde
-zaten duruyordu; kimlik istemiyor ve **hiçbir şey indirilmedi**. Gmail için
-kullanıcının Google Cloud Console'da bir OAuth client oluşturup
-`~/.gmail-mcp/gcp-oauth.keys.json` koyması gerekiyor — o adım kullanıcının.
-Bitiş ölçütü 2 (uygulama kapanıp açılınca tekrar giriş istememesi) bu yüzden
-**ölçülmedi**: sınanacak bir oturum yok.
+⚠️ **Gmail gerçek bir hesapla sınanmadı.** Kayıt defteri
+`chrome-devtools-mcp` ile ölçüldü (npx önbelleğinde zaten duruyordu, kimlik
+istemiyor, **hiçbir şey indirilmedi**). Gmail'in kendi yolu sahte bir `auth`
+komutuyla sınandı; **gerçek Google akışı için kullanıcının konsol adımı
+gerekiyor** ve o yapılmadı. Bitiş ölçütü 2 (uygulama kapanıp açılınca tekrar
+giriş istememesi) bu yüzden ölçülmedi: sınanacak bir oturum yok. Ayrıca
+`npx @gongrzhe/server-gmail-autoauth-mcp` **hiç indirilmedi** — ilk
+yetkilendirmede inecek.
 
 ## Riskler
 

@@ -11,6 +11,7 @@ import type {
   ConnSnapshot,
   DesktopReply,
   DesktopState,
+  GmailState,
   McpTool,
   McpServer,
   ModelConfig,
@@ -250,3 +251,16 @@ export const updateServer = (id: string, draft: ServerDraft) =>
   call<PluginStatus[]>("update_server", { id, draft });
 export const deleteServer = (id: string) => call<PluginStatus[]>("delete_server", { id });
 export const reconnectPlugin = (id: string) => call<PluginStatus[]>("reconnect_plugin", { id });
+
+export const gmailState = () => call<GmailState>("gmail_state");
+
+/**
+ * Kimlik dosyasını yazar, sunucu kaydını kurar ve tarayıcıda yetkilendirmeyi
+ * başlatır. **Dakikalar sürebilir** — kullanıcı tarayıcıda onaylıyor.
+ *
+ * ⚠️ `clientSecret` tek yön: yazılıyor, geri dönmüyor.
+ */
+export const gmailConnect = (clientId: string, clientSecret: string) =>
+  call<GmailState>("gmail_connect", { clientId, clientSecret });
+
+export const gmailAuthorize = () => call<GmailState>("gmail_authorize");

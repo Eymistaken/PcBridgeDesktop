@@ -1,6 +1,7 @@
 mod agent;
 mod bots;
 mod desktop;
+mod gmail;
 mod jobs;
 mod mcp;
 mod model;
@@ -136,6 +137,76 @@ async fn reconnect_plugin(
         .ok_or_else(|| servers::ServerError::Yok(id.clone()))?;
     state.eklenti_bagla(&s).await;
     Ok(state.eklenti_durumlari().await)
+}
+
+// ───────────────────────────── Gmail ─────────────────────────────
+
+/// Gmail'in kayıtlı sunucu satırı. Kimlik dosyası yazıldıktan sonra kaydı
+/// **biz** kuruyoruz: kullanıcının komutu ve argümanı elle yazması gereksiz.
+const GMAIL_PAKET: &str = "@gongrzhe/server-gmail-autoauth-mcp";
+
+#[tauri::command]
+fn gmail_state() -> gmail::GmailDurum {
+    gmail::durum()
+}
+
+/// Kimlik dosyasını yazar, sunucu kaydını kurar (yoksa) ve
+/// **sunucunun kendi `auth` komutunu** çalıştırıp tarayıcıyı açtırır.
+///
+/// ⚠️ `client_secret` buradan geri **dönmüyor**: yanıt yalnızca durum ve
+/// sürecin kendi çıktısı.
+#[tauri::command]
+async fn gmail_connect(
+    client_id: String,
+    client_secret: String,
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<gmail::GmailDurum, gmail::GmailError> {
+    gmail::anahtar_yaz(&client_id, &client_secret)?;
+    gmail_yetkilendir_ve_bagla(&state).await
+}
+
+/// Kimlik dosyası zaten yerindeyken yalnızca yetkilendirme — panelin
+/// "Yeniden yetkilendir" eylemi.
+#[tauri::command]
+async fn gmail_authorize(
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<gmail::GmailDurum, gmail::GmailError> {
+    if !gmail::oauth_path().is_file() {
+        return Err(gmail::GmailError::Gecersiz("#gmailNoKeys".into()));
+    }
+    gmail_yetkilendir_ve_bagla(&state).await
+}
+
+async fn gmail_yetkilendir_ve_bagla(
+    state: &Arc<McpState>,
+) -> Result<gmail::GmailDurum, gmail::GmailError> {
+    let kayit = gmail_kaydi()?;
+    gmail::yetkilendir(&kayit.command, &kayit.args).await?;
+    // Yetkilendirme bittiği anda bağlanıyor: kullanıcı "oldu mu" diye ikinci
+    // bir tuşa basmak zorunda kalmasın.
+    state.eklenti_bagla(&kayit).await;
+    Ok(gmail::durum())
+}
+
+/// Gmail'in `servers.json` kaydı; yoksa oluşturuluyor.
+///
+/// **Var olan kayda dokunulmuyor:** kullanıcı komutu ya da argümanı
+/// değiştirdiyse (kendi kurulumu, farklı bir sürüm) onu ezmek olurdu.
+fn gmail_kaydi() -> Result<servers::Server, gmail::GmailError> {
+    let hepsi = servers::list().map_err(|e| gmail::GmailError::Io(e.to_string()))?;
+    if let Some(s) = hepsi
+        .into_iter()
+        .find(|s| s.args.iter().any(|a| a.contains(GMAIL_PAKET)))
+    {
+        return Ok(s);
+    }
+    servers::create(servers::ServerDraft {
+        name: "Gmail".into(),
+        command: "npx".into(),
+        args: vec![GMAIL_PAKET.into()],
+        enabled: true,
+    })
+    .map_err(|e| gmail::GmailError::Io(e.to_string()))
 }
 
 // ─────────────────────────── koşumlar ───────────────────────────
@@ -668,6 +739,9 @@ pub fn run() {
             delete_server,
             plugin_status,
             reconnect_plugin,
+            gmail_state,
+            gmail_connect,
+            gmail_authorize,
             create_bot,
             update_bot,
             delete_bot,
