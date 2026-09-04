@@ -8,17 +8,31 @@ derse **başka bir şey sormadan** şunu yap:
 1. **`YAPILACAKLAR.md`'yi oku.** Sıradaki iş orada, ayrıntısıyla ve ölçümüyle.
    Dosya **yereldir, depoda yoktur** (kullanıcının isteğiyle izlenmiyor);
    yoksa kullanıcıya söyle, **içeriğini uydurma**.
-2. **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Başlamadan önce
-   "Karar verilmemiş: araçları kim tüketiyor" başlığını oku ve **A/B ayrımını
-   sor** — A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona
-   yapılabilir, B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş
-   istiyor ve `backend: "yerel-model"` botları için hiç gerekmiyor.
-3. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
+2. **Sıradaki konu: koordinat açığı — ve bu bir sohbet, bir görev değil.**
+   Kullanıcı 2026-09-04'te bunu birlikte düşünmek istediğini söyledi.
+   `YAPILACAKLAR.md`'deki "⚠️ AÇIK: model bulduğu koordinatı unutuyor"
+   başlığını **oku**, sonra:
+   - **Soru sor.** Orada dört açık soru yazılı (defteri kim yönetir, pencere
+     kayınca kim fark eder, hangi fikir hangisinin yerine geçer, ölçüm nasıl
+     yapılır). Kullanıcı bunlara yanıt bekliyor — kendi başına karar verip
+     kodlamaya başlama.
+   - **Kendi fikrini de öner.** Dosyada üç fikir ve bir **çürütülmüş** fikir
+     duruyor; körlemesine onaylama, tartışmaya bir şey kat. Yeni bir fikir
+     bulursan oraya yaz.
+   - ⛔ **Sınamak yerel model koşumu gerektirir ve o yasak** (madde 4).
+     Tasarımı konuşabilirsin, kodu yazabilirsin, **koşturamazsın.**
+3. **Sonraki iş (koordinat konuşulup bağlandıktan sonra): Eklentiler
+   (MCP kayıt defteri).** Başlamadan önce "Karar verilmemiş: araçları kim
+   tüketiyor" başlığını oku ve **A/B ayrımını sor** — A (kayıt defteri +
+   Gmail bağlantısı) bu depoda baştan sona yapılabilir, B (bağlantıyı
+   `pcbridge-agent` botlarına vermek) pcbridge'de iş istiyor ve
+   `backend: "yerel-model"` botları için hiç gerekmiyor.
+4. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
    serbest, **bot koşumu başlatmak değil.** Bu kısıt kullanıcı kaldırana
    kadar geçerli.
-4. **Açık kalan üç uç:**
+5. **Açık kalan üç uç:**
    - Tur içi özetleme **gerçek modelle sınanmadı** (Aşama 8'de LM Studio
      kapalıydı). İlk fırsatta bütçesi kasten küçük bir botla uzun bir koşum
      yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
@@ -27,10 +41,10 @@ derse **başka bir şey sormadan** şunu yap:
    - Aşama 10'un koordinat düzeltmesi **bir koşumda** ölçüldü. Masaüstü
      isabeti hâlâ zayıfsa sıradaki adım Set-of-Mark; gerekçesi ve neden
      bugün yazılmadığı YAPILACAKLAR.md'de.
-5. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on aşama da bitti.**
+6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
-6. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+7. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
