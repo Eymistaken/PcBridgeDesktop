@@ -577,6 +577,13 @@ async fn kos(
         Err(e) => return kapat(false, 0, Some(e.to_string())),
     };
 
+    // **Ekran düzeni promptu kurmadan önce makineden okunur.** `screen_info`
+    // masaüstü kilitliyken de yanıt veriyor (ölçüldü 2026-09-04), yani bu çağrı
+    // `desktop_unlock` gerektirmiyor ve kullanıcıya bir şey sormuyor. Yalnızca
+    // masaüstü aracı verilmiş botlarda yapılıyor: ötekiler için sonucu
+    // kullanacak bir yer yok.
+    let ekranlar = ekran_duzeni(&mcp, &araclar).await;
+
     let app_kapi = AppKapi {
         app: app.clone(),
         runs: runs_state,
@@ -623,7 +630,7 @@ async fn kos(
         Baglam {
             base_url: &base_url,
             model_id: &model_id,
-            sistem: sistem_prompt(&bot, &araclar, ozet.as_deref()),
+            sistem: sistem_prompt(&bot, &araclar, ozet.as_deref(), &ekranlar),
             araclar,
             gecmis: gecmis_msg,
             text,
@@ -702,10 +709,10 @@ pub async fn tur_dongusu(
     // "Bütçe yetmiyor" koşum başına **bir kez** söylenir; her turda bir
     // baloncuk basmak sohbeti boğardı ve söylenecek yeni bir şey yok.
     let mut butce_uyarildi = false;
-    // Modelin **en son baktığı** ekran(lar). `mouse` kapısı buna bakıyor;
-    // koşum boyunca taşınıyor çünkü model bir görüntüyü alıp birkaç tur
-    // sonra tıklayabiliyor.
-    let mut ekranlar: Vec<Kutu> = Vec::new();
+    // Masaüstü izi: modelin **en son baktığı** ekran(lar) ve bu seride
+    // yaptığı tıklamalar. Koşum boyunca taşınıyor çünkü model bir görüntüyü
+    // alıp birkaç tur sonra tıklayabiliyor.
+    let mut iz = Iz::default();
 
     loop {
         tur += 1;
@@ -818,7 +825,7 @@ pub async fn tur_dongusu(
         // arkasında ve sıralı yürütme hata ayıklamayı okunur tutuyor.
         for tc in &cagrilar {
             let sonuc =
-                arac_calistir(kayit, mcp, &baglam_kapi, tc, force, &mut ekranlar).await;
+                arac_calistir(kayit, mcp, &baglam_kapi, tc, force, &mut iz).await;
             let mut msg = Message::tool(sonuc.metin, tc.id.clone());
             msg.images = sonuc.gorseller;
 
@@ -931,7 +938,7 @@ async fn arac_calistir(
     kapi: &Kapi<'_>,
     tc: &ToolCall,
     force_when_busy: bool,
-    ekranlar: &mut Vec<Kutu>,
+    iz: &mut Iz,
 ) -> crate::mcp::AracSonuc {
     let (mut args, arg_hata) = match tc.args() {
         Ok(a) => (a, None),
@@ -986,7 +993,7 @@ async fn arac_calistir(
     // (2026-09-04): model ofseti unutup masaüstüne tıkladı, sonra `ctrl+a` +
     // `delete` ile bütün masaüstünü çöpe attı. Kapılar izinden **sonra**
     // çalışıyor: kullanıcı "serbest" dese bile bu ikisi sorulmaz, engellenir.
-    if let Some(red) = tehlike_kapisi(mcp, &tc.function.name, &args, ekranlar).await {
+    if let Some(red) = tehlike_kapisi(mcp, &tc.function.name, &args, iz).await {
         // **Engelleme sessiz kalmaz.** Kullanıcı botunun ne yapmaya
         // çalıştığını görmeli; araç sonucunu yalnızca model görüyor.
         kayit.olay(&[
@@ -1005,6 +1012,14 @@ async fn arac_calistir(
         };
     }
 
+    // İz için gereken iki bilgi çağrıdan **önce** çıkarılıyor: `args` az
+    // sonra `call_for_agent`'a taşınıyor ve tek bir `bool` + bir nokta için
+    // bütün haritayı klonlamaya değmez.
+    let seri_bitti = seri_bitiren_mi(&tc.function.name, &args);
+    let nokta = (tc.function.name == "mouse")
+        .then(|| tiklama_noktasi(&args))
+        .flatten();
+
     let sonuc = match mcp.call_for_agent(tc.function.name.clone(), args).await {
         Ok(r) => r,
         // Bağlantı hatası aracın hatası değil; yine de modele söylenir ki
@@ -1021,7 +1036,18 @@ async fn arac_calistir(
     if tc.function.name == "screen_capture" && !sonuc.hata {
         let yeni = ekran_kutulari(&sonuc.metin);
         if !yeni.is_empty() {
-            *ekranlar = yeni;
+            iz.ekranlar = yeni;
+        }
+    }
+
+    // **Tıklama serisi çağrıdan sonra güncellenir.** Hata dönen bir çağrı
+    // (pcbridge'in boşta-kalma kapısı, geçersiz koordinat) *olmamış* bir
+    // denemedir; onu saymak modelin meşru `force` tekrarını cezalandırırdı.
+    if !sonuc.hata {
+        if seri_bitti {
+            iz.seriyi_bitir();
+        } else if let Some(nokta) = nokta {
+            iz.tiklamalar.push(nokta);
         }
     }
 
@@ -1032,26 +1058,50 @@ async fn arac_calistir(
     sonuc
 }
 
-/// İki kapı: yanlış ekrana tıklama ve odağı bilinmeyen silme.
+/// Dört kapı: yanlış ekrana tıklama, aynı yere ısrar, odağı bilinmeyen silme
+/// ve kalıcı silme.
 ///
 /// `Some(metin)` dönerse çağrı **hiç yapılmaz** ve metin modele sonuç olarak
 /// verilir. Reddin gerekçesi açıkça yazılıyor: model bunu bir arıza sanıp
 /// aynı çağrıyı yinelemesin, ne yapması gerektiğini bilsin.
+///
+/// İlk üçü veri kaybını, dördüncüsü (`tekrar_tiklama`) boşa dönen turları
+/// keser. Hepsi izin kipinden **bağımsız**.
 async fn tehlike_kapisi(
     mcp: &crate::mcp::McpState,
     tool: &str,
     args: &serde_json::Map<String, serde_json::Value>,
-    ekranlar: &[Kutu],
+    iz: &Iz,
 ) -> Option<String> {
     if tool == "mouse" {
-        if let Some((x, y)) = ekran_disinda(ekranlar, args) {
-            let liste = ekranlar
+        // **Sıra önemli.** Ekran dışına düşmek daha ciddi bir hata ve daha
+        // somut bir düzeltmesi var; önce o söylenmeli.
+        if let Some((x, y)) = ekran_disinda(&iz.ekranlar, args) {
+            let liste = iz
+                .ekranlar
                 .iter()
                 .map(|k| format!("({}, {}) → ({}, {})", k.x, k.y, k.x + k.w, k.y + k.h))
                 .collect::<Vec<_>>()
                 .join(" ve ");
             return Some(format!(
-                "Engellendi: ({x}, {y}) son baktığın ekranın dışında.                  Son `screen_capture` şurayı gösteriyordu: {liste}.                  Görüntüde okuduğun x/y'ye o ekranın **ofsetini eklemeyi                  unuttun**. Ofseti ekleyip yeniden dene; başka bir ekrana                  tıklaman gerekiyorsa önce oranın görüntüsünü al."
+                "Engellendi: ({x}, {y}) son baktığın ekranın dışında. Son \
+                 `screen_capture` şurayı gösteriyordu: {liste}. Görüntüde \
+                 okuduğun x/y'ye o ekranın **ofsetini eklemeyi unuttun**. \
+                 Ofseti ekleyip yeniden dene; başka bir ekrana tıklaman \
+                 gerekiyorsa önce oranın görüntüsünü al."
+            ));
+        }
+        if let Some((x, y)) = tekrar_tiklama(iz, args) {
+            return Some(format!(
+                "Engellendi: ({x}, {y}) çevresine bu seride üçüncü kez \
+                 tıklıyorsun ve arada ekranı değiştiren bir şey olmadı. \
+                 Koordinat yanlış; aynı yeri denemeye devam etme — ölçüldü \
+                 ki bu döngü tur harcamaktan başka bir şey yapmıyor. \
+                 Sırayla dene: (1) `ui_dump` ile öğeyi **adıyla** bul ve \
+                 `ui_click` çağır, koordinat gerekmez ve ıskalayamaz; (2) \
+                 klavyeyle yap (tarayıcıda adres çubuğu için `ctrl+l`); (3) \
+                 `window_focus` ile doğru pencereyi öne al; (4) hiçbiri \
+                 olmuyorsa kullanıcıya neye takıldığını söyle ve dur."
             ));
         }
         return None;
@@ -1066,14 +1116,20 @@ async fn tehlike_kapisi(
         // "şükürler olsun model shift delete yapmadı".
         if crate::tools::kalici_silme_mi(keys) {
             return Some(
-                "Engellendi: `shift+delete` dosyayı **kalıcı** siler, çöp                  kutusuna göndermez ve geri alınamaz. Bu uygulama modelin                  kalıcı silme yapmasına izin vermiyor. Silinmesi gereken bir                  şey varsa kullanıcıya söyle, kendisi yapsın."
+                "Engellendi: `shift+delete` dosyayı **kalıcı** siler, çöp \
+                 kutusuna göndermez ve geri alınamaz. Bu uygulama modelin \
+                 kalıcı silme yapmasına izin vermiyor. Silinmesi gereken \
+                 bir şey varsa kullanıcıya söyle, kendisi yapsın."
                     .to_string(),
             );
         }
 
         if crate::tools::silme_tusu_mu(keys) && masaustu_odakta(mcp).await {
             return Some(
-                "Engellendi: odak **masaüstünde** ve bu tuş orada dosya siler.                  Yazmak istediğin yere (adres çubuğu, metin kutusu) önce                  tıkla ve `window_list` ile odağın oraya geçtiğini doğrula,                  sonra tekrar dene."
+                "Engellendi: odak **masaüstünde** ve bu tuş orada dosya \
+                 siler. Yazmak istediğin yere (adres çubuğu, metin kutusu) \
+                 önce tıkla ve `window_list` ile odağın oraya geçtiğini \
+                 doğrula, sonra tekrar dene."
                     .to_string(),
             );
         }
@@ -1151,29 +1207,175 @@ pub struct Kutu {
 }
 
 impl Kutu {
-    fn icerir(&self, x: i64, y: i64) -> bool {
+    pub fn icerir(&self, x: i64, y: i64) -> bool {
         x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
     }
 }
 
-/// `screen_capture` yanıtındaki `… 1920x1080 @ (1920, 0) → …` satırlarından
-/// modelin **gördüğü** ekranların global dikdörtgenlerini çıkarır.
+/// İki tıklamayı "aynı yer" sayan yarıçap (piksel, her iki eksende).
+///
+/// Ölçüldü (2026-09-04, diskteki beş koşum): 25 tıklamanın **8'i** daha önce
+/// tıklanmış bir noktanın 50 px yakınına düştü. 50, adres çubuğu gibi bir
+/// hedefte "aynı şeyi bir daha deniyorum" ile "yandaki öğeye tıklıyorum"u
+/// ayıracak kadar dar; ölçüldü ki hedefi ıskalayan model koordinatı 30–40 px
+/// oynatıp yeniden deniyor.
+const YAKIN_PX: i64 = 50;
+
+/// Aynı bölgede kaç tıklamadan sonra kapı kapanır.
+///
+/// **İkinci deneme serbest.** pcbridge'in boşta-kalma kapısı ilk çağrıyı
+/// reddedebiliyor ve model aynı noktayı `force` ile yineliyor — ölçüldü
+/// (`local-1a066e01592-b08137`). Meşru olan o tekrar; üçüncüsü değil.
+const TEKRAR_TAVANI: usize = 2;
+
+/// Koşum boyunca taşınan masaüstü izi.
+///
+/// İki kapının da dayanağı burada: modelin **baktığı** ekranlar
+/// (`ekran_disinda`) ve **yaptığı** tıklamalar (`tekrar_tiklama`). Koşum
+/// ömürlü, çünkü model bir görüntüyü alıp birkaç tur sonra tıklayabiliyor.
+#[derive(Debug, Default)]
+pub struct Iz {
+    /// Son `screen_capture`'ın gösterdiği ekranlar. **Boşken kapı açık:**
+    /// dayanağımız yokken engellemek modeli çalışamaz hale getirirdi.
+    pub ekranlar: Vec<Kutu>,
+    /// Bu seride **gerçekten yapılmış** tıklamalar. Reddedilen ya da hata
+    /// dönen çağrı buraya girmez; olmamış bir denemeyi saymak, meşru tekrarı
+    /// cezalandırırdı.
+    tiklamalar: Vec<(i64, i64)>,
+}
+
+impl Iz {
+    /// Ekranı değiştirebilecek bir eylemden sonra seri sıfırlanır: aynı
+    /// koordinat artık başka bir şeye denk gelebilir.
+    fn seriyi_bitir(&mut self) {
+        self.tiklamalar.clear();
+    }
+}
+
+/// `mouse` çağrısı bir **tıklama** mı, ve neredeye?
+///
+/// `move` sayılmaz (hiçbir şeye basmıyor), `scroll`/`drag`/`hold`/`release`
+/// de sayılmaz — onlar ekranı değiştiren eylemler ve seriyi bitiriyorlar.
+fn tiklama_noktasi(args: &serde_json::Map<String, serde_json::Value>) -> Option<(i64, i64)> {
+    const TIKLAMA: &[&str] = &[
+        "click",
+        "double_click",
+        "triple_click",
+        "right_click",
+        "middle_click",
+    ];
+    let eylem = args.get("action").and_then(serde_json::Value::as_str)?;
+    if !TIKLAMA.contains(&eylem) {
+        return None;
+    }
+    let x = args.get("x").and_then(serde_json::Value::as_i64)?;
+    let y = args.get("y").and_then(serde_json::Value::as_i64)?;
+    Some((x, y))
+}
+
+/// Bu çağrı ekranı değiştirebilir mi? Değiştirebiliyorsa tıklama serisi biter.
+///
+/// **`screen_capture` ve `ui_dump` bilerek listede yok.** Ölçüldü: model 25
+/// tıklama için 39 ekran görüntüsü aldı, yani her tıklamadan sonra zaten
+/// bakıyordu — ve yine yanına tıklıyordu. Görüntü almayı sıfırlayıcı saymak
+/// kapıyı doğduğu gün işlevsiz bırakırdı.
+fn seri_bitiren_mi(tool: &str, args: &serde_json::Map<String, serde_json::Value>) -> bool {
+    const DEGISTIREN: &[&str] = &[
+        "keyboard",
+        "window_focus",
+        "ui_click",
+        "ui_set_text",
+        "computer_batch",
+        "computer_task",
+    ];
+    if DEGISTIREN.contains(&tool) {
+        return true;
+    }
+    if tool != "mouse" {
+        return false;
+    }
+    // Tıklama olmayan fare eylemleri: kaydırma sayfayı, sürükleme pencereyi
+    // oynatır. Sonrasında aynı koordinat başka bir şeye denk gelir.
+    matches!(
+        args.get("action").and_then(serde_json::Value::as_str),
+        Some("scroll" | "drag" | "hold" | "release")
+    )
+}
+
+/// Model aynı yere ısrarla mı tıklıyor?
+///
+/// ⚠️ **Ölçülen desen bu.** Sistem promptu 2026-09-03'ten beri *"aynı noktaya
+/// iki kez tıklayıp aynı ekranı gördüysen dur"* diyor ve diskteki koşumlarda
+/// **25 tıklamanın 8'i** daha önce tıklanmış bir noktanın yanına düştü.
+/// Prompt olarak tutmayan şey kapı olarak tutuyor.
+///
+/// **Kapının kendi sayısı daha küçük ve bilerek öyle: 25'te 2.** Aradaki fark
+/// seri sıfırlaması — klavye, kaydırma ve pencere değişimi hedefi gerçekten
+/// oynatabildiği için o tıklamalar sayılmıyor. Yakalanan iki tanesi felaket
+/// koşumunun adres çubuğu avındaki üçüncü ve dördüncü deneme; model o ikisini
+/// harcadıktan sonra zaten `ctrl+l`'e dönmüştü, yani kapı onu iki tur önce
+/// oraya göndermiş olurdu.
+///
+/// `ekran_disinda`'nın ikizi: sync ve saf, MCP'ye dokunmuyor.
+fn tekrar_tiklama(iz: &Iz, args: &serde_json::Map<String, serde_json::Value>) -> Option<(i64, i64)> {
+    let (x, y) = tiklama_noktasi(args)?;
+    let yakin = iz
+        .tiklamalar
+        .iter()
+        .filter(|(px, py)| (x - px).abs() <= YAKIN_PX && (y - py).abs() <= YAKIN_PX)
+        .count();
+    (yakin >= TEKRAR_TAVANI).then_some((x, y))
+}
+
+/// Tek bir satırdaki `… 1920x1080 @ (1920, 0) …` geometrisi.
+///
+/// **Tek geometri ayrıştırıcısı.** İki farklı araç bu biçimi kullanıyor —
+/// `screen_capture` başlığı (`**2 · DP-1 (birincil)** · 1920x1080 @ (1920, 0)`)
+/// ve `screen_info` listesi (`  2: DP-1 (birincil) · 1920x1080 @ (1920, 0)`) —
+/// ve etiket kısımları farklı olduğu için üstlerine iki ayrı okuyucu biniyor.
+/// Sayıları çözen yer yine de burası: iki ayrı ayrıştırıcı ayrışırdı.
+fn kutu_satiri(satir: &str) -> Option<Kutu> {
+    let i = satir.find("@ (")?;
+    let j = satir[i..].find(')')?;
+    let mut p = satir[i + 3..i + j].split(',').map(|s| s.trim().parse::<i64>());
+    let (Some(Ok(x)), Some(Ok(y))) = (p.next(), p.next()) else {
+        return None;
+    };
+    let boyut = satir[..i].trim_end().rsplit(' ').next()?;
+    let mut b = boyut.split('x').map(|s| s.trim().parse::<i64>());
+    let (Some(Ok(w)), Some(Ok(h))) = (b.next(), b.next()) else {
+        return None;
+    };
+    (w > 0 && h > 0).then_some(Kutu { x, y, w, h })
+}
+
+/// `screen_capture` yanıtındaki satırlardan modelin **gördüğü** ekranların
+/// global dikdörtgenlerini çıkarır.
 ///
 /// Biçim değişirse liste boş döner ve kapı sessizce açık kalır: bir
 /// ayrıştırma kusurunun modeli çalışamaz hale getirmesi, kapının önlediği
 /// hatadan daha kötü olurdu.
 fn ekran_kutulari(metin: &str) -> Vec<Kutu> {
+    metin.lines().filter_map(kutu_satiri).collect()
+}
+
+/// `screen_info` çıktısındaki monitör listesi: `(numara, kutu)`.
+///
+/// Numara, `screen_capture`'ın `monitor` argümanına verilecek olan; o yüzden
+/// yalnızca `  N: …` biçimindeki satırlar sayılıyor ve etiketsiz bir geometri
+/// satırı (`screen_capture` başlığı gibi) buraya düşmüyor.
+///
+/// **Ölçüldü (2026-09-04): `screen_info` masaüstü kilitliyken de çalışıyor**,
+/// yani sistem promptu kurulurken çağrılabiliyor ve `desktop_unlock`
+/// gerektirmiyor.
+fn ekran_listesi(metin: &str) -> Vec<(u8, Kutu)> {
     let mut out = Vec::new();
     for satir in metin.lines() {
-        let Some(i) = satir.find("@ (") else { continue };
-        let Some(j) = satir[i..].find(')') else { continue };
-        let mut p = satir[i + 3..i + j].split(',').map(|s| s.trim().parse::<i64>());
-        let (Some(Ok(x)), Some(Ok(y))) = (p.next(), p.next()) else { continue };
-        let Some(boyut) = satir[..i].trim_end().rsplit(' ').next() else { continue };
-        let mut b = boyut.split('x').map(|s| s.trim().parse::<i64>());
-        let (Some(Ok(w)), Some(Ok(h))) = (b.next(), b.next()) else { continue };
-        if w > 0 && h > 0 {
-            out.push(Kutu { x, y, w, h });
+        let t = satir.trim_start();
+        let Some((no, kalan)) = t.split_once(": ") else { continue };
+        let Ok(no) = no.parse::<u8>() else { continue };
+        if let Some(k) = kutu_satiri(kalan) {
+            out.push((no, k));
         }
     }
     out
@@ -1334,14 +1536,42 @@ async fn arac_listesi(
     Ok((defler, gruplar))
 }
 
+/// Sistem promptuna gömülecek monitör tablosu.
+///
+/// Bota hiç masaüstü aracı verilmediyse **çağrı bile yapılmıyor**; sonuç
+/// promptta kullanılmayacaktı. Çağrı düşerse boş dönüyor ve prompt makineye
+/// özgü hiçbir sayı yazmıyor — yanlış bir tablo, tablosuzluktan kötüdür.
+///
+/// ⚠️ Sonuç **`Iz.ekranlar`'a konmuyor.** O alanın anlamı "modelin *baktığı*
+/// ekran" ve `ekran_disinda` kapısı ona dayanıyor; bütün monitörlerle
+/// doldurmak kapıyı sessizce her şeye açık hale getirirdi.
+async fn ekran_duzeni(
+    mcp: &crate::mcp::McpState,
+    araclar: &[model::ToolDef],
+) -> Vec<(u8, Kutu)> {
+    let masaustu_var = araclar
+        .iter()
+        .any(|t| crate::tools::grup(t.name(), None) == Grup::Desktop);
+    if !masaustu_var {
+        return Vec::new();
+    }
+    match mcp
+        .call_for_agent("screen_info".to_string(), serde_json::Map::new())
+        .await
+    {
+        Ok(r) if !r.hata => ekran_listesi(&r.metin),
+        _ => Vec::new(),
+    }
+}
+
 /// Masaüstü araçları verilmiş bir bota kilidin **o anki** durumunu söyler.
 ///
 /// **Neden gerekli:** kilitliyken pcbridge'in hata cümlesi "desktop_unlock
 /// bekliyor" diyor. Model bunu "çağırman gereken bir araç var" diye okuyup
 /// elinde olmayan aracı aramaya başlıyor — bir koşum bu yüzden 28 paragraf
 /// döndü. Durumu ve kimin açabileceğini baştan söylemek o döngüyü kesiyor.
-fn masaustu_notu(araclar: &[model::ToolDef], force: bool) -> String {
-    masaustu_notu_ile(araclar, &crate::desktop::read_state(), force)
+fn masaustu_notu(araclar: &[model::ToolDef], force: bool, ekranlar: &[(u8, Kutu)]) -> String {
+    masaustu_notu_ile(araclar, &crate::desktop::read_state(), force, ekranlar)
 }
 
 /// Kilit durumu dışarıdan verilir: iki dal da makinenin o anki hâline
@@ -1350,6 +1580,7 @@ fn masaustu_notu_ile(
     araclar: &[model::ToolDef],
     d: &crate::desktop::DesktopState,
     force: bool,
+    ekranlar: &[(u8, Kutu)],
 ) -> String {
     let masaustu: Vec<&str> = araclar
         .iter()
@@ -1372,7 +1603,7 @@ fn masaustu_notu_ile(
             "İzin şu an **açık**, yaklaşık {} dakika kaldı.\n",
             d.remaining.max(0) / 60
         ));
-        s.push_str(&masaustu_ipuclari(force));
+        s.push_str(&masaustu_ipuclari(force, ekranlar));
         return s;
     }
     s.push_str("İzin şu an **kapalı** ve kapalıyken hiçbir masaüstü aracı çalışmaz. ");
@@ -1381,7 +1612,7 @@ fn masaustu_notu_ile(
             "Açmak için `desktop_unlock` çağır; süreyi ve gerekçeyi sen verirsin. \
              Kullanıcının izin kipine göre bu çağrı onay isteyebilir.\n",
         );
-        s.push_str(&masaustu_ipuclari(force));
+        s.push_str(&masaustu_ipuclari(force, ekranlar));
     } else {
         s.push_str(
             "`desktop_unlock` senin araç listende **yok**, yani izni sen açamazsın. \
@@ -1398,7 +1629,7 @@ fn masaustu_notu_ile(
 /// ortasında düştü ve model şaşırdı; her eylem "kullanıcı aktif" diye
 /// reddedildi ve model gerekçeyi turlarca aradı; ölçekli ekran görüntüsünden
 /// koordinat hesaplamaya çalışıp yanlış pencereye tıkladı.
-fn masaustu_ipuclari(force: bool) -> String {
+fn masaustu_ipuclari(force: bool, ekranlar: &[(u8, Kutu)]) -> String {
     // Anahtar açıkken kapıyı uygulamanın kendisi kaldırıyor (`force_ekle`).
     // Modele hâlâ "reddedilebilirsin, `force` kullan" demek, olmayan bir
     // sorunu çözdürmeye çalışmak olurdu — ölçülen koşumda model tam bunun
@@ -1412,6 +1643,57 @@ fn masaustu_ipuclari(force: bool) -> String {
            böyle bir seçeneği varsa (`force`) onu kullan; her seferinde \
            baştan denemek tur harcar.\n"
     };
+    // **Ekran düzeni makineden okunuyor, prompta gömülü değil.** Eskiden
+    // burada "bu makinede iki ekran var, sağdakinin ofseti (1920, 0)" yazıyordu.
+    // Somut olmak işe yaradı (ölçüldü: model hesabı açıkça yazıp doğru yaptı)
+    // ama başka bir makinede — tek ekran, dikey dizilim, farklı çözünürlük —
+    // düpedüz yanlış olurdu. Tablo `screen_info`'dan geliyor; okunamadıysa
+    // makineye özgü **hiçbir sayı** yazılmıyor.
+    let ekran = match ekranlar {
+        [] => String::from(
+            "- **Ekran düzenini bilmiyorum.** Tıklamadan önce `screen_info` \
+               çağır: kaç ekran var, hangisinin ofseti ne. `screen_capture`'ı \
+               `monitor` vererek çağır ki tek bir görüntü gelsin, ve `mouse`'a \
+               o ekranın ofsetini **eklenmiş** global koordinatı ver.\n",
+        ),
+        [(no, k)] => format!(
+            "- **Tek ekran var** ({w}x{h}, ofset `({x}, {y})`). \
+               `screen_capture`'ı `monitor: \"{no}\"` ile çağır. \
+               `mouse`'a **global** koordinat ver: görüntüde okuduğun x/y'ye \
+               `({x}, {y})` ekle.\n",
+            w = k.w,
+            h = k.h,
+            x = k.x,
+            y = k.y,
+        ),
+        coklu => {
+            let satirlar = coklu
+                .iter()
+                .map(|(no, k)| {
+                    format!(
+                        "   · `monitor: \"{no}\"` — {w}x{h}, ofset `({x}, {y})`, \
+                         global x aralığı {x}–{sag}\n",
+                        w = k.w,
+                        h = k.h,
+                        x = k.x,
+                        y = k.y,
+                        sag = k.x + k.w - 1,
+                    )
+                })
+                .collect::<String>();
+            format!(
+                "- **Bu makinede {n} ekran var** ve `screen_capture`'ı **her \
+                   zaman `monitor` vererek** çağır; vermezsen hepsinin görüntüsü \
+                   birden gelir ve hangi resme baktığını karıştırırsın — \
+                   ölçüldü, en sık yapılan hata bu.\n\
+                 {satirlar}\
+                 - **`mouse`'a GLOBAL koordinat ver.** Görüntüde okuduğun x/y'ye \
+                   o ekranın ofsetini **ekle**; `monitor` parametresini `mouse`'a \
+                   verme. İşin hangi ekranda olduğunu `window_list` söyler.\n",
+                n = coklu.len(),
+            )
+        }
+    };
     format!(
         "\nBu makinede masaüstü hakkında bilinmesi gerekenler:\n\
          - **İzin boşta kalınca düşer** (bu makinede ~90 saniye). Uzun bir işte \
@@ -1422,29 +1704,24 @@ fn masaustu_ipuclari(force: bool) -> String {
            verir ve `ui_click` ıskalayamaz; koordinat tahmini son çare. Ağaç \
            boş dönerse (Chrome ve Electron uygulamaları vermiyor) ekran \
            görüntüsüne düş.\n\
-         - **`screen_capture`'ı her zaman `monitor` vererek çağır** \
-           (`monitor: \"2\"` gibi). Bu makinede **iki** ekran var; \
-           `monitor` vermezsen ikisinin görüntüsü birden gelir ve hangi \
-           resme baktığını karıştırırsın — ölçüldü, en sık yapılan hata bu. \
-           İşin hangi ekranda olduğunu `window_list` ve `screen_info` \
-           söyler.\n\
-         - **`mouse`'a GLOBAL koordinat ver.** Görüntüde okuduğun x'e o \
-           ekranın ofsetini **ekle**: yanıtta `@ (1920, 0)` diye yazan sayı \
-           odur. Soldaki ekranın ofseti `(0, 0)`, sağdakinin `(1920, 0)`. \
-           Yani sağ ekranın görüntüsünde gördüğün `x=120` aslında \
-           `x=2040`'tır.\n\
+         {ekran}\
          - **Görüntü sana tam çözünürlükte geliyor**; ölçeği uygulama \
            ayarlıyor, `scale` yazmana gerek yok. Ölçek 1.000, yani çarpan \
-           hesabı yok — yalnızca ofset toplaman gerekiyor.\n\
+           hesabı yok.\n\
          - **Aynı noktaya iki kez tıklayıp aynı ekranı gördüysen dur.** \
-           Üçüncü kez deneme; koordinatın yanlış demektir. Ofseti yeniden \
-           hesapla, ya da başka bir yol seç: `ui_dump`, klavye \
-           (`keyboard`), adres çubuğu, ya da kullanıcıya sor.\n\
+           Üçüncüyü uygulama zaten **engelliyor**; koordinatın yanlış demektir. \
+           Başka bir yol seç: `ui_dump` + `ui_click`, klavye (`keyboard`), \
+           `window_focus`, ya da kullanıcıya sor.\n\
          - Bir uygulamayı açmak için `window_focus` kullan; kapalıysa açar.\n"
     )
 }
 
-fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> String {
+fn sistem_prompt(
+    bot: &Bot,
+    araclar: &[model::ToolDef],
+    ozet: Option<&str>,
+    ekranlar: &[(u8, Kutu)],
+) -> String {
     let mut s = String::new();
     let yonerge = bot.preamble.trim();
     if !yonerge.is_empty() {
@@ -1470,7 +1747,7 @@ fn sistem_prompt(bot: &Bot, araclar: &[model::ToolDef], ozet: Option<&str>) -> S
              İhtiyacın olan bir araç listede yoksa onu başka bir yoldan \
              aramaya çalışma: kullanıcıya neye ihtiyacın olduğunu söyle ve dur.\n",
         );
-        s.push_str(&masaustu_notu(araclar, bot.force_when_busy));
+        s.push_str(&masaustu_notu(araclar, bot.force_when_busy, ekranlar));
     }
     if let Some(o) = ozet.filter(|o| !o.trim().is_empty()) {
         s.push_str(&sistem_ozetle("", o));
@@ -1814,6 +2091,16 @@ mod tests {
     /// kendisi sınandığı için değeri önemli değil.
     const TEST_MAX_TUR: u32 = 24;
 
+    /// Bu makinenin gerçek düzeni (`screen_info`, 2026-09-04): yan yana iki
+    /// 1920x1080. Prompt testleri bunu kullanıyor ki çok ekranlı dal gerçekten
+    /// koşsun.
+    fn iki_ekran() -> Vec<(u8, Kutu)> {
+        vec![
+            (1, Kutu { x: 0, y: 0, w: 1920, h: 1080 }),
+            (2, Kutu { x: 1920, y: 0, w: 1920, h: 1080 }),
+        ]
+    }
+
     fn arac(ad: &str) -> model::ToolDef {
         model::ToolDef::new(ad.into(), None, serde_json::json!({"type":"object"}))
     }
@@ -1877,7 +2164,7 @@ mod tests {
 
     #[test]
     fn sistem_promptu_yonergeyi_ve_dizini_tasir() {
-        let s = sistem_prompt(&bot("Kısa konuş."), &[arac("fs_list")], None);
+        let s = sistem_prompt(&bot("Kısa konuş."), &[arac("fs_list")], None, &[]);
         assert!(s.starts_with("Kısa konuş."), "{s}");
         assert!(s.contains("/tmp/proje"), "{s}");
         assert!(s.contains("aracı çağır"), "{s}");
@@ -1885,7 +2172,7 @@ mod tests {
 
     #[test]
     fn aracsiz_bota_arac_yok_denir() {
-        let s = sistem_prompt(&bot(""), &[], None);
+        let s = sistem_prompt(&bot(""), &[], None, &[]);
         assert!(s.contains("Araç yok"), "{s}");
     }
 
@@ -1893,10 +2180,10 @@ mod tests {
     fn ozet_sistem_mesajinin_icine_girer() {
         // Ayrı bir `system` mesajı ya da sohbetin ortasına düşen bir özet
         // kimi sunucuda reddediliyor; tek sistem mesajında duruyor.
-        let s = sistem_prompt(&bot(""), &[arac("fs_list")], Some("önceki konuşma"));
+        let s = sistem_prompt(&bot(""), &[arac("fs_list")], Some("önceki konuşma"), &[]);
         assert!(s.contains("## Önceki konuşmanın özeti"), "{s}");
         assert!(s.contains("önceki konuşma"), "{s}");
-        let bos = sistem_prompt(&bot(""), &[arac("fs_list")], Some("   "));
+        let bos = sistem_prompt(&bot(""), &[arac("fs_list")], Some("   "), &[]);
         assert!(!bos.contains("Önceki konuşmanın özeti"), "{bos}");
     }
 
@@ -2741,6 +3028,173 @@ mod tests {
         let _ = std::fs::remove_dir_all(&k);
     }
 
+    /// Diskteki koşumlardan **koordinat isabetini** skorlar.
+    ///
+    /// ```text
+    /// cargo test --lib skor_kosumlar -- --ignored --nocapture
+    /// SKOR_RUN=local-1a06900af3e-99da36 cargo test --lib skor_kosumlar -- --ignored --nocapture
+    /// ```
+    ///
+    /// **Kapının kendi ayrıştırıcılarını kullanıyor** (`ekran_kutulari`,
+    /// `Kutu::icerir`, `tekrar_tiklama`). Ayrı bir dilde ikinci bir uygulama
+    /// yazılsaydı skor kapıdan ayrışabilir ve yalan söyleyebilirdi.
+    ///
+    /// Taban (2026-09-04, Aşama 11'den önceki beş koşum):
+    /// **25 tıklama · 1 ekran-dışı · 2 tekrar.**
+    ///
+    /// ⚠️ Sütunlar **kapının kuralını** uyguluyor, ham deseni değil. Seri
+    /// sıfırlamasını yok sayan bir sayım aynı koşumlarda 8 tekrar buluyor;
+    /// kapı bilerek daha dar.
+    #[test]
+    #[ignore = "elle ölçüm: diskteki koşumları okur"]
+    fn skor_kosumlar() {
+        let kok = crate::runs::runs_dir();
+        let filtre = std::env::var("SKOR_RUN").ok();
+        let Ok(dizin) = std::fs::read_dir(&kok) else {
+            println!("koşum dizini yok: {}", kok.display());
+            return;
+        };
+        let mut adlar: Vec<String> = dizin
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|a| filtre.as_ref().is_none_or(|f| f == a))
+            .collect();
+        adlar.sort();
+
+        let (mut t, mut d, mut r, mut k, mut g) = (0u32, 0u32, 0u32, 0u32, 0u32);
+        println!(
+            "{:26} {:>4} {:>11} {:>7} {:>7} {:>8}",
+            "koşum", "tık", "ekran-dışı", "tekrar", "klavye", "görüntü"
+        );
+        for ad in &adlar {
+            let Ok(metin) = std::fs::read_to_string(kok.join(ad).join("messages.jsonl")) else {
+                continue;
+            };
+            let s = skorla(&metin);
+            if s.tiklama == 0 {
+                continue;
+            }
+            println!(
+                "{ad:26} {:4} {:11} {:7} {:7} {:8}",
+                s.tiklama, s.disarida, s.tekrar, s.klavye, s.goruntu
+            );
+            t += s.tiklama;
+            d += s.disarida;
+            r += s.tekrar;
+            k += s.klavye;
+            g += s.goruntu;
+        }
+        println!("{:26} {t:4} {d:11} {r:7} {k:7} {g:8}", "TOPLAM");
+    }
+
+    #[derive(Default)]
+    struct Skor {
+        tiklama: u32,
+        disarida: u32,
+        tekrar: u32,
+        klavye: u32,
+        goruntu: u32,
+    }
+
+    /// Bir koşumun `messages.jsonl`'ini kapının gözüyle yeniden oynatır.
+    fn skorla(metin: &str) -> Skor {
+        let mut s = Skor::default();
+        let mut iz = Iz::default();
+        // `tool` yanıtı hangi çağrıya ait: `screen_capture` sonucunu tanımak
+        // için gerekli, çünkü kutular yalnızca o yanıttan okunuyor.
+        let mut bekleyen: HashMap<String, String> = HashMap::new();
+
+        for satir in metin.lines().filter(|l| !l.trim().is_empty()) {
+            let Ok(m) = serde_json::from_str::<serde_json::Value>(satir) else {
+                continue;
+            };
+            if m["role"] == "tool" {
+                let id = m["tool_call_id"].as_str().unwrap_or_default();
+                if bekleyen.get(id).map(String::as_str) == Some("screen_capture") {
+                    let yeni = ekran_kutulari(m["content"].as_str().unwrap_or_default());
+                    if !yeni.is_empty() {
+                        iz.ekranlar = yeni;
+                    }
+                }
+                continue;
+            }
+            for tc in m["tool_calls"].as_array().into_iter().flatten() {
+                let ad = tc["function"]["name"].as_str().unwrap_or_default();
+                bekleyen.insert(
+                    tc["id"].as_str().unwrap_or_default().to_string(),
+                    ad.to_string(),
+                );
+                match ad {
+                    "keyboard" => s.klavye += 1,
+                    "screen_capture" => s.goruntu += 1,
+                    _ => {}
+                }
+                let args = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(
+                    tc["function"]["arguments"].as_str().unwrap_or("{}"),
+                )
+                .unwrap_or_default();
+
+                // Kaydın içinde başarısız çağrı ayırt edilemiyor (yanıt metni
+                // serbest); skor bu yüzden **her** çağrıyı işlemiş sayıyor.
+                // Kapı canlıda daha hoşgörülü, yani buradaki sayı üst sınır.
+                if seri_bitiren_mi(ad, &args) {
+                    iz.seriyi_bitir();
+                    continue;
+                }
+                if ad != "mouse" {
+                    continue;
+                }
+                if tekrar_tiklama(&iz, &args).is_some() {
+                    s.tekrar += 1;
+                }
+                if let Some(nokta) = tiklama_noktasi(&args) {
+                    s.tiklama += 1;
+                    if ekran_disinda(&iz.ekranlar, &args).is_some() {
+                        s.disarida += 1;
+                    }
+                    iz.tiklamalar.push(nokta);
+                }
+            }
+        }
+        s
+    }
+
+    /// **Gerçek pcbridge ile** ekran tablosu yolu. Model çalıştırmıyor:
+    /// yalnızca salt-okunur bir `screen_info` çağrısı.
+    ///
+    /// ```text
+    /// cargo test --lib gercek_screen_info -- --ignored --nocapture
+    /// ```
+    ///
+    /// Sınadığı iddia: **`screen_info` masaüstü kilitliyken de yanıt veriyor**,
+    /// yani sistem promptu kurulurken çağrılabilir ve kullanıcıya `desktop_unlock`
+    /// sormaz. Bu ölçülmemiş olsaydı bütün ekran tablosu işi kilide bağlı kalırdı.
+    #[tokio::test]
+    #[ignore = "pcbridge ayakta olmalı"]
+    async fn gercek_screen_info_kilitliyken_de_okunur() {
+        let mcp = crate::mcp::McpState::default();
+        mcp.connect(None).await.expect("pcbridge'e bağlanılamadı");
+
+        let r = mcp
+            .call_for_agent("screen_info".to_string(), serde_json::Map::new())
+            .await
+            .expect("screen_info çağrılamadı");
+        println!("--- screen_info ---\n{}\n---", r.metin);
+        assert!(!r.hata, "kilitliyken hata dönmemeli: {}", r.metin);
+
+        let ekranlar = ekran_listesi(&r.metin);
+        assert!(!ekranlar.is_empty(), "monitör okunamadı: {}", r.metin);
+        for (no, k) in &ekranlar {
+            println!("monitor {no}: {}x{} @ ({}, {})", k.w, k.h, k.x, k.y);
+            assert!(k.w > 0 && k.h > 0);
+        }
+
+        // Promptun bu tablodan ürettiği metin gerçekten makineyi anlatıyor mu.
+        let ipuclari = masaustu_ipuclari(false, &ekranlar);
+        println!("--- prompt ---\n{ipuclari}");
+        assert!(!ipuclari.contains("Ekran düzenini bilmiyorum"), "{ipuclari}");
+    }
+
     /// **Gerçek model ve gerçek pcbridge ile** uçtan uca. Varsayılan olarak
     /// çalışmaz; ölçüm yapılacağı zaman açıkça istenir:
     ///
@@ -2997,14 +3451,14 @@ mod tests {
     fn sistem_promptu_olmayan_araci_aramamayi_soyler() {
         // Bir koşum bu satır olmadığı için 28 paragraf döndü: model listede
         // bulamadığı `desktop_unlock`'u "başka bir yolu olmalı" diye aradı.
-        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None);
+        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None, &[]);
         assert!(s.contains("yalnızca sana verilen listedekiler"), "{s}");
         assert!(s.contains("kullanıcıya neye ihtiyacın olduğunu söyle"), "{s}");
     }
 
     #[test]
     fn masaustu_araci_yoksa_kilit_notu_da_yok() {
-        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None);
+        let s = sistem_prompt(&bot(""), &[arac("fs_list")], None, &[]);
         assert!(!s.contains("Masaüstü"), "gereksiz not: {s}");
     }
 
@@ -3287,14 +3741,14 @@ mod tests {
     fn kilitliyken_kimin_acacagi_yazilir() {
         // `desktop_unlock` listede **yok**: modele "sen açamazsın, iste ve
         // bekle" denmeli. Bu satır olmadan model olmayan aracı arıyordu.
-        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(false), false);
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(false), false, &iki_ekran());
         assert!(s.contains("kapalı"), "{s}");
         assert!(s.contains("araç listende **yok**"), "{s}");
         assert!(s.contains("başka bir yol arama"), "{s}");
 
         // Listede **var**: modele kendi açabileceği söylenmeli. Kullanıcının
         // istediği otomasyon tam olarak bu.
-        let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &kilit(false), false);
+        let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &kilit(false), false, &iki_ekran());
         assert!(s.contains("kapalı"), "{s}");
         assert!(s.contains("`desktop_unlock` çağır"), "{s}");
         assert!(!s.contains("listende **yok**"), "{s}");
@@ -3358,6 +3812,148 @@ mod tests {
         kaydir.insert("action".into(), "scroll".into());
         kaydir.insert("scroll_amount".into(), (-3).into());
         assert_eq!(ekran_disinda(&sag, &kaydir), None);
+    }
+
+    fn fare(eylem: &str, x: i64, y: i64) -> serde_json::Map<String, serde_json::Value> {
+        let mut m = serde_json::Map::new();
+        m.insert("action".into(), eylem.into());
+        m.insert("x".into(), x.into());
+        m.insert("y".into(), y.into());
+        m
+    }
+
+    /// ⚠️ **Gerçek bir koşumdan** (`local-1a06900af3e-99da36`): model adres
+    /// çubuğunu ararken `x≈2028`'e dört kez tıkladı (`y = 102, 95, 63, 95`),
+    /// sonra ofseti unutup masaüstünü sildirdi. Sistem promptu "üçüncü kez
+    /// deneme" diyordu; model dinlemedi. Bu test o dört tıklamayı oynatıyor.
+    #[test]
+    fn ayni_yere_ucuncu_tiklama_engellenir() {
+        let mut iz = Iz::default();
+
+        // Birinci: kapı açık, kayıt düşüyor.
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 2028, 102)), None);
+        iz.tiklamalar.push((2028, 102));
+
+        // İkinci **serbest**: pcbridge'in boşta-kalma kapısı ilk denemeyi
+        // reddedebiliyor ve model `force` ile meşru olarak yineliyor.
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 2030, 95)), None);
+        iz.tiklamalar.push((2030, 95));
+
+        // Üçüncü: koordinat yanlış, döngü kesiliyor.
+        assert_eq!(
+            tekrar_tiklama(&iz, &fare("click", 2027, 63)),
+            Some((2027, 63))
+        );
+
+        // Uzaktaki bir hedef aynı seride serbest kalıyor.
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 2028, 400)), None);
+    }
+
+    /// Bölgenin sınırı: **tam** 50 px içeride sayılıyor, 51 px dışarıda değil.
+    #[test]
+    fn bolge_yaricapi_elli_piksel() {
+        let mut iz = Iz::default();
+        iz.tiklamalar = vec![(1000, 1000), (1000, 1000)];
+
+        assert!(tekrar_tiklama(&iz, &fare("click", 1050, 1050)).is_some());
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 1051, 1050)), None);
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 1050, 1051)), None);
+    }
+
+    /// Tıklama olmayan fare eylemleri sayılmaz — hiçbir şeye basmıyorlar.
+    #[test]
+    fn tiklama_olmayan_eylemler_sayilmaz() {
+        let mut iz = Iz::default();
+        iz.tiklamalar = vec![(500, 500), (505, 505)];
+
+        assert_eq!(tekrar_tiklama(&iz, &fare("move", 500, 500)), None);
+        assert_eq!(tekrar_tiklama(&iz, &fare("hold", 500, 500)), None);
+
+        // Ama gerçek tıklama biçimlerinin hepsi sayılıyor.
+        for eylem in ["click", "double_click", "triple_click", "right_click", "middle_click"] {
+            assert!(
+                tekrar_tiklama(&iz, &fare(eylem, 500, 500)).is_some(),
+                "{eylem} tıklama sayılmalı"
+            );
+        }
+    }
+
+    /// Ekranı değiştiren bir eylemden sonra seri sıfırlanır: aynı koordinat
+    /// artık başka bir şeye denk gelebilir.
+    #[test]
+    fn ekrani_degistiren_eylem_seriyi_sifirlar() {
+        let bos = serde_json::Map::new();
+        for tool in ["keyboard", "window_focus", "ui_click", "ui_set_text", "computer_batch"] {
+            assert!(seri_bitiren_mi(tool, &bos), "{tool} seriyi bitirmeli");
+        }
+        assert!(seri_bitiren_mi("mouse", &fare("scroll", 0, 0)));
+        assert!(seri_bitiren_mi("mouse", &fare("drag", 0, 0)));
+
+        // ⚠️ **Görüntü almak sıfırlayıcı DEĞİL.** Ölçüldü: model 25 tıklama
+        // için 39 ekran görüntüsü aldı — yani her tıklamadan sonra zaten
+        // bakıyordu ve yine yanına tıklıyordu. Sıfırlayıcı sayılsaydı kapı
+        // doğduğu gün işlevsiz olurdu.
+        assert!(!seri_bitiren_mi("screen_capture", &bos));
+        assert!(!seri_bitiren_mi("ui_dump", &bos));
+        assert!(!seri_bitiren_mi("mouse", &fare("click", 0, 0)));
+
+        let mut iz = Iz::default();
+        iz.tiklamalar = vec![(100, 100), (100, 100)];
+        assert!(tekrar_tiklama(&iz, &fare("click", 100, 100)).is_some());
+        iz.seriyi_bitir();
+        assert_eq!(tekrar_tiklama(&iz, &fare("click", 100, 100)), None);
+    }
+
+    /// `screen_info` çıktısı monitör numarasıyla birlikte okunuyor.
+    ///
+    /// Dizge bu makinenin **gerçek** yanıtı (2026-09-04), elle yazılmış bir
+    /// örnek değil.
+    #[test]
+    fn ekran_listesi_gercek_screen_info_ciktisindan_okunur() {
+        let gercek = "tuval: 3840x1080 · 2 monitor (soldan saga numarali)\n  \
+             1: DP-2 · 1920x1080 @ (0, 0) · olcek 1\n  \
+             2: DP-1 (birincil) · 1920x1080 @ (1920, 0) · olcek 1\n  \
+             GNOME ust cubugu ve Super menusu birincil monitorde: 2/DP-1\n";
+        assert_eq!(
+            ekran_listesi(gercek),
+            vec![
+                (1, Kutu { x: 0, y: 0, w: 1920, h: 1080 }),
+                (2, Kutu { x: 1920, y: 0, w: 1920, h: 1080 }),
+            ]
+        );
+
+        // `screen_capture` başlığında monitör numarası `N: ` biçiminde değil;
+        // bu okuyucuya düşmemeli.
+        assert!(ekran_listesi(
+            "**2 · DP-1 (birincil)** · 1920x1080 @ (1920, 0) → 1920x1080 (olcek 1.000)"
+        )
+        .is_empty());
+        assert!(ekran_listesi("bambaşka bir metin").is_empty());
+    }
+
+    /// ⚠️ Prompt makineye özgü sayıları **sabit yazmıyor**, tablodan üretiyor.
+    ///
+    /// Eskiden burada "bu makinede iki ekran var, sağdakinin ofseti
+    /// `(1920, 0)`" yazıyordu; başka bir makinede düpedüz yanlış olurdu.
+    #[test]
+    fn ekran_tablosu_prompta_olculen_veriden_girer() {
+        let iki = masaustu_ipuclari(false, &iki_ekran());
+        assert!(iki.contains("2 ekran var"), "{iki}");
+        assert!(iki.contains("her zaman `monitor` vererek"), "{iki}");
+        assert!(iki.contains("ofset `(1920, 0)`"), "{iki}");
+        assert!(iki.contains("1920–3839"), "global aralık yazılmalı: {iki}");
+
+        // Tek ekranda ofset anlatısı hiç kurulmuyor.
+        let tek = masaustu_ipuclari(false, &[(1, Kutu { x: 0, y: 0, w: 2560, h: 1440 })]);
+        assert!(tek.contains("Tek ekran var"), "{tek}");
+        assert!(!tek.contains("1920"), "başka makinenin sayısı sızmamalı: {tek}");
+        assert!(tek.contains("2560x1440"), "{tek}");
+
+        // Tablo okunamadıysa **hiçbir sayı** uydurulmuyor.
+        let bos = masaustu_ipuclari(false, &[]);
+        assert!(bos.contains("Ekran düzenini bilmiyorum"), "{bos}");
+        assert!(!bos.contains("1920"), "{bos}");
+        assert!(bos.contains("`screen_info`"), "modele yolu gösterilmeli: {bos}");
     }
 
     /// Sürüklemenin **varış** noktası da denetleniyor.
@@ -3452,11 +4048,11 @@ mod tests {
     fn anahtar_acikken_prompt_force_istemiyor() {
         let araclar = [arac("ui_click"), arac("mouse")];
 
-        let kapali = masaustu_notu_ile(&araclar, &kilit(true), false);
+        let kapali = masaustu_notu_ile(&araclar, &kilit(true), false, &iki_ekran());
         assert!(kapali.contains("eylem reddedilir"), "{kapali}");
         assert!(kapali.contains("onu kullan"), "modelden istenmeli: {kapali}");
 
-        let acik = masaustu_notu_ile(&araclar, &kilit(true), true);
+        let acik = masaustu_notu_ile(&araclar, &kilit(true), true, &iki_ekran());
         assert!(acik.contains("makinedeyken de eylemlerin çalışır"), "{acik}");
         assert!(
             !acik.contains("eylem reddedilir"),
@@ -3486,7 +4082,7 @@ mod tests {
         // düşüyor, kullanıcı aktifken eylem reddediliyor, koordinatlar
         // ekran başına değil global.
         for d in [kilit(true), kilit(false)] {
-            let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d, false);
+            let s = masaustu_notu_ile(&[arac("ui_click"), arac("desktop_unlock")], &d, false, &iki_ekran());
             assert!(s.contains("boşta kalınca düşer"), "{s}");
             assert!(s.contains("force"), "{s}");
             assert!(s.contains("her zaman `monitor` vererek"), "{s}");
@@ -3497,12 +4093,12 @@ mod tests {
             assert!(s.contains("ui_dump"), "{s}");
         }
         // Masaüstü aracı olmayan bota bu bilgiler gereksiz.
-        assert!(!sistem_prompt(&bot(""), &[arac("fs_list")], None).contains("force"));
+        assert!(!sistem_prompt(&bot(""), &[arac("fs_list")], None, &[]).contains("force"));
     }
 
     #[test]
     fn izin_acikken_kalan_sure_yazilir() {
-        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(true), false);
+        let s = masaustu_notu_ile(&[arac("ui_click")], &kilit(true), false, &iki_ekran());
         assert!(s.contains("açık"), "{s}");
         assert!(s.contains("10 dakika"), "600 sn → 10 dk: {s}");
         assert!(
@@ -3515,7 +4111,7 @@ mod tests {
     fn kilit_durumu_bilinmiyorsa_uydurulmaz() {
         let mut d = kilit(false);
         d.known = false;
-        let s = masaustu_notu_ile(&[arac("ui_click")], &d, false);
+        let s = masaustu_notu_ile(&[arac("ui_click")], &d, false, &iki_ekran());
         assert!(s.contains("okunamıyor"), "{s}");
         assert!(!s.contains("kapalı"), "bilinmeyen durum 'kapalı' diye sunulmamalı: {s}");
     }

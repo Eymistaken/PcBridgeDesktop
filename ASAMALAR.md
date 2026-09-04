@@ -817,6 +817,133 @@ görüntüsüne düşmeye devam edecek — `scale = 0` işi bu yüzden daha da �
 yerde `ui_click` zaten ıskalamıyor, konuşmadığı yerde (Chrome, Electron)
 etiketlerin koordinatını verecek bir kaynak yok.
 
+## Aşama 11 — Tekrar tıklama kapısı, gerçek ekran tablosu, skorlayıcı ✅ BİTTİ
+
+*2026-09-04.* Aşama 10'un kapıları **sonucu** yakalıyordu, sebebi açık
+kalmıştı: "model bulduğu koordinatı unutuyor". Bu aşama önce **ölçtü**, sonra
+ölçtüğünü düzeltti.
+
+### Ölçüm önce geldi ve çerçeveyi düzeltti
+
+Model koşturulmadan, diskteki beş masaüstü koşumunun `messages.jsonl`'i
+`ekran_kutulari` mantığıyla yeniden oynatıldı:
+
+| | sayı |
+|---|---|
+| tıklama | 25 |
+| ekranın **dışına** düşen (ofset unutulmuş) | **1** |
+| daha önce tıklanan bir noktanın 50 px yakınına yeniden tıklama | **8** |
+
+**Ofset artık ana sorun değil.** 25'te 1, ve o bir tanesi Aşama 10'un kapısına
+zaten takılıyor — `scale = 0` düzeltmesi işini görmüş. Ana desen başka: model
+tıklıyor, görüntü alıyor, bakıyor, **birkaç piksel yanına yeniden tıklıyor.**
+Felaket koşumunda adres çubuğu için `y = 102 → 95 → 63 → 95`.
+
+⚠️ **Üç bilgilendirme kanalı zaten oradaydı ve üçü de dinlenmedi:**
+
+1. `mouse` yanıtı hangi monitöre düştüğünü **yazıyor** —
+   `(250, 34) konumuna left tiklama · monitor 1 (DP-2).` Model o cümleyi gördü
+   ve o tur boyunca ekran 2'de çalışıyordu.
+2. `screen_capture` dönüşüm formülünü **her seferinde** veriyor
+   (`global_x = ofset_x + goruntu_x / olcek`).
+3. Model 25 tıklama için **39 ekran görüntüsü** aldı; yani her tıklamadan
+   sonra zaten doğruluyordu, sonra yine yanına tıklıyordu.
+
+**Buradan çıkan kural:** araç yanıtına bilgi eklemek bu modelde tek başına
+davranış değiştirmiyor. Kaldıraç ya koordinat kararını modelden almak ya da
+eylemi engellemek. Bu yüzden YAPILACAKLAR.md'deki A (tıklama sonrası odak
+satırı) ve B (hedef defteri) fikirleri **yazılmadı, ertelendi**; kullanıcı da
+bu yönde karar verdi.
+
+### Dördüncü kapı — aynı yere ısrar
+
+Sistem promptu 2026-09-03'ten beri *"aynı noktaya iki kez tıklayıp aynı ekranı
+gördüysen dur"* diyordu. `agent.rs::tehlike_kapisi` artık üçüncüsünü
+**engelliyor**.
+
+- Sayılan eylemler: `click` · `double_click` · `triple_click` · `right_click` ·
+  `middle_click`. `move` sayılmaz.
+- Bölge yarıçapı 50 px (`YAKIN_PX`), tavan iki önceki tıklama
+  (`TEKRAR_TAVANI`). **İkinci deneme serbest:** pcbridge'in boşta-kalma kapısı
+  ilk çağrıyı reddedebiliyor ve model `force` ile meşru olarak yineliyor —
+  ölçüldü (`local-1a066e01592-b08137`).
+- **Yalnızca çalışmış tıklamalar kaydediliyor** (`sonuc.hata == false`);
+  olmamış bir denemeyi saymak meşru tekrarı cezalandırırdı.
+- Seri **sıfırlanıyor** ekranı değiştirebilen bir araçta: `keyboard` ·
+  `window_focus` · `ui_click` · `ui_set_text` · `computer_batch` ·
+  `computer_task` · `mouse` `scroll`/`drag`/`hold`/`release`.
+- ⚠️ **`screen_capture` ve `ui_dump` sıfırlamıyor** — bilerek. Model zaten her
+  tıklamadan sonra görüntü alıyordu (39/25); görüntüyü sıfırlayıcı saymak
+  kapıyı doğduğu gün işlevsiz bırakırdı.
+
+Red **sessiz değil** ve somut alternatif veriyor: `ui_dump` + `ui_click`,
+klavye (`ctrl+l`), `window_focus`, ya da kullanıcıya sormak.
+
+**Kapının kendi sayısı ham desenden küçük ve bilerek öyle: 25'te 2, 8 değil.**
+Aradaki fark seri sıfırlaması. Yakalanan iki tanesi felaket koşumunun adres
+çubuğu avındaki üçüncü ve dördüncü deneme — model o ikisini harcadıktan sonra
+zaten `ctrl+l`'e dönmüştü ve o çalışmıştı. Yani kapı onu iki tur önce oraya
+göndermiş olurdu.
+
+`Iz` yapısı kondu: koşum ömürlü, modelin **baktığı** ekranları ve **yaptığı**
+tıklamaları birlikte taşıyor. İki `&mut` parametresi yerine tek bir tür.
+
+### Ekran düzeni artık makineden okunuyor
+
+Prompt *"bu makinede iki ekran var, sağdakinin ofseti `(1920, 0)`"* diye
+**sabit** yazıyordu. Somut olmak işe yarıyordu ama başka bir makinede yanlış
+olurdu.
+
+- **Ölçüldü: `screen_info` masaüstü kilitliyken de çalışıyor.** Yani sistem
+  promptu kurulurken çağrılabiliyor, `desktop_unlock` gerekmiyor, kullanıcıya
+  bir şey sorulmuyor. Canlı bir `#[ignore]` testi bunu sabitliyor
+  (`gercek_screen_info_kilitliyken_de_okunur`).
+- Geometri ayrıştırması **tek yerde**: `kutu_satiri`. Üstüne iki okuyucu
+  biniyor — `ekran_kutulari` (kapı, `screen_capture` başlığı, etiketsiz) ve
+  `ekran_listesi` (prompt, `screen_info`, monitör numarasıyla).
+- Prompt üç dalda: tablo yoksa **hiçbir sayı uydurulmuyor**; tek ekranda ofset
+  anlatısı hiç kurulmuyor; çok ekranda numara, boyut, ofset ve global x aralığı
+  listeleniyor.
+- ⚠️ `screen_info`'dan gelen kutular **`Iz.ekranlar`'a konmuyor.** O alanın
+  anlamı "modelin *baktığı* ekran"; bütün monitörlerle doldurmak
+  `ekran_disinda` kapısını sessizce her şeye açık hale getirirdi. Türler bile
+  farklı (`Vec<(u8, Kutu)>` / `Vec<Kutu>`), yani karıştırılamıyor.
+
+⚠️ **Yolda bulunan çelişki:** `screen_info`'nun son satırı *"bir monitore ozel
+koordinat veriyorsaniz `monitor` parametresini de verin, ofseti pcbridge
+ekler"* diyor; `screen_capture`'ın yanıtı ise *"`mouse` aracina **global**
+koordinati verin, `monitor` parametresi olmadan"*. pcbridge modele iki ayrı
+yerde iki ayrı şey söylüyor. Prompt `screen_capture`'ınkiyle uyumlu tutuldu —
+tıklama anında modelin elindeki yanıt odur.
+
+### Skorlayıcı — "düzeldi" artık bir sayı
+
+```bash
+cargo test --lib skor_kosumlar -- --ignored --nocapture
+```
+
+Diskteki koşumları **kapının kendi ayrıştırıcılarıyla** yeniden oynatıp
+tıklama · ekran-dışı · tekrar · klavye · görüntü sütunlarını basıyor. Ayrı bir
+dilde ikinci bir uygulama yazılmadı: skorun değeri kapının aynısını
+ölçmesinden geliyor, ayrışırsa yalan söylerdi.
+
+**Taban (Aşama 11'den önceki beş koşum): 25 tıklama · 1 ekran-dışı · 2 tekrar.**
+
+⚠️ **Uçtan uca doğrulama yapılmadı ve bu bilinçli.** Yerel modelle masaüstü
+testi kullanıcının isteğiyle yasak (2026-09-04, veri kaybı sonrası). Kapılar
+birim testleriyle sınandı, prompt canlı `screen_info` ile doğrulandı, ama
+**gerçek bir koşumda tetiklendiği görülmedi.** Bitiş ölçütü YAPILACAKLAR.md'de.
+
+### Doğrulama
+
+- `cargo test --lib` → **132 geçti**, 5 `#[ignore]`.
+- **Testin dişi var:** kapı `None` döndürecek şekilde geri alınıp sabit prompt
+  metni geri konunca **7 test kırmızıya döndü**; sonra geri yüklendi.
+- `cargo test --lib skor_kosumlar -- --ignored` → tabanı bastı.
+- `cargo test --lib gercek_screen_info -- --ignored` → canlı pcbridge, kilitli
+  masaüstü, tablo okundu ve prompt üretildi.
+- `npm run tauri dev` 90 saniye ayakta, hata yok.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

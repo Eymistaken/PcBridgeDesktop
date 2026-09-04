@@ -8,24 +8,15 @@ derse **başka bir şey sormadan** şunu yap:
 1. **`YAPILACAKLAR.md`'yi oku.** Sıradaki iş orada, ayrıntısıyla ve ölçümüyle.
    Dosya **yereldir, depoda yoktur** (kullanıcının isteğiyle izlenmiyor);
    yoksa kullanıcıya söyle, **içeriğini uydurma**.
-2. **Sıradaki konu: koordinat açığı — ve bu bir sohbet, bir görev değil.**
-   Kullanıcı 2026-09-04'te bunu birlikte düşünmek istediğini söyledi.
-   `YAPILACAKLAR.md`'deki "⚠️ AÇIK: model bulduğu koordinatı unutuyor"
-   başlığını **oku**, sonra:
-   - **Soru sor.** Orada dört açık soru yazılı (defteri kim yönetir, pencere
-     kayınca kim fark eder, hangi fikir hangisinin yerine geçer, ölçüm nasıl
-     yapılır). Kullanıcı bunlara yanıt bekliyor — kendi başına karar verip
-     kodlamaya başlama.
-   - **Kendi fikrini de öner.** Dosyada üç fikir ve bir **çürütülmüş** fikir
-     duruyor; körlemesine onaylama, tartışmaya bir şey kat. Yeni bir fikir
-     bulursan oraya yaz.
-   - ⛔ **Sınamak yerel model koşumu gerektirir ve o yasak** (madde 4).
-     Tasarımı konuşabilirsin, kodu yazabilirsin, **koşturamazsın.**
-3. **Sonraki iş (koordinat konuşulup bağlandıktan sonra): Eklentiler
-   (MCP kayıt defteri).** Başlamadan önce "Karar verilmemiş: araçları kim
-   tüketiyor" başlığını oku ve **A/B ayrımını sor** — A (kayıt defteri +
-   Gmail bağlantısı) bu depoda baştan sona yapılabilir, B (bağlantıyı
-   `pcbridge-agent` botlarına vermek) pcbridge'de iş istiyor ve
+2. ✅ **Koordinat açığı 2026-09-04'te kapandı (Aşama 11).** Kayıt
+   `YAPILACAKLAR.md`'de "✅ KAPANDI: koordinat isabeti". Orada **bekleyen tek
+   şey ölçüm**: yasak kalkınca sabit görev × 5 koşum, sonra
+   `cargo test --lib skor_kosumlar -- --ignored --nocapture`. Taban ve
+   "düzeldi" ölçütü o başlıkta yazılı.
+3. **Sıradaki iş: Eklentiler (MCP kayıt defteri).** Başlamadan önce "Karar
+   verilmemiş: araçları kim tüketiyor" başlığını oku ve **A/B ayrımını sor** —
+   A (kayıt defteri + Gmail bağlantısı) bu depoda baştan sona yapılabilir,
+   B (bağlantıyı `pcbridge-agent` botlarına vermek) pcbridge'de iş istiyor ve
    `backend: "yerel-model"` botları için hiç gerekmiyor.
 4. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
@@ -38,10 +29,11 @@ derse **başka bir şey sormadan** şunu yap:
      yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
    - Markdown çözümleyicisinin **birim testi yok**; projede JS test koşucusu
      yok ve eklemek ayrı bir karar. Doğrulama iki temada gözle yapıldı.
-   - Aşama 10'un koordinat düzeltmesi **bir koşumda** ölçüldü. Masaüstü
-     isabeti hâlâ zayıfsa sıradaki adım Set-of-Mark; gerekçesi ve neden
-     bugün yazılmadığı YAPILACAKLAR.md'de.
-6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on aşama da bitti.**
+   - **Aşama 11'in kapısı gerçek bir koşumda tetiklendiği görülmedi** —
+     yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
+     hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
+     hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
+6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on bir aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
 7. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
@@ -91,6 +83,14 @@ gerçek terminal ızgarası.
   kullanıcı "serbest" dese bile sorulmaz, engellenir.
   Bir prompt satırı bunun yerine geçmez — model aynı koşumda dört kez doğru
   yapıp beşincide unuttu.
+- **Dördüncü kapı ısrarı kesiyor** (Aşama 11): aynı bölgeye (50 px) üçüncü
+  tıklama engellenir. Bu bir veri kaybı kapısı değil, boşa dönen turları
+  kesiyor; ölçüldü ki model hedefi ıskaladığında koordinatı 30–40 px oynatıp
+  yeniden deniyor. Sayılar aşağıda, "Ne sık bozuluyor".
+- **Araç yanıtına bilgi eklemek davranış değiştirmiyor.** `mouse` yanıtı
+  monitörü zaten yazıyordu, `screen_capture` dönüşüm formülünü zaten veriyordu,
+  model her tıklamadan sonra görüntü zaten alıyordu — üçü de dinlenmedi.
+  Kaldıraç ya kararı modelden almak ya da eylemi engellemek.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"
@@ -640,6 +640,72 @@ yapması gerektiğini anlatan bir metin, kullanıcıya sohbette bir `⛔` satır
 gidiyor. Reddin gerekçesi yazılı olmasaydı model çağrıyı arıza sanıp
 yineleyecekti — bu daha önce ölçüldü.
 
+#### Ne sık bozuluyor — 2026-09-04'te sayıldı (Aşama 11)
+
+Diskteki beş masaüstü koşumunun `messages.jsonl`'i, model koşturulmadan,
+kapının kendi ayrıştırıcısıyla yeniden oynatıldı:
+
+| | sayı |
+|---|---|
+| tıklama | 25 |
+| ekranın **dışına** düşen (ofset unutulmuş) | **1** |
+| daha önce tıklanan bir noktanın 50 px yakınına yeniden tıklama | **8** |
+
+**Ofset artık ana sorun değil** — `scale = 0` düzeltmesi işini görmüş, ve kalan
+tek vaka zaten kapıya takılıyor. Ana desen **aynı yere tekrar tıklamak**:
+model tıklıyor, görüntü alıyor, bakıyor, birkaç piksel yanına yeniden
+tıklıyor. Felaket koşumunda adres çubuğu için `y = 102 → 95 → 63 → 95`.
+
+⚠️ **Üç bilgilendirme kanalı zaten oradaydı, üçü de dinlenmedi:**
+
+1. **`mouse` yanıtı hangi monitöre düştüğünü yazıyor** —
+   `(250, 34) konumuna left tiklama · monitor 1 (DP-2).` Model o cümleyi gördü,
+   o tur boyunca ekran 2'de çalışıyordu, ve devam etti.
+2. **`screen_capture` dönüşüm formülünü her seferinde veriyor** —
+   `global_x = ofset_x + goruntu_x / olcek`.
+3. **25 tıklama için 39 ekran görüntüsü** alındı; yani model her tıklamadan
+   sonra zaten doğruluyordu.
+
+⇒ **Araç yanıtına bilgi eklemek bu modelde tek başına davranış değiştirmiyor.**
+Kaldıraç ikisinden biri: koordinat kararını modelden almak, ya da eylemi
+engellemek. "Tıklamadan sonra odağı söyle" türü fikirler bu ölçümün karşısında
+tartılmalı — bilginin bir biçimi zaten oradaydı.
+
+**Kondu — dördüncü kapı (`tehlike_kapisi`):** aynı bölgeye (50 px) üçüncü
+tıklama engelleniyor. İkinci serbest, çünkü pcbridge'in boşta-kalma kapısı ilk
+çağrıyı reddedip modele meşru bir `force` tekrarı yaptırabiliyor. Yalnızca
+**çalışmış** tıklamalar sayılıyor. Seri `keyboard` · `window_focus` ·
+`ui_click` · `ui_set_text` · `computer_batch` · `computer_task` ve
+`mouse` `scroll`/`drag`/`hold`/`release` ile sıfırlanıyor;
+**`screen_capture` ve `ui_dump` sıfırlamıyor** — model zaten her tıklamadan
+sonra bakıyordu, görüntüyü sıfırlayıcı saymak kapıyı doğduğu gün işlevsiz
+bırakırdı.
+
+**Kapının kendi sayısı ham desenden küçük: 25'te 2, 8 değil.** Fark seri
+sıfırlaması. Yakalanan ikisi felaket koşumunun adres çubuğu avındaki üçüncü ve
+dördüncü deneme; model onları harcadıktan sonra zaten `ctrl+l`'e dönmüştü ve o
+çalışmıştı — kapı onu iki tur önce oraya göndermiş olurdu.
+
+#### Ekran düzeni promptta sabit değil — 2026-09-04'te ölçüldü
+
+- **`screen_info` masaüstü kilitliyken de çalışıyor.** Ölçüldü: kilitli hâlde
+  tam monitör tablosunu döndürdü (`window_list` ve `ui_dump` döndürmüyor).
+  Yani sistem promptu kurulurken çağrılabiliyor, `desktop_unlock` gerekmiyor.
+  Prompt artık *"iki ekran, sağdakinin ofseti (1920, 0)"* diye sabit yazmıyor,
+  tabloyu buradan üretiyor; tablo okunamazsa **hiçbir sayı uydurulmuyor**.
+- **Geometri ayrıştırıcısı tek:** `agent.rs::kutu_satiri`. Üstünde iki okuyucu
+  var — `ekran_kutulari` (kapı, `screen_capture` başlığı) ve `ekran_listesi`
+  (prompt, `screen_info`, monitör numarasıyla). İkisi de aynı `… 1920x1080 @
+  (1920, 0) …` biçimini çözüyor; ayrı ayrıştırıcılar ayrışırdı.
+- ⚠️ **`screen_info`'nun kutuları kapının durumuna konmaz.** `Iz.ekranlar`
+  "modelin **baktığı** ekran" demek; bütün monitörlerle doldurmak
+  `ekran_disinda`'yı sessizce her şeye açık hale getirirdi.
+- ⚠️ **pcbridge modele iki ayrı yerde iki ayrı şey söylüyor.** `screen_info`:
+  *"bir monitore ozel koordinat veriyorsaniz `monitor` parametresini de verin,
+  ofseti pcbridge ekler"*. `screen_capture`: *"`mouse` aracina **global**
+  koordinati verin, `monitor` parametresi olmadan"*. Prompt ikincisiyle uyumlu
+  tutuluyor — tıklama anında modelin elindeki yanıt odur.
+
 #### Chrome'un erişilebilirlik ağacı — ölçüldü ama **kullanılmıyor**
 
 - **`ui_dump`'ın Chrome'da boş dönmesinin sebebi bulundu:**
@@ -852,6 +918,25 @@ PTY + tmux yankısı 0,1–0,3 ms çıktı.
 ```bash
 cargo test --lib pty::tests::olcum -- --ignored --nocapture
 ```
+
+### 5. Koşum kaydından skorlamak — modeli hiç çalıştırmadan
+
+Masaüstü koşumları `~/.local/state/pcbridge-desktop/runs/<id>/messages.jsonl`'e
+yazılıyor ve **oradan yeniden oynatılabiliyor.** Aşama 11'in bütün ölçümü böyle
+yapıldı; yerel model koşumu yasakken bile taban hesaplandı.
+
+```bash
+cargo test --lib skor_kosumlar -- --ignored --nocapture
+SKOR_RUN=local-1a06900af3e-99da36 cargo test --lib skor_kosumlar -- --ignored --nocapture
+```
+
+- **Kapının kendi ayrıştırıcılarını kullanır** (`ekran_kutulari`,
+  `Kutu::icerir`, `tekrar_tiklama`). Ayrı bir dilde ikinci bir uygulama
+  yazılırsa skor kapıdan ayrışır ve **yalan söyler** — bir kez oldu: hızlı bir
+  Python prototipi seri sıfırlamasını hesaba katmadığı için 8 tekrar saydı,
+  kapının kendi kuralı 2 diyor.
+- Kaydın içinde başarısız çağrı ayırt edilemiyor (yanıt metni serbest), o yüzden
+  skor **üst sınır** verir; canlı kapı daha hoşgörülü.
 
 ### Testin dişi var mı?
 
