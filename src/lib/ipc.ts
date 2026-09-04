@@ -11,15 +11,11 @@ import type {
   ConnSnapshot,
   DesktopReply,
   DesktopState,
-  GmailState,
   McpTool,
-  McpServer,
   ModelConfig,
   ModelInfo,
-  PluginStatus,
   PendingPermission,
   RunCtx,
-  ServerDraft,
   Shots,
   TerminalsView,
   Turn,
@@ -234,33 +230,3 @@ export const modelModels = (baseUrl?: string) =>
 
 /** Araç filtresinin listelediği araçlar — ad, açıklama, şema. */
 export const mcpTools = () => call<McpTool[]>("mcp_tools");
-
-// ─────────────────────────── eklentiler ───────────────────────────
-
-export const listServers = () => call<McpServer[]>("list_servers");
-export const pluginStatus = () => call<PluginStatus[]>("plugin_status");
-
-/**
- * Ekleme, güncelleme ve silme **durum listesini** döndürüyor: kayıt ile canlı
- * bağlantı aynı anda değişiyor ve iki ayrı çağrı arada bir tutarsız kare
- * gösterirdi.
- */
-export const createServer = (draft: ServerDraft) =>
-  call<PluginStatus[]>("create_server", { draft });
-export const updateServer = (id: string, draft: ServerDraft) =>
-  call<PluginStatus[]>("update_server", { id, draft });
-export const deleteServer = (id: string) => call<PluginStatus[]>("delete_server", { id });
-export const reconnectPlugin = (id: string) => call<PluginStatus[]>("reconnect_plugin", { id });
-
-export const gmailState = () => call<GmailState>("gmail_state");
-
-/**
- * Kimlik dosyasını yazar, sunucu kaydını kurar ve tarayıcıda yetkilendirmeyi
- * başlatır. **Dakikalar sürebilir** — kullanıcı tarayıcıda onaylıyor.
- *
- * ⚠️ `clientSecret` tek yön: yazılıyor, geri dönmüyor.
- */
-export const gmailConnect = (clientId: string, clientSecret: string) =>
-  call<GmailState>("gmail_connect", { clientId, clientSecret });
-
-export const gmailAuthorize = () => call<GmailState>("gmail_authorize");

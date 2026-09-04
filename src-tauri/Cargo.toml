@@ -34,10 +34,6 @@ rmcp = { version = "3.2", default-features = false, features = [
   "client",
   "transport-streamable-http-client-reqwest",
   "reqwest",
-  # Eklenti sunucuları stdio üstünde çocuk süreç olarak koşuyor.
-  # `auth` (oauth2) ve TLS **gerekmiyor**: seçilen sunucular ya yerel ya da
-  # kendi OAuth akışını kendi yapıyor.
-  "transport-child-process",
 ] }
 
 [dev-dependencies]

@@ -1,15 +1,8 @@
 import Desktop from "./Desktop";
 import ModelServer from "./ModelServer";
-import Plugins from "./Plugins";
 import { IconCheck, IconCross } from "../ui/Icon";
 import { LANGS, t, type Lang } from "../lib/i18n";
-import type {
-  Agent,
-  ConnSnapshot,
-  DesktopState,
-  PluginStatus,
-  Theme,
-} from "../lib/types";
+import type { Agent, ConnSnapshot, DesktopState, Theme } from "../lib/types";
 
 interface Props {
   snap: ConnSnapshot;
@@ -19,8 +12,6 @@ interface Props {
   onLang: (l: Lang) => void;
   desktop: DesktopState;
   onDesktop: (s: DesktopState) => void;
-  plugins: PluginStatus[];
-  onPlugins: (p: PluginStatus[]) => void;
 }
 
 /**
@@ -30,17 +21,7 @@ interface Props {
  * **Masaüstü izni en üstte:** bu panelin en sonuç doğuran parçası o, ve
  * durumu her açılışta gözle görünmeli.
  */
-export default function Connection({
-  snap,
-  theme,
-  onTheme,
-  lang,
-  onLang,
-  desktop,
-  onDesktop,
-  plugins,
-  onPlugins,
-}: Props) {
+export default function Connection({ snap, theme, onTheme, lang, onLang, desktop, onDesktop }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
       <Desktop state={desktop} onState={onDesktop} />
@@ -68,8 +49,6 @@ export default function Connection({
       </div>
 
       <ModelServer />
-
-      <Plugins pcbridgeTools={snap.toolCount} liste={plugins} onListe={onPlugins} />
 
       <div className="card">
         <span className="h">{t("sys.agents", { n: snap.agents.length })}</span>

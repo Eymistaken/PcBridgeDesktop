@@ -1,7 +1,6 @@
 mod agent;
 mod bots;
 mod desktop;
-mod gmail;
 mod jobs;
 mod mcp;
 mod model;
@@ -9,7 +8,6 @@ mod parse;
 mod pty;
 mod runs;
 mod secrets;
-mod servers;
 mod tools;
 
 use agent::Runs;
@@ -74,139 +72,6 @@ fn update_bot(id: String, draft: BotDraft) -> Result<Bot, BotError> {
 #[tauri::command]
 fn delete_bot(id: String) -> Result<(), BotError> {
     bots::delete(&id)
-}
-
-// ─────────────────────────── eklentiler ───────────────────────────
-
-#[tauri::command]
-fn list_servers() -> Result<Vec<servers::Server>, servers::ServerError> {
-    servers::list()
-}
-
-/// Kaydeder **ve hemen bağlar**: kullanıcı "Ekle"ye bastığında satırın
-/// bağlanıp bağlanmadığını aynı anda görmeli.
-#[tauri::command]
-async fn create_server(
-    draft: servers::ServerDraft,
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
-    let s = servers::create(draft)?;
-    state.eklenti_bagla(&s).await;
-    Ok(state.eklenti_durumlari().await)
-}
-
-/// Günceller ve yeniden bağlar. Komut ya da argüman değişmiş olabilir;
-/// eski süreci yaşatmak kullanıcıya yanlış bir araç listesi gösterirdi.
-#[tauri::command]
-async fn update_server(
-    id: String,
-    draft: servers::ServerDraft,
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
-    let s = servers::update(&id, draft)?;
-    state.eklenti_bagla(&s).await;
-    Ok(state.eklenti_durumlari().await)
-}
-
-#[tauri::command]
-async fn delete_server(
-    id: String,
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
-    servers::delete(&id)?;
-    state.eklenti_kes(&id).await;
-    Ok(state.eklenti_durumlari().await)
-}
-
-#[tauri::command]
-async fn plugin_status(
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<Vec<mcp::EklentiSnapshot>, ConnError> {
-    Ok(state.eklenti_durumlari().await)
-}
-
-/// Tek bir eklentiyi yeniden bağlar — panelin "Yeniden bağlan" eylemi.
-#[tauri::command]
-async fn reconnect_plugin(
-    id: String,
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<Vec<mcp::EklentiSnapshot>, servers::ServerError> {
-    let s = servers::list()?
-        .into_iter()
-        .find(|s| s.id == id)
-        .ok_or_else(|| servers::ServerError::Yok(id.clone()))?;
-    state.eklenti_bagla(&s).await;
-    Ok(state.eklenti_durumlari().await)
-}
-
-// ───────────────────────────── Gmail ─────────────────────────────
-
-/// Gmail'in kayıtlı sunucu satırı. Kimlik dosyası yazıldıktan sonra kaydı
-/// **biz** kuruyoruz: kullanıcının komutu ve argümanı elle yazması gereksiz.
-const GMAIL_PAKET: &str = "@gongrzhe/server-gmail-autoauth-mcp";
-
-#[tauri::command]
-fn gmail_state() -> gmail::GmailDurum {
-    gmail::durum()
-}
-
-/// Kimlik dosyasını yazar, sunucu kaydını kurar (yoksa) ve
-/// **sunucunun kendi `auth` komutunu** çalıştırıp tarayıcıyı açtırır.
-///
-/// ⚠️ `client_secret` buradan geri **dönmüyor**: yanıt yalnızca durum ve
-/// sürecin kendi çıktısı.
-#[tauri::command]
-async fn gmail_connect(
-    client_id: String,
-    client_secret: String,
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<gmail::GmailDurum, gmail::GmailError> {
-    gmail::anahtar_yaz(&client_id, &client_secret)?;
-    gmail_yetkilendir_ve_bagla(&state).await
-}
-
-/// Kimlik dosyası zaten yerindeyken yalnızca yetkilendirme — panelin
-/// "Yeniden yetkilendir" eylemi.
-#[tauri::command]
-async fn gmail_authorize(
-    state: tauri::State<'_, Arc<McpState>>,
-) -> Result<gmail::GmailDurum, gmail::GmailError> {
-    if !gmail::oauth_path().is_file() {
-        return Err(gmail::GmailError::Gecersiz("#gmailNoKeys".into()));
-    }
-    gmail_yetkilendir_ve_bagla(&state).await
-}
-
-async fn gmail_yetkilendir_ve_bagla(
-    state: &Arc<McpState>,
-) -> Result<gmail::GmailDurum, gmail::GmailError> {
-    let kayit = gmail_kaydi()?;
-    gmail::yetkilendir(&kayit.command, &kayit.args).await?;
-    // Yetkilendirme bittiği anda bağlanıyor: kullanıcı "oldu mu" diye ikinci
-    // bir tuşa basmak zorunda kalmasın.
-    state.eklenti_bagla(&kayit).await;
-    Ok(gmail::durum())
-}
-
-/// Gmail'in `servers.json` kaydı; yoksa oluşturuluyor.
-///
-/// **Var olan kayda dokunulmuyor:** kullanıcı komutu ya da argümanı
-/// değiştirdiyse (kendi kurulumu, farklı bir sürüm) onu ezmek olurdu.
-fn gmail_kaydi() -> Result<servers::Server, gmail::GmailError> {
-    let hepsi = servers::list().map_err(|e| gmail::GmailError::Io(e.to_string()))?;
-    if let Some(s) = hepsi
-        .into_iter()
-        .find(|s| s.args.iter().any(|a| a.contains(GMAIL_PAKET)))
-    {
-        return Ok(s);
-    }
-    servers::create(servers::ServerDraft {
-        name: "Gmail".into(),
-        command: "npx".into(),
-        args: vec![GMAIL_PAKET.into()],
-        enabled: true,
-    })
-    .map_err(|e| gmail::GmailError::Io(e.to_string()))
 }
 
 // ─────────────────────────── koşumlar ───────────────────────────
@@ -718,14 +583,6 @@ pub fn run() {
         .manage(Arc::new(Runs::default()))
         .manage(Watchers::default())
         .manage(Ptys::default())
-        // **Eklentiler açılışta arka planda bağlanır.** `npx` ilk çalıştırmada
-        // ağdan indiriyor ve saniyeler sürebiliyor; pencerenin açılmasını
-        // bekletmemeli. pcbridge'e bağlı da değil: eklenti token istemiyor.
-        .setup(|app| {
-            let state = tauri::Manager::state::<Arc<McpState>>(app).inner().clone();
-            tauri::async_runtime::spawn(async move { state.eklentileri_bagla().await });
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             endpoint,
             has_token,
@@ -733,15 +590,6 @@ pub fn run() {
             refresh,
             sign_out,
             list_bots,
-            list_servers,
-            create_server,
-            update_server,
-            delete_server,
-            plugin_status,
-            reconnect_plugin,
-            gmail_state,
-            gmail_connect,
-            gmail_authorize,
             create_bot,
             update_bot,
             delete_bot,
