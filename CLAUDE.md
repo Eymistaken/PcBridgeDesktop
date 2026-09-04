@@ -35,6 +35,13 @@ derse **başka bir şey sormadan** şunu yap:
    devinimi **sıfır**, `:active` **sıfır**, ve süreler tokensız — yedi ayrı
    sayı elle yazılmış. Var olanı ikinci kez yazma.
 
+   Kullanıcı boşlukları **tek tek saydı** ve hepsi kodda doğrulanıp
+   "Kullanıcının saydığı somut boşluklar" başlığına (a)–(h) diye yazıldı.
+   ⚠️ İkisi tuzaklı: **token akışının** bugünkü mimarisi token başına DOM
+   düğümü vermiyor (blok bütün olarak yeniden çiziliyor), ve **terminal
+   ızgarasını** animasyonlamak Aşama 9'un 90 ms'lik yeniden boyutlandırma
+   kuralını bozabilir. İkisi de orada yazılı.
+
    Arayüz işi olduğu için **yasak kapsamında değil** (madde 5).
 5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
