@@ -22,16 +22,26 @@ derse **başka bir şey sormadan** şunu yap:
 
    Erken olmasının gerekçesi kayda değer: eklenti bağlamak "zehirli üçlü"yü
    açıyor (bot güvenilmeyen metin okuyor, elinde shell ve masaüstü var) ve
-   masaüstü kapıları hâlâ **gerçek bir koşumda sınanmadı** (madde 5).
+   masaüstü kapıları hâlâ **gerçek bir koşumda sınanmadı** (madde 6).
 
-   ⚠️ **Sıradaki iş artık belli değil.** Kullanıcıya ne yapmak istediğini sor;
+   ⚠️ **Sıradaki aşama belli değil.** Kullanıcıya ne yapmak istediğini sor;
    uydurma.
-4. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
+4. 🎬 **"Animasyonlarla ilgili kısmı hallet" dendiğinde:** `YAPILACAKLAR.md`'de
+   **"Devinim geçişi — arayüzün animasyon katmanı"** başlığını oku, iş orada
+   ayrıntısıyla ve ölçütüyle yazılı. Kullanıcının 2026-09-04 isteği.
+
+   ⚠️ **Uygulama animasyonsuz DEĞİL** — 30 geçiş, 4 keyframe ve bir
+   `prefers-reduced-motion` bloğu zaten var (sayıldı). Boşluk başka: çıkış
+   devinimi **sıfır**, `:active` **sıfır**, ve süreler tokensız — yedi ayrı
+   sayı elle yazılmış. Var olanı ikinci kez yazma.
+
+   Arayüz işi olduğu için **yasak kapsamında değil** (madde 5).
+5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
    serbest, **bot koşumu başlatmak değil.** Bu kısıt kullanıcı kaldırana
    kadar geçerli.
-5. **Açık kalan üç uç:**
+6. **Açık kalan üç uç:**
    - Tur içi özetleme **gerçek modelle sınanmadı** (Aşama 8'de LM Studio
      kapalıydı). İlk fırsatta bütçesi kasten küçük bir botla uzun bir koşum
      yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
@@ -41,10 +51,10 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-6. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on bir aşama da bitti.**
+7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on bir aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
-7. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+8. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
