@@ -68,6 +68,30 @@
   --r-lg: 20px; /* baloncuk · kuyu · panel */
   /* üçüncüsü 9999px, doğrudan yazılır */
 
+  /* devinim — süreler ROLE göre adlandırılır, sayıya göre değil.
+   *
+   * Rol ayrımı olmadan tutarlılık kurulamıyor: göçten önce sekiz ayrı süre
+   * (`0.12 0.14 0.16 0.18 0.2 0.22 0.35 0.7`) elle yazılmıştı ve hangisinin
+   * neden seçildiği hiçbir yerde yazmıyordu. "Profesyonel" hissin kaynağı
+   * parlaklık değil tutarlılık.
+   *
+   * Basma ile bırakma **kasten asimetrik**: basma `--dur-tap` ile girer,
+   * bırakma `--dur-fast` ile döner. "Tuş gerçekten bastı" hissi oradan
+   * geliyor. */
+  --dur-tap: 70ms; /* basma — anında hissedilmeli */
+  --dur-fast: 120ms; /* hover · renk · opaklık */
+  --dur-base: 180ms; /* giriş ve çıkış */
+  --dur-slow: 300ms; /* kayan parça · düzen · yükseklik */
+  --dur-pulse: 1.6s; /* durum ritmi — geçiş değil, nabız */
+
+  /* İlk ikisi kodda **zaten vardı** ve aynen korunuyor: `--ease-inout` kip
+   * anahtarının kayan parçasının ve BotForge girişinin bugünkü eğrisi, yani
+   * kullanıcının "iyi olanın örneği" dediği iki şeyin hissi değişmiyor.
+   * `--ease-in` yeni — çıkış devinimi olmadığı için karşılığı yoktu. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1); /* giren */
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45); /* çıkan */
+  --ease-inout: cubic-bezier(0.32, 0.72, 0, 1); /* iki uçlu */
+
   /* yazı — aile adları @fontsource paketlerinin ilan ettiği adlar.
    * Türkçe kapsamı ölçüldü: geist-sans tek altkümede (538 glif) hepsini
    * taşıyor; geist-mono ikiye bölünmüş — `ı ç ö ü` latin'de, `ğ ş İ Ğ Ş`

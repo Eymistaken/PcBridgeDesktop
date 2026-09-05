@@ -93,7 +93,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   flex: none;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 /* Hover'da zıplama veya ölçeklenme YASAK — yalnızca yüzey kademesi. */
@@ -124,7 +124,7 @@ input:focus {
   color: var(--bg);
   font-size: 13.5px;
   font-weight: 600;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -163,7 +163,7 @@ input:focus {
   border-radius: 9px;
   font-size: 13.5px;
   color: var(--text-muted);
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .seg > button:hover {
@@ -219,7 +219,7 @@ input:focus {
   font-size: 13.5px;
   color: var(--text);
   text-align: left;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .picker__dugme:hover:not(:disabled) {
@@ -291,7 +291,7 @@ input:focus {
   font-size: 13px;
   color: var(--text-muted);
   text-align: left;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .picker__sec:hover,
@@ -376,7 +376,7 @@ input:focus {
   font-size: 11.5px;
   color: var(--text-muted);
   background: var(--surface);
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .toolset__hepsi:hover {
@@ -396,7 +396,7 @@ input:focus {
   font-size: 12px;
   color: var(--text-muted);
   background: var(--surface);
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .toolset__arac:hover {
@@ -686,7 +686,7 @@ input::placeholder {
   display: flex;
   flex: none;
   margin-top: 1px;
-  transition: background-color 0.14s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .tgl > span {
@@ -694,7 +694,7 @@ input::placeholder {
   height: 20px;
   border-radius: 9999px;
   background: var(--text-muted);
-  transition: transform 0.14s ease, background-color 0.14s ease;
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 
 .tgl[data-on] {
@@ -889,7 +889,7 @@ pre.well {
   border-radius: 9px;
   font-size: 12px;
   color: var(--text-muted);
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__dugme:hover:not(:disabled),
@@ -904,7 +904,7 @@ pre.well {
 
 .permmenu__dugme svg {
   flex: none;
-  transition: transform 0.12s ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 /* Bestecinin üstünde açılır: menü aşağı doğru açılsa pencerenin dışına
@@ -938,7 +938,7 @@ pre.well {
   /* İç içe yüzeyde yarıçap dış − dolgu: 12 − 3 = 9. */
   border-radius: 9px;
   text-align: left;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__sec:hover {
@@ -1222,7 +1222,7 @@ pre.well {
   font-size: 11.5px;
   color: var(--text-muted);
   text-align: left;
-  transition: color 0.12s ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .dusunce__baslik:hover {
@@ -1231,7 +1231,7 @@ pre.well {
 
 .dusunce__baslik svg {
   flex: none;
-  transition: transform 0.14s ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 /* Kapalı: tam üç satır. `line-height` 1.55 ve punto 13 → 3 × 20.15px.
@@ -1271,7 +1271,7 @@ pre.well {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   /* Kapalı kutuda son satırlar buraya kayıyor. */
-  transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform var(--dur-slow) var(--ease-out);
 }
 
 .dusunce__kuyu--acik .dusunce__metin {
@@ -1324,8 +1324,8 @@ pre.well {
   border-radius: 9999px;
   background: var(--text);
   transition:
-    width 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
-    background-color 0.35s ease;
+    width calc(var(--dur-slow) * 2) var(--ease-out),
+    background-color var(--dur-slow) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1484,7 +1484,7 @@ pre.well {
   font-size: 12px;
   color: var(--run);
   background: var(--field);
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .ctxoneri:hover {
@@ -1505,7 +1505,7 @@ pre.well {
   border-radius: 9px;
   background: var(--surface);
   text-align: left;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__anahtar:hover {
@@ -1531,7 +1531,7 @@ pre.well {
   padding: 2px;
   border-radius: 9999px;
   background: var(--surface-2);
-  transition: background-color 0.14s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__anahtar:hover .anahtar {
@@ -1544,7 +1544,7 @@ pre.well {
   height: 14px;
   border-radius: 9999px;
   background: var(--text-muted);
-  transition: transform 0.14s ease, background-color 0.14s ease;
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 
 [role="switch"][aria-checked="true"] .anahtar {
@@ -1570,7 +1570,7 @@ pre.well {
   border-radius: 9px;
   background: var(--surface);
   text-align: left;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__filtre:hover {
@@ -1667,7 +1667,7 @@ pre.well {
 }
 
 .permask {
-  animation: girisAsagi 0.2s ease both;
+  animation: girisAsagi var(--dur-base) var(--ease-out) both;
 }
 
 /* ── besteci ─────────────────────────────────────────────────────── */
@@ -1739,7 +1739,7 @@ pre.well {
   border-radius: var(--r-sm);
   background: var(--field);
   max-width: 240px;
-  animation: girisYukari 0.16s ease both;
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
 .ek__ad {
@@ -1757,7 +1757,7 @@ pre.well {
   align-items: center;
   justify-content: center;
   flex: none;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .ek__sil:hover {
@@ -1844,7 +1844,7 @@ pre.well {
 .layout > button {
   border-radius: 6px;
   display: flex;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .layout > button[aria-pressed="true"] {
@@ -1919,7 +1919,7 @@ pre.well {
   width: calc(50% - 4.5px);
   border-radius: 9px;
   background: var(--surface-2);
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--dur-slow) var(--ease-inout);
 }
 
 .modesw[data-mode="terminals"] .modesw__thumb {
@@ -1937,7 +1937,7 @@ pre.well {
   border-radius: 9px;
   font-size: 13.5px;
   color: var(--text-muted);
-  transition: color 0.16s ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .modesw > button:hover {
@@ -1967,7 +1967,7 @@ pre.well {
   border-radius: var(--r-sm);
   color: var(--text-muted);
   font-size: 11.5px;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .dbadge:hover:not(:disabled) {
@@ -2006,7 +2006,7 @@ pre.well {
   border-radius: var(--r-sm);
   background: var(--well);
   display: block;
-  animation: girisSoluk 0.2s ease both;
+  animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
 .durum__blok {
@@ -2087,39 +2087,39 @@ pre.well {
 }
 
 .dot--pulse {
-  animation: nabiz 1.6s ease-in-out infinite;
+  animation: nabiz var(--dur-pulse) ease-in-out infinite;
 }
 
 .bub,
 .ts {
-  animation: girisYukari 0.18s ease both;
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
 .jobstrip {
-  animation: girisAsagi 0.2s ease both;
+  animation: girisAsagi var(--dur-base) var(--ease-out) both;
 }
 
 .scrim {
-  animation: girisSoluk 0.14s ease both;
+  animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
 .scrim > .forge,
 .scrim > .card {
-  animation: girisYukari 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: girisYukari var(--dur-base) var(--ease-inout) both;
 }
 
 /* Kip değişimi: `key` değişince .main yeniden kurulur ve bu oynar. */
 .main {
-  animation: girisSoluk 0.16s ease both;
+  animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
 .pane {
-  animation: girisSoluk 0.18s ease both;
+  animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
 /* Sistem panelindeki kartlar sırayla belirsin — hepsi aynı anda değil. */
 .main__body .card {
-  animation: girisYukari 0.2s ease both;
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
