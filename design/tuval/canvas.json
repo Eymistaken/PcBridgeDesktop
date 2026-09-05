@@ -1,0 +1,34 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",     "x": 0,    "y": 0,   "w": 1280, "h": 860, "title": "Session açılışı" },
+    { "file": "Terminal.dc.html", "x": 1400, "y": 0,   "w": 1280, "h": 860, "title": "Terminal — bölme ağacı" },
+    { "file": "Ayarlar.dc.html",  "x": 2800, "y": 0,   "w": 1280, "h": 860, "title": "Sistem ayarları" },
+    { "file": "Kenar.dc.html",    "x": 0,    "y": 980, "w": 1040, "h": 1080, "title": "Kenar çubuğu — durumlar" },
+    { "file": "Besteci.dc.html",  "x": 1160, "y": 980, "w": 940,  "h": 1100, "title": "Besteci — A / B kararı" },
+    { "file": "Dusunce.dc.html",  "x": 2220, "y": 980, "w": 820,  "h": 1100, "title": "Düşünce kutusu" },
+    { "file": "Forge.dc.html",    "x": 3160, "y": 980, "w": 900,  "h": 760, "title": "Bot kurma — sekmeli" }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0, "y": -240, "w": 560,
+      "text": "Aşama 13 — kod yazmadan önceki tuval.\n\nPalet, tipografi ve köşeler src/styles/tokens.css'ten birebir; kabuk renksiz, renk yalnızca kimlikten (avatar hue) ve durumdan (çalışıyor/bitti/başarısız) geliyor.\n\nDeğişen şey renk değil, BİLGİ MİMARİSİ."
+    },
+    {
+      "id": "karar-besteci",
+      "x": 1160, "y": 740, "w": 480,
+      "text": "⚠ KARAR GEREKİYOR — aşağıdaki \"Besteci\" artboard'u.\n\nSeçenek A: besteci her yükseklikte stadyum (bugünkü hâl; metin uzayınca düğmeler dibe iniyor ve yuvarlak köşeye giriyor).\nSeçenek B: ikinci satırda 20px karta dönüşüyor, düğmeler kendi sırasına iniyor.\n\nİkisi de kanunun üç yarıçapının içinde. B öneriliyor."
+    },
+    {
+      "id": "kapsam",
+      "x": 1400, "y": -240, "w": 520,
+      "text": "Terminal artboard'u: sınırsız bölme, gerçek bölme ağacı, sürüklenebilir ayraçlar, gri başlıktan tutup başka bölmenin üstüne bırakınca takas.\n\nTerminalin İÇİNDE devinim yok — kullanıcının kuralı. Devinen şey çerçeve."
+    },
+    {
+      "id": "session",
+      "x": 2800, "y": -240, "w": 520,
+      "text": "Session katmanı: bir bot artık bir sohbet değil, birden çok işin asistanı.\n\nHer session'ın bağlamı AYRI — geçmiş, özet denetim noktası ve token bütçesi session başına.\n\nBota tıklamak yeni session açar; başlayan session solda listeye düşer."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

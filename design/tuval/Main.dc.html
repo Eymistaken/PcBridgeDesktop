@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+/* Palet ve ölçüler src/styles/tokens.css + app.css'ten BİREBİR alındı.
+   Koyu tema birincil; aydınlık varyant koddaki blokla aynı türetilir. */
+:root{
+  --bg:#151618; --bg-side:#0f0f11; --field:#1f2023; --surface:#26282a;
+  --surface-2:#36383b; --line:#2f3033; --well:#08090b;
+  --well-text:#eaebed; --well-muted:#96989c;
+  --text:#eaebed; --text-muted:#96989c;
+  --run:#d3a056; --ok:#75b683; --fail:#e2726b;
+  --av-l:0.62; --av-c:0.14;
+  --r-sm:12px; --r-lg:20px;
+  --dur-tap:70ms; --dur-fast:120ms; --dur-base:180ms; --dur-slow:300ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-in:cubic-bezier(.55,0,1,.45);
+  --ease-inout:cubic-bezier(.32,.72,0,1);
+  --sans:"Geist","Geist Sans",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:var(--text)}a:hover{color:var(--text-muted)}
+.mono{font-family:var(--mono);letter-spacing:-.01em}
+.muted{color:var(--text-muted)}
+.dot{width:7px;height:7px;border-radius:9999px;flex:none;display:block}
+.av{border-radius:9999px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--bg)}
+.ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;flex:none}
+.ib--filled{background:var(--field)}
+.h{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.lbl{font-size:11.5px;font-weight:500;color:var(--text-muted)}
+.btn-primary{padding:9px 20px;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font-size:13.5px;font-weight:600;border:0}
+.btn-quiet{padding:9px 18px;border-radius:var(--r-sm);color:var(--text-muted);font-size:13.5px;background:none;border:0}
+.seg{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);align-self:flex-start}
+.seg>span{padding:7px 15px;border-radius:9px;font-size:13.5px;color:var(--text-muted)}
+.seg>span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+.fld{display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:var(--r-sm);background:var(--field);font-size:13.5px}
+.card{border-radius:var(--r-lg);padding:18px 20px;background:var(--bg-side);display:flex;flex-direction:column;gap:13px}
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:24px;padding:0 9px;border-radius:9px;background:var(--surface);font-family:var(--mono);font-size:11.5px}
+/* uygulama kabuğu */
+.shell{display:flex;height:100%;background:var(--bg);overflow:hidden}
+.side{width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0}
+.side__head{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px 0 18px}
+.side__title{font-size:16px;font-weight:600;letter-spacing:-.015em;flex-grow:1}
+.side__modes{flex:none;padding:0 12px 10px}
+.modesw{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field)}
+.modesw__thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 4.5px);border-radius:9px;background:var(--surface-2)}
+.modesw>span{position:relative;text-align:center;padding:7px 0;font-size:13.5px;color:var(--text-muted)}
+.modesw>span.on{color:var(--text);font-weight:500}
+.main{flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0;--olcu:860px}
+.main__head{height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 20px 0 24px}
+/* devinim işareti — tuvalde durumu göstermek için, kodda karşılığı CSS geçişi */
+.ipucu{position:absolute;font-size:10.5px;letter-spacing:.02em;color:var(--run);font-family:var(--mono)}
+.not{font-size:11.5px;line-height:1.55;color:var(--text-muted)}
+.baslik{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+
+  </style>
+</helmet>
+<style>
+  .oturumlar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .okart{display:flex;flex-direction:column;gap:7px;padding:13px 14px;border-radius:var(--r-sm);background:var(--field);min-width:0}
+  .okart.on{background:var(--surface)}
+  .okart__ad{font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .okart__meta{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-muted)}
+  .okart__son{font-size:12.5px;line-height:1.5;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:37px}
+  .hero{flex-grow:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:26px;padding:0 32px 26px}
+  .hero__ic{width:100%;max-width:var(--olcu);margin-inline:auto;display:flex;flex-direction:column;gap:26px}
+  .selam{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center}
+  .cbox{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px;border-radius:9999px;background:var(--field)}
+  .cfoot{display:flex;align-items:center;gap:10px;padding:8px 6px 0}
+  .cip{display:flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:9999px;background:var(--field);font-size:12.5px;color:var(--text-muted)}
+  .srow{display:flex;align-items:center;gap:10px}
+  .row{display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px}
+  .row.sel{background:var(--surface)}
+  .osat{display:flex;align-items:center;gap:9px;margin:0 8px 0 30px;padding:6px 10px;border-radius:var(--r-sm);font-size:13px;color:var(--text-muted)}
+  .osat.sel{background:var(--surface);color:var(--text)}
+  .side__list{flex-grow:1;display:flex;flex-direction:column;gap:1px;min-height:0;overflow:hidden;padding-top:2px}
+</style>
+
+<div class="shell" style="height:860px">
+
+  <!-- ── kenar çubuğu ── -->
+  <div class="side">
+    <div class="side__head">
+      <span class="side__title">pcbridge</span>
+      <span class="ib ib--filled"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+    </div>
+    <div class="side__modes">
+      <div class="modesw"><i class="modesw__thumb"></i><span class="on">Botlar</span><span>Terminal</span></div>
+    </div>
+    <div style="flex:none;padding:0 12px 10px">
+      <div class="fld"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="var(--text-muted)" stroke-width="1.7"/><path d="M13.2 13.2L17 17" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"/></svg><span class="muted">Bot ve session ara</span></div>
+    </div>
+
+    <div class="side__list">
+      <!-- açık bot -->
+      <div class="row sel">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 250)">M</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;flex-grow:1">Masaüstü Botu</span>
+            <span class="muted" style="font-size:11px">şimdi</span>
+          </div>
+          <span class="muted" style="font-size:12px">7 session</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m6 8 4 4 4-4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="osat"><span class="dot" style="background:var(--run)"></span><span style="flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Chrome'da kanal araması</span></div>
+      <div class="osat"><span class="dot" style="background:var(--ok)"></span><span style="flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Masaüstü dosyalarını topla</span></div>
+      <div class="osat"><span class="dot" style="background:var(--ok)"></span><span style="flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ekran çözünürlüğü kontrolü</span></div>
+      <div class="osat" style="color:var(--text-muted)"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>4 session daha</span></div>
+
+      <!-- kapalı botlar -->
+      <div class="row" style="margin-top:6px">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 150)">K</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;flex-grow:1">Kod Asistanı</span>
+            <span class="muted" style="font-size:11px">2 sa</span>
+          </div>
+          <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Testler geçti, 12 dosya değişti</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 30)">R</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:14px;flex-grow:1">Rapor Botu</span>
+            <span style="font-size:11px;color:var(--run)">izin bekliyor</span>
+          </div>
+          <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fs_write · rapor-eylul.md</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:7px 12px 12px 18px">
+      <span class="dot" style="background:var(--ok)"></span>
+      <span class="muted" style="font-size:12.5px;flex-grow:1">127.0.0.1:8765 · 33 araç</span>
+      <span class="ib" style="width:28px;height:28px"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="7" width="13" height="9.5" rx="2" stroke="var(--text-muted)" stroke-width="1.6"/><path d="M7 7V5.2a3 3 0 0 1 6 0V7" stroke="var(--text-muted)" stroke-width="1.6"/></svg></span>
+    </div>
+  </div>
+
+  <!-- ── ana panel ── -->
+  <div class="main">
+    <div class="main__head">
+      <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 250)">M</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">Masaüstü Botu</span>
+      <span class="mono muted" style="font-size:12px">ornith-1.5-35b-a3b · 11 araç · ~/Masaüstü/app</span>
+      <span style="flex-grow:1"></span>
+      <span class="ib"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 3.5v9M6.8 6.7 10 3.5l3.2 3.2M4.5 12.5v3a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
+
+    <div class="hero">
+      <div class="hero__ic">
+
+        <div class="selam">
+          <span class="av" style="width:52px;height:52px;font-size:22px;background:oklch(var(--av-l) var(--av-c) 250)">M</span>
+          <span style="font-size:21px;font-weight:600;letter-spacing:-.015em;margin-top:4px">Masaüstü Botu</span>
+          <span class="muted" style="font-size:13.5px;line-height:1.6;max-width:440px">Yeni bir session başlıyor. Bu session'ın bağlamı ötekilerden ayrı — geçmişi yalnızca burada yazdıkların oluşturur.</span>
+        </div>
+
+        <div>
+          <div class="cbox">
+            <span class="ib" style="width:36px;height:36px;background:var(--surface)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="muted" style="flex-grow:1;font-size:14px">Masaüstü Botu'na yaz…</span>
+            <span class="ib" style="width:36px;height:36px;background:var(--text);opacity:.4"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </div>
+          <div class="cfoot">
+            <span class="cip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3.2 15.5 5.4v4.1c0 3.2-2.2 6-5.5 7.3-3.3-1.3-5.5-4.1-5.5-7.3V5.4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Sorarak çalış</span>
+            <span style="flex-grow:1"></span>
+            <span class="cip mono">8.192 · %0</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <div class="srow">
+            <span class="baslik" style="flex-grow:1">Son session'lar</span>
+            <span class="ib" style="width:28px;height:28px"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="var(--text-muted)" stroke-width="1.7"/><path d="M13.2 13.2L17 17" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+            <span class="muted" style="font-size:12.5px">Daha fazla göster</span>
+          </div>
+
+          <div class="oturumlar">
+            <div class="okart on">
+              <span class="okart__ad">Chrome'da kanal araması</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--run)"></span>18 tur · sürüyor</span>
+              <span class="okart__son">Video sayfası açıldı. Son videonun başlığını okuyorum, ekran görüntüsü…</span>
+            </div>
+            <div class="okart">
+              <span class="okart__ad">Masaüstü dosyalarını topla</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--ok)"></span>6 tur · 2 saat önce</span>
+              <span class="okart__son">14 dosya ~/Belgeler/arsiv altına taşındı, çakışan yok.</span>
+            </div>
+            <div class="okart">
+              <span class="okart__ad">Ekran çözünürlüğü kontrolü</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--ok)"></span>3 tur · dün</span>
+              <span class="okart__son">İki monitör: DP-2 1920×1080 @(0,0), HDMI-1 1920×1080 @(1920,0).</span>
+            </div>
+            <div class="okart">
+              <span class="okart__ad">Vesktop pencere denemesi</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--fail)"></span>9 tur · dün</span>
+              <span class="okart__son">ui_dump boş döndü, ekran görüntüsüne düşüldü, tur tavanına takıldı.</span>
+            </div>
+            <div class="okart">
+              <span class="okart__ad">Yedek betiğini çalıştır</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--ok)"></span>2 tur · 3 gün</span>
+              <span class="okart__son">rsync bitti, 1,2 GB, çıkış kodu 0.</span>
+            </div>
+            <div class="okart">
+              <span class="okart__ad">Kısayol haritası çıkar</span>
+              <span class="okart__meta"><span class="dot" style="background:var(--ok)"></span>5 tur · 4 gün</span>
+              <span class="okart__son">GNOME kısayolları okundu, çakışan üç bileşim işaretlendi.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

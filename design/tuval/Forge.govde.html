@@ -1,0 +1,94 @@
+<style>
+  .scrim{position:absolute;inset:0;background:rgb(0 0 0/.5);display:flex;align-items:center;justify-content:center;padding:30px}
+  .forge{width:100%;max-width:820px;max-height:100%;display:flex;flex-direction:column;border-radius:var(--r-lg);background:var(--bg);overflow:hidden}
+  .forge__head{flex:none;display:flex;align-items:center;gap:14px;padding:18px 22px 14px}
+  .sek{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);margin:0 22px}
+  .sek>span{flex:1;text-align:center;padding:8px 10px;border-radius:9px;font-size:13px;color:var(--text-muted)}
+  .sek>span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+  .forge__body{flex-grow:1;min-height:0;overflow:hidden;padding:18px 22px;display:flex;flex-direction:column;gap:18px}
+  .forge__foot{flex:none;display:flex;align-items:center;gap:12px;padding:14px 22px 18px}
+  .grp{display:flex;flex-direction:column;gap:7px}
+  .toolset{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .tgrup{border-radius:var(--r-sm);background:var(--field);padding:11px 12px;display:flex;flex-direction:column;gap:8px}
+  .tbas{display:flex;align-items:center;gap:8px}
+  .tad{font-size:12.5px;font-weight:600}
+  .tliste{display:flex;flex-wrap:wrap;gap:4px}
+  .tarac{font-family:var(--mono);font-size:11px;padding:3px 7px;border-radius:8px;background:var(--surface);color:var(--text-muted)}
+  .tarac.on{background:var(--surface-2);color:var(--text)}
+  .cb{width:15px;height:15px;border-radius:5px;flex:none;background:var(--surface-2)}
+  .cb.on{background:var(--text);display:flex;align-items:center;justify-content:center}
+  .permgap{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:var(--r-sm);background:var(--field)}
+  .anahtar{width:38px;height:22px;border-radius:9999px;background:var(--surface-2);flex:none;position:relative}
+  .anahtar i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:9999px;background:var(--text-muted)}
+</style>
+
+<div style="position:relative;height:760px;background:var(--bg-side)">
+  <div class="scrim">
+    <div class="forge">
+      <div class="forge__head">
+        <span class="av" style="width:30px;height:30px;font-size:13px;background:oklch(var(--av-l) var(--av-c) 250)">M</span>
+        <span style="font-size:16px;font-weight:600;letter-spacing:-.015em;flex-grow:1">Masaüstü Botu</span>
+        <span class="mono muted" style="font-size:12px">yerel model · 11 araç</span>
+      </div>
+
+      <div class="sek">
+        <span>Kimlik</span><span>Motor</span><span class="on">Araçlar &amp; izin</span><span>Çalışma</span>
+      </div>
+
+      <div class="forge__body">
+        <div class="grp">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <span class="lbl" style="flex-grow:1">Botun görebileceği araçlar</span>
+            <span class="muted" style="font-size:11.5px">11 / 33 seçili</span>
+          </div>
+          <div class="toolset">
+            <div class="tgrup">
+              <div class="tbas"><span class="cb on"><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4.5 10.5l3.5 3.5 7.5-8" stroke="var(--bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="tad">Okuma</span><span class="muted" style="font-size:11.5px">6/6</span></div>
+              <div class="tliste"><span class="tarac on">fs_list</span><span class="tarac on">fs_read</span><span class="tarac on">fs_search</span><span class="tarac on">job_list</span><span class="tarac on">job_status</span><span class="tarac on">system_status</span></div>
+              <span class="not">Sormadan çalışır — hiçbir şey değiştirmiyor.</span>
+            </div>
+            <div class="tgrup">
+              <div class="tbas"><span class="cb"></span><span class="tad">Yazma</span><span class="muted" style="font-size:11.5px">0/12</span></div>
+              <div class="tliste"><span class="tarac">fs_write</span><span class="tarac">shell_run</span><span class="tarac">agent_run</span><span class="tarac">job_cancel</span><span class="tarac">tmux_send</span><span class="tarac">+7</span></div>
+              <span class="not">Diski ve süreçleri değiştirir.</span>
+            </div>
+            <div class="tgrup">
+              <div class="tbas"><span class="cb on"><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4.5 10.5l3.5 3.5 7.5-8" stroke="var(--bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="tad">Masaüstü</span><span class="muted" style="font-size:11.5px">5/10</span></div>
+              <div class="tliste"><span class="tarac on">screen_info</span><span class="tarac on">screen_capture</span><span class="tarac on">mouse</span><span class="tarac on">keyboard</span><span class="tarac on">window_focus</span><span class="tarac">ui_dump</span><span class="tarac">+4</span></div>
+              <span class="not">Fare, klavye, ekran. Kilit ayrıca açık olmalı.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <span class="lbl">İzin kipi — gördüğünü sormadan yapabilir mi</span>
+          <div class="seg" style="align-self:stretch">
+            <span style="flex:1;text-align:center">Her şeyi sor</span>
+            <span class="on" style="flex:1;text-align:center">Yazma ve masaüstünü sor</span>
+            <span style="flex:1;text-align:center">Serbest</span>
+          </div>
+          <div class="permgap">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="flex:none"><circle cx="10" cy="10" r="7" stroke="var(--run)" stroke-width="1.6"/><path d="M10 6.4v4.2M10 13.4h.01" stroke="var(--run)" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span class="permgap__metin not">Filtre ile kip <b>ayrı sorulardır</b>. Filtre botun neyi <i>görebildiğini</i>, kip gördüğünü sormadan <i>yapabildiğini</i> söyler. Kip Rust'ta uygulanıyor.</span>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="permgap" style="background:var(--surface)">
+            <span class="anahtar"><i></i></span>
+            <div style="flex-grow:1;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:13px;font-weight:500">Ben makinedeyken de çalışsın</span>
+              <span class="not">pcbridge son 60 saniyede klavyeye dokunulduysa yazma eylemlerini reddediyor. Bu anahtar <span class="mono">force=true</span> ekleyip kapıyı atlar — bir güvenlik kapısını kaldırmak.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="forge__foot">
+        <span class="mono muted" style="font-size:11.5px;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ornith-1.5-35b-a3b · bütçe 8.192 · tavan 100 tur · ~/Masaüstü/app</span>
+        <span class="btn-quiet">İptal</span>
+        <span class="btn-primary">Kaydet</span>
+      </div>
+    </div>
+  </div>
+</div>

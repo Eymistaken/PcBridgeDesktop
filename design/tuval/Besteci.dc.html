@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+/* Palet ve ölçüler src/styles/tokens.css + app.css'ten BİREBİR alındı.
+   Koyu tema birincil; aydınlık varyant koddaki blokla aynı türetilir. */
+:root{
+  --bg:#151618; --bg-side:#0f0f11; --field:#1f2023; --surface:#26282a;
+  --surface-2:#36383b; --line:#2f3033; --well:#08090b;
+  --well-text:#eaebed; --well-muted:#96989c;
+  --text:#eaebed; --text-muted:#96989c;
+  --run:#d3a056; --ok:#75b683; --fail:#e2726b;
+  --av-l:0.62; --av-c:0.14;
+  --r-sm:12px; --r-lg:20px;
+  --dur-tap:70ms; --dur-fast:120ms; --dur-base:180ms; --dur-slow:300ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-in:cubic-bezier(.55,0,1,.45);
+  --ease-inout:cubic-bezier(.32,.72,0,1);
+  --sans:"Geist","Geist Sans",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:var(--text)}a:hover{color:var(--text-muted)}
+.mono{font-family:var(--mono);letter-spacing:-.01em}
+.muted{color:var(--text-muted)}
+.dot{width:7px;height:7px;border-radius:9999px;flex:none;display:block}
+.av{border-radius:9999px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--bg)}
+.ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;flex:none}
+.ib--filled{background:var(--field)}
+.h{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.lbl{font-size:11.5px;font-weight:500;color:var(--text-muted)}
+.btn-primary{padding:9px 20px;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font-size:13.5px;font-weight:600;border:0}
+.btn-quiet{padding:9px 18px;border-radius:var(--r-sm);color:var(--text-muted);font-size:13.5px;background:none;border:0}
+.seg{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);align-self:flex-start}
+.seg>span{padding:7px 15px;border-radius:9px;font-size:13.5px;color:var(--text-muted)}
+.seg>span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+.fld{display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:var(--r-sm);background:var(--field);font-size:13.5px}
+.card{border-radius:var(--r-lg);padding:18px 20px;background:var(--bg-side);display:flex;flex-direction:column;gap:13px}
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:24px;padding:0 9px;border-radius:9px;background:var(--surface);font-family:var(--mono);font-size:11.5px}
+/* uygulama kabuğu */
+.shell{display:flex;height:100%;background:var(--bg);overflow:hidden}
+.side{width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0}
+.side__head{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px 0 18px}
+.side__title{font-size:16px;font-weight:600;letter-spacing:-.015em;flex-grow:1}
+.side__modes{flex:none;padding:0 12px 10px}
+.modesw{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field)}
+.modesw__thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 4.5px);border-radius:9px;background:var(--surface-2)}
+.modesw>span{position:relative;text-align:center;padding:7px 0;font-size:13.5px;color:var(--text-muted)}
+.modesw>span.on{color:var(--text);font-weight:500}
+.main{flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0;--olcu:860px}
+.main__head{height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 20px 0 24px}
+/* devinim işareti — tuvalde durumu göstermek için, kodda karşılığı CSS geçişi */
+.ipucu{position:absolute;font-size:10.5px;letter-spacing:.02em;color:var(--run);font-family:var(--mono)}
+.not{font-size:11.5px;line-height:1.55;color:var(--text-muted)}
+.baslik{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+
+  </style>
+</helmet>
+<style>
+  .sayfa{padding:30px 34px 34px;display:flex;flex-direction:column;gap:26px;background:var(--bg)}
+  .blok{display:flex;flex-direction:column;gap:10px}
+  .etiket{display:flex;align-items:baseline;gap:10px}
+  .etiket b{font-size:13px;font-weight:600}
+  .rozet{font-size:10.5px;font-family:var(--mono);letter-spacing:.02em;padding:2px 7px;border-radius:9999px;background:var(--surface);color:var(--text-muted)}
+  .rozet.iyi{color:var(--ok)}
+  .rozet.kotu{color:var(--fail)}
+  .cbox{display:flex;gap:12px;min-height:52px;padding:8px;background:var(--field)}
+  .pill{align-items:center;border-radius:9999px}
+  .kart{flex-direction:column;border-radius:var(--r-lg);padding:14px 16px 10px;gap:10px}
+  .cfoot{display:flex;align-items:center;gap:10px;padding:8px 6px 0}
+  .cip{display:flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:9999px;background:var(--field);font-size:12.5px;color:var(--text-muted)}
+  .yazi{font-size:14px;line-height:20px;color:var(--text)}
+  .ekc{display:flex;align-items:center;gap:7px;height:28px;padding:0 6px 0 10px;border-radius:var(--r-sm);background:var(--field);font-size:12px;font-family:var(--mono)}
+  .sohbet{border-radius:var(--r-lg);background:var(--bg);padding:0;overflow:hidden;position:relative;height:190px}
+  .bub{border-radius:var(--r-lg);padding:11px 16px;font-size:14px;line-height:1.5;max-width:520px;background:var(--surface)}
+</style>
+
+<div class="sayfa" style="width:940px">
+
+  <div class="blok">
+    <div class="etiket"><b>1 · Tek satır</b><span class="rozet">iki seçenekte de aynı</span></div>
+    <div>
+      <div class="cbox pill">
+        <span class="ib" style="width:36px;height:36px;background:var(--surface)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="yazi" style="flex-grow:1;align-self:center">Chrome'u aç ve son videoyu bul</span>
+        <span class="ib" style="width:36px;height:36px;background:var(--text)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+      <div class="cfoot">
+        <span class="cip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3.2 15.5 5.4v4.1c0 3.2-2.2 6-5.5 7.3-3.3-1.3-5.5-4.1-5.5-7.3V5.4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Sorarak çalış</span>
+        <span style="flex-grow:1"></span>
+        <span class="cip mono">8.192 · %34</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+
+    <div class="blok">
+      <div class="etiket"><b>2 · Seçenek A</b><span class="rozet kotu">bugünkü hâl</span></div>
+      <p class="not" style="margin:0">Her yükseklikte stadyum. Metin uzadıkça düğmeler dibe iniyor ve yuvarlak köşenin içine giriyor — şikâyet edilen çirkinlik bu. Yan boşluk da yükseklikle birlikte büyüyor.</p>
+      <div class="cbox pill" style="align-items:flex-end">
+        <span class="ib" style="width:36px;height:36px;background:var(--surface)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="yazi" style="flex-grow:1;padding:8px 0">Sağ ekrandaki Chrome penceresine geç, adres çubuğuna tıkla, YouTube'u aç ve kanaldaki en son videonun başlığını bana yaz. Her tıklamadan sonra ekran görüntüsü al.</span>
+        <span class="ib" style="width:36px;height:36px;background:var(--text)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+    </div>
+
+    <div class="blok">
+      <div class="etiket"><b>3 · Seçenek B</b><span class="rozet iyi">önerilen</span></div>
+      <p class="not" style="margin:0">İkinci satırda kutu <b>20px karta</b> dönüşüyor (<span class="mono">--r-lg</span>, kanunun üç yarıçapından biri) ve düğmeler kendi sırasına iniyor. Metin tam genişlik. Geçiş <span class="mono">--dur-base</span>.</p>
+      <div class="cbox kart">
+        <span class="yazi">Sağ ekrandaki Chrome penceresine geç, adres çubuğuna tıkla, YouTube'u aç ve kanaldaki en son videonun başlığını bana yaz. Her tıklamadan sonra ekran görüntüsü al.</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="ib" style="width:32px;height:32px;background:var(--surface)"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="muted mono" style="font-size:11px">↵ gönder · ⇧↵ satır</span>
+          <span style="flex-grow:1"></span>
+          <span class="ib" style="width:32px;height:32px;background:var(--text)"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <div class="etiket"><b>4 · Floating</b><span class="rozet iyi">ölü alan yok</span></div>
+    <p class="not" style="margin:0">Besteci <b>sohbetin üstünde yüzüyor</b>: arkasındaki <span class="mono">--bg</span> şeridi kalktı, metin bestecinin altından geçerken maskeyle soluyor. Maske nötr — yalnızca opaklık, hue değişmiyor.</p>
+    <div class="sohbet">
+      <div style="display:flex;flex-direction:column;gap:14px;padding:0 0 8px;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 52%,rgb(0 0 0/0) 92%);mask-image:linear-gradient(to bottom,#000 0,#000 52%,rgb(0 0 0/0) 92%)">
+        <div style="display:flex;justify-content:flex-end"><div class="bub" style="background:var(--surface-2)">Ekran düzenini oku ve bana söyle.</div></div>
+        <div style="display:flex"><div class="bub">İki monitör var. Soldaki <span class="mono">DP-2</span>, 1920×1080, ofset (0, 0). Sağdaki <span class="mono">HDMI-1</span>, aynı çözünürlük, ofset (1920, 0). Sağ ekrana tıklarken x değerine 1920 eklemem gerekiyor.</div></div>
+        <div style="display:flex"><div class="bub">Şimdi Chrome'u sağ ekranda arıyorum.</div></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:0 0 6px">
+        <div class="cbox pill" style="align-items:center">
+          <span class="ib" style="width:36px;height:36px;background:var(--surface)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="muted" style="flex-grow:1;font-size:14px">Masaüstü Botu'na yaz…</span>
+          <span class="ib" style="width:36px;height:36px;background:var(--text);opacity:.4"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="blok">
+    <div class="etiket"><b>5 · Eklerle</b></div>
+    <div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px">
+        <span class="ekc"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>ekran-2026-09-05.png<svg width="11" height="11" viewBox="0 0 20 20" fill="none" style="margin-left:2px"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="ekc"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>notlar.md<svg width="11" height="11" viewBox="0 0 20 20" fill="none" style="margin-left:2px"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="cbox pill" style="align-items:center">
+        <span class="ib" style="width:36px;height:36px;background:var(--surface)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="yazi" style="flex-grow:1">Bu ikisini karşılaştır</span>
+        <span class="ib" style="width:36px;height:36px;background:var(--text)"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

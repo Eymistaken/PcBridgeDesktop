@@ -1,0 +1,94 @@
+<style>
+  .sayfa{display:flex;gap:0;height:1080px;background:var(--bg)}
+  .notlar{flex-grow:1;padding:26px 28px;min-width:0;overflow:hidden}
+  .ngrid{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;align-content:start}
+  .nblok{break-inside:avoid;margin:0 0 15px}
+  .nblok b{display:block;margin-bottom:4px;font-size:12.5px;font-weight:600}
+  .row{display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px}
+  .row.hover{background:var(--field)}
+  .row.sel{background:var(--surface)}
+  .osat{display:flex;align-items:center;gap:9px;margin:0 8px 0 30px;padding:6px 10px;border-radius:var(--r-sm);font-size:13px;color:var(--text-muted)}
+  .osat.sel{background:var(--surface);color:var(--text)}
+  .osat.hover{background:var(--field)}
+  .osat span.ad{flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .esatir{display:flex;align-items:center;gap:9px;margin:2px 8px 0 30px;padding:6px 10px;border-radius:var(--r-sm);font-size:12.5px;color:var(--text-muted)}
+  .ok{width:26px;flex:none;display:flex;justify-content:center;color:var(--surface-2)}
+</style>
+
+<div class="sayfa" style="width:1040px">
+  <div class="side" style="width:300px">
+    <div class="side__head"><span class="side__title">pcbridge</span><span class="ib ib--filled"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/></svg></span></div>
+    <div class="side__modes"><div class="modesw"><i class="modesw__thumb"></i><span class="on">Botlar</span><span>Terminal</span></div></div>
+    <div style="flex:none;padding:0 12px 10px"><div class="fld"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="var(--text-muted)" stroke-width="1.7"/><path d="M13.2 13.2L17 17" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"/></svg><span class="muted">Bot ve session ara</span></div></div>
+
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:1px;overflow:hidden;padding-top:2px">
+
+      <div class="row sel">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 250)">M</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;flex-grow:1">Masaüstü Botu</span><span class="muted" style="font-size:11px">şimdi</span></div>
+          <span class="muted" style="font-size:12px">7 session</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m6 8 4 4 4-4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="osat sel"><span class="dot" style="background:var(--run)"></span><span class="ad">Chrome'da kanal araması</span><span class="mono" style="font-size:11px;color:var(--run)">2:14</span></div>
+      <div class="osat hover"><span class="dot" style="background:var(--ok)"></span><span class="ad">Masaüstü dosyalarını topla</span><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="osat"><span class="dot" style="background:var(--ok)"></span><span class="ad">Ekran çözünürlüğü kontrolü</span></div>
+      <div class="osat"><span class="dot" style="background:var(--fail)"></span><span class="ad">Vesktop pencere denemesi</span></div>
+      <div class="esatir"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>3 session daha</span></div>
+      <div class="esatir" style="color:var(--text)"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/></svg><span>Yeni session</span></div>
+
+      <div class="row hover" style="margin-top:8px">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 150)">K</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;flex-grow:1">Kod Asistanı</span><span class="muted" style="font-size:11px">2 sa</span></div>
+          <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Testler geçti, 12 dosya değişti</span>
+        </div>
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="margin-top:4px"><path d="M13.6 4.9 15.1 6.4 7.5 14H6v-1.5z" stroke="var(--text-muted)" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 30)">R</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;flex-grow:1">Rapor Botu</span><span style="font-size:11px;color:var(--run)">izin bekliyor</span></div>
+          <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fs_write · rapor-eylul.md</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="row">
+        <span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 295)">Y</span>
+        <div style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;flex-grow:1">Yedek Botu</span><span class="muted" style="font-size:11px">4 gün</span></div>
+          <span class="muted" style="font-size:12px">henüz session yok</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="margin-top:5px"><path d="m8 6 4 4-4 4" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:7px 12px 12px 18px">
+      <span class="dot" style="background:var(--ok)"></span>
+      <span class="muted" style="font-size:12.5px;flex-grow:1">127.0.0.1:8765 · 33 araç</span>
+      <span class="ib" style="width:28px;height:28px"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="7" width="13" height="9.5" rx="2" stroke="var(--run)" stroke-width="1.6"/><path d="M7 7V5.2a3 3 0 0 1 6 0V7" stroke="var(--run)" stroke-width="1.6"/></svg></span>
+    </div>
+  </div>
+
+  <div class="notlar">
+    <span class="baslik" style="display:block;margin-bottom:14px">Kenar çubuğu — durumlar</span>
+    <div class="ngrid">
+    <div class="nblok"><b>Bot satırı</b><span class="not">Tıklamak <b>yeni session açar</b>, son session'ı değil — kullanıcının kararı. Alt metin session sayısı. Chevron <span class="mono">--dur-fast</span> ile dönüyor, liste <span class="mono">--dur-slow</span> ile JS ölçümlü yükseklikle.</span></div>
+
+    <div class="nblok"><b>Session satırı</b><span class="not">Nokta koşum durumu: <span style="color:var(--run)">sürüyor</span> (nabız), <span style="color:var(--ok)">bitti</span>, <span style="color:var(--fail)">başarısız</span>. Sürende geçen süre sağda, hover'da kapatma çarpısı. Renkli çubuk yok.</span></div>
+
+    <div class="nblok"><b>Sıralama ve taşma</b><span class="not">Son güncellemeye göre, yeniden eskiye; sıra değişince <span class="mono">useFlip</span> ile kayıyor. İlk dört + “N session daha” — kenar çubuğu uzamıyor.</span></div>
+
+    <div class="nblok"><b>İzin bekleyen bot</b><span class="not">Bot satırında <span style="color:var(--run)">izin bekliyor</span>, altında hangi araç. Bot kapalıyken de görünüyor: soru kaybolmuyor.</span></div>
+
+    <div class="nblok"><b>Arama</b><span class="not">Tek alan hem botlarda hem session başlıklarında arıyor; eşleşmesi olan bot kendiliğinden açılıyor. Mesaj içeriğinde arama <b>kapsam dışı</b>.</span></div>
+
+    <div class="nblok"><b>Renk</b><span class="not">Session satırında avatar yok — kimlik zaten bot satırında. Renk yalnızca kimlikten ve durumdan.</span></div>
+    </div>
+  </div>
+</div>

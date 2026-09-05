@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+/* Palet ve ölçüler src/styles/tokens.css + app.css'ten BİREBİR alındı.
+   Koyu tema birincil; aydınlık varyant koddaki blokla aynı türetilir. */
+:root{
+  --bg:#151618; --bg-side:#0f0f11; --field:#1f2023; --surface:#26282a;
+  --surface-2:#36383b; --line:#2f3033; --well:#08090b;
+  --well-text:#eaebed; --well-muted:#96989c;
+  --text:#eaebed; --text-muted:#96989c;
+  --run:#d3a056; --ok:#75b683; --fail:#e2726b;
+  --av-l:0.62; --av-c:0.14;
+  --r-sm:12px; --r-lg:20px;
+  --dur-tap:70ms; --dur-fast:120ms; --dur-base:180ms; --dur-slow:300ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-in:cubic-bezier(.55,0,1,.45);
+  --ease-inout:cubic-bezier(.32,.72,0,1);
+  --sans:"Geist","Geist Sans",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:var(--text)}a:hover{color:var(--text-muted)}
+.mono{font-family:var(--mono);letter-spacing:-.01em}
+.muted{color:var(--text-muted)}
+.dot{width:7px;height:7px;border-radius:9999px;flex:none;display:block}
+.av{border-radius:9999px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--bg)}
+.ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;flex:none}
+.ib--filled{background:var(--field)}
+.h{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.lbl{font-size:11.5px;font-weight:500;color:var(--text-muted)}
+.btn-primary{padding:9px 20px;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font-size:13.5px;font-weight:600;border:0}
+.btn-quiet{padding:9px 18px;border-radius:var(--r-sm);color:var(--text-muted);font-size:13.5px;background:none;border:0}
+.seg{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);align-self:flex-start}
+.seg>span{padding:7px 15px;border-radius:9px;font-size:13.5px;color:var(--text-muted)}
+.seg>span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+.fld{display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:var(--r-sm);background:var(--field);font-size:13.5px}
+.card{border-radius:var(--r-lg);padding:18px 20px;background:var(--bg-side);display:flex;flex-direction:column;gap:13px}
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:24px;padding:0 9px;border-radius:9px;background:var(--surface);font-family:var(--mono);font-size:11.5px}
+/* uygulama kabuğu */
+.shell{display:flex;height:100%;background:var(--bg);overflow:hidden}
+.side{width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0}
+.side__head{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px 0 18px}
+.side__title{font-size:16px;font-weight:600;letter-spacing:-.015em;flex-grow:1}
+.side__modes{flex:none;padding:0 12px 10px}
+.modesw{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field)}
+.modesw__thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 4.5px);border-radius:9px;background:var(--surface-2)}
+.modesw>span{position:relative;text-align:center;padding:7px 0;font-size:13.5px;color:var(--text-muted)}
+.modesw>span.on{color:var(--text);font-weight:500}
+.main{flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0;--olcu:860px}
+.main__head{height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 20px 0 24px}
+/* devinim işareti — tuvalde durumu göstermek için, kodda karşılığı CSS geçişi */
+.ipucu{position:absolute;font-size:10.5px;letter-spacing:.02em;color:var(--run);font-family:var(--mono)}
+.not{font-size:11.5px;line-height:1.55;color:var(--text-muted)}
+.baslik{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+
+  </style>
+</helmet>
+<style>
+  .agac{flex-grow:1;min-height:0;display:flex;padding:0 24px 24px;gap:0}
+  .bol{display:flex;flex-grow:1;min-width:0;min-height:0}
+  .bol--y{flex-direction:row}
+  .bol--d{flex-direction:column}
+  .ayrac{flex:none;position:relative;background:transparent}
+  .ayrac--y{width:14px;cursor:col-resize}
+  .ayrac--d{height:14px;cursor:row-resize}
+  .ayrac i{position:absolute;background:var(--surface-2);border-radius:9999px;opacity:0}
+  .ayrac--y i{left:6px;top:50%;width:2px;height:34px;margin-top:-17px}
+  .ayrac--d i{top:6px;left:50%;height:2px;width:34px;margin-left:-17px}
+  .ayrac.uzeri i{opacity:1}
+  .pane{display:flex;flex-direction:column;border-radius:var(--r-lg);overflow:hidden;background:var(--well);min-width:0;min-height:0;flex-grow:1;position:relative}
+  .phead{height:36px;flex:none;display:flex;align-items:center;gap:9px;padding:0 6px 0 14px;background:var(--field);cursor:grab}
+  .phead .pb{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+  .phead .pb.on{background:var(--surface)}
+  .term{flex-grow:1;min-height:0;padding:8px 10px;overflow:hidden;font-family:var(--mono);font-size:12px;line-height:1.15;color:var(--well-text);white-space:pre}
+  .term .p{color:var(--ok)} .term .y{color:var(--well-muted)} .term .r{color:var(--run)}
+  .hedef{box-shadow:inset 0 0 0 2px var(--text)}
+  .hayalet{position:absolute;z-index:5;display:flex;align-items:center;gap:9px;height:32px;padding:0 14px;border-radius:var(--r-sm);background:var(--surface-2);font-family:var(--mono);font-size:12.5px;box-shadow:0 8px 24px -6px rgb(0 0 0/.55)}
+  .layout{display:flex;gap:4px;padding:4px;border-radius:var(--r-sm);background:var(--field);flex:none}
+  .layout>span{border-radius:6px;display:flex;align-items:center;padding:5px 10px;font-size:12px;color:var(--text-muted)}
+  .layout>span.on{background:var(--surface-2);color:var(--text)}
+  .tile{width:34px;height:34px;border-radius:var(--r-sm);flex:none;display:flex;align-items:center;justify-content:center;background:var(--field)}
+  .tile[data-uzak]{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+  .srow{display:flex;gap:11px;align-items:center;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px}
+  .srow.sel{background:var(--surface)}
+</style>
+
+<div class="shell" style="height:860px">
+
+  <div class="side">
+    <div class="side__head">
+      <span class="side__title">pcbridge</span>
+      <span class="ib ib--filled"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+    </div>
+    <div class="side__modes">
+      <div class="modesw"><i class="modesw__thumb" style="transform:translateX(calc(100% + 3px))"></i><span>Botlar</span><span class="on">Terminal</span></div>
+    </div>
+    <div style="flex:none;padding:0 12px 10px">
+      <div class="fld"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"/></svg><span class="muted">Yeni oturum adı…</span></div>
+    </div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:1px;overflow:hidden;padding-top:2px">
+      <div class="srow sel"><span class="tile"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono" style="font-size:13px">claude</div><div class="muted" style="font-size:11.5px">claude · ~/app</div></div></div>
+      <div class="srow sel"><span class="tile"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono" style="font-size:13px">agy</div><div class="muted" style="font-size:11.5px">agy · ~/app</div></div></div>
+      <div class="srow sel"><span class="tile"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono" style="font-size:13px">htop</div><div class="muted" style="font-size:11.5px">htop</div></div></div>
+      <div class="srow sel"><span class="tile"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono" style="font-size:13px">logs</div><div class="muted" style="font-size:11.5px">journalctl</div></div></div>
+      <div class="srow sel"><span class="tile"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono" style="font-size:13px">build</div><div class="muted" style="font-size:11.5px">cargo · ~/app</div></div></div>
+      <div class="baslik" style="padding:14px 18px 6px">PC'de açık, burada değil</div>
+      <div class="srow"><span class="tile" data-uzak><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div style="flex-grow:1;min-width:0"><div class="mono muted" style="font-size:13px">yedek</div><div class="muted" style="font-size:11.5px">rsync</div></div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="main__head">
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">5 bölme</span>
+      <span class="mono muted" style="font-size:12px">sürükleyerek taşı · ayraçtan boyutlandır</span>
+      <span style="flex-grow:1"></span>
+      <div class="layout">
+        <span class="on">Serbest</span><span>Izgara</span><span>Sütunlar</span><span>Satırlar</span><span>Ana + yığın</span>
+      </div>
+    </div>
+
+    <div class="agac">
+      <div class="bol bol--d">
+
+        <!-- üst: yatay ikili -->
+        <div class="bol bol--y" style="flex:0 0 68%">
+          <div class="pane hedef" style="flex:0 0 55%">
+            <div class="phead">
+              <span class="dot" style="background:var(--run)"></span>
+              <span class="mono" style="font-size:12.5px;font-weight:500">claude</span>
+              <span class="mono muted" style="font-size:12px">claude</span>
+              <span style="flex-grow:1"></span>
+              <span class="pb"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="11" rx="2" stroke="var(--text-muted)" stroke-width="1.5"/><path d="M10 4.5v11" stroke="var(--text-muted)" stroke-width="1.5"/></svg></span>
+              <span class="pb"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="11" rx="2" stroke="var(--text-muted)" stroke-width="1.5"/><path d="M3.5 10h13" stroke="var(--text-muted)" stroke-width="1.5"/></svg></span>
+              <span class="pb"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            </div>
+            <div class="term"><span class="p">eymistaken@ZorinOS</span>:<span class="y">~/app</span>$ claude
+<span class="y">╭──────────────────────────────────────────╮</span>
+<span class="y">│</span>  Claude Code                             <span class="y">│</span>
+<span class="y">╰──────────────────────────────────────────╯</span>
+
+<span class="r">●</span> Reading src-tauri/src/agent.rs…
+  <span class="y">└</span> 4118 satır okundu
+
+<span class="r">●</span> Editing bots.rs
+  <span class="y">└</span> Session struct eklendi
+
+<span class="p">eymistaken@ZorinOS</span>:<span class="y">~/app</span>$ <span style="background:var(--well-text);color:var(--well)"> </span></div>
+            <span class="hayalet" style="left:38%;top:44%">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 7l3 3-3 3M10.5 13.5h5" stroke="var(--text)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              logs
+            </span>
+          </div>
+
+          <div class="ayrac ayrac--y"><i></i></div>
+
+          <div class="bol bol--d" style="flex:0 0 45%">
+            <div class="pane" style="flex:0 0 46%">
+              <div class="phead">
+                <span class="dot" style="background:var(--run)"></span>
+                <span class="mono" style="font-size:12.5px;font-weight:500">agy</span>
+                <span class="mono muted" style="font-size:12px">agy</span>
+                <span style="flex-grow:1"></span>
+                <span class="muted" style="font-size:11.5px">PC'de de açık</span>
+                <span class="pb"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              </div>
+              <div class="term"><span class="p">eymistaken@ZorinOS</span>:<span class="y">~/app</span>$ agy
+<span class="y">Antigravity CLI 0.9.4</span>
+> plan hazır, 7 adım
+  <span class="y">1.</span> tuval
+  <span class="y">2.</span> session katmanı
+  <span class="y">3.</span> session arayüzü</div>
+            </div>
+
+            <div class="ayrac ayrac--d uzeri"><i></i></div>
+
+            <div class="bol bol--y" style="flex:0 0 54%">
+              <div class="pane">
+                <div class="phead" style="padding-right:4px">
+                  <span class="dot" style="background:var(--run)"></span>
+                  <span class="mono" style="font-size:12.5px;font-weight:500">htop</span>
+                  <span style="flex-grow:1"></span>
+                  <span class="pb"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                </div>
+                <div class="term"><span class="r">1</span>  <span class="y">[|||||    41%]</span>
+<span class="r">2</span>  <span class="y">[||       12%]</span>
+<span class="r">3</span>  <span class="y">[|||||||  68%]</span>
+<span class="r">4</span>  <span class="y">[|         4%]</span>
+Mem<span class="y">[|||||| 9.2G/32G]</span>
+
+ PID USER   CPU% CMD
+2841 eymi   34.0 cargo
+3190 eymi   11.2 node
+ 991 eymi    3.1 tmux</div>
+              </div>
+
+              <div class="ayrac ayrac--y"><i></i></div>
+
+              <div class="pane" style="opacity:.45">
+                <div class="phead" style="padding-right:4px;cursor:grabbing">
+                  <span class="dot" style="background:var(--ok)"></span>
+                  <span class="mono" style="font-size:12.5px;font-weight:500">logs</span>
+                  <span style="flex-grow:1"></span>
+                  <span class="pb"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                </div>
+                <div class="term"><span class="y">Eyl 05 17:52</span> pcbridge
+  started, port 8765
+<span class="y">Eyl 05 17:54</span> pcbridge
+  tool call: fs_list
+<span class="y">Eyl 05 17:55</span> pcbridge
+  tool call: screen_info</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ayrac ayrac--d"><i></i></div>
+
+        <!-- alt: tam genişlik -->
+        <div class="pane" style="flex:0 0 32%">
+          <div class="phead">
+            <span class="dot" style="background:var(--ok)"></span>
+            <span class="mono" style="font-size:12.5px;font-weight:500">build</span>
+            <span class="mono muted" style="font-size:12px">cargo</span>
+            <span style="flex-grow:1"></span>
+            <span class="pb"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="11" rx="2" stroke="var(--text-muted)" stroke-width="1.5"/><path d="M10 4.5v11" stroke="var(--text-muted)" stroke-width="1.5"/></svg></span>
+            <span class="pb"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="11" rx="2" stroke="var(--text-muted)" stroke-width="1.5"/><path d="M3.5 10h13" stroke="var(--text-muted)" stroke-width="1.5"/></svg></span>
+            <span class="pb"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          </div>
+          <div class="term"><span class="p">eymistaken@ZorinOS</span>:<span class="y">~/app</span>$ cargo test --lib
+   <span class="p">Compiling</span> pcbridge-desktop v0.1.0
+    <span class="p">Finished</span> test profile in 12.41s
+     <span class="p">Running</span> unittests src/lib.rs
+
+test bots::tests::goc_tek_session ... <span class="p">ok</span>
+test agent::tests::gecmis_session_bazli ... <span class="p">ok</span>
+test runs::tests::meta_disk_snake_case ... <span class="p">ok</span>
+
+test result: <span class="p">ok</span>. 47 passed; 0 failed</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

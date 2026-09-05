@@ -1,0 +1,94 @@
+<style>
+  .sys{flex-grow:1;min-height:0;display:flex;gap:22px;padding:4px 32px 28px;overflow:hidden}
+  .sysnav{width:206px;flex:none;display:flex;flex-direction:column;gap:2px}
+  .sysnav>span{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:var(--r-sm);font-size:13.5px;color:var(--text-muted)}
+  .sysnav>span.on{background:var(--surface);color:var(--text);font-weight:500}
+  .sysgov{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+  .grp{display:flex;flex-direction:column;gap:7px}
+  .tgl{width:44px;height:26px;border-radius:9999px;background:var(--surface-2);flex:none;position:relative}
+  .tgl i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:9999px;background:var(--text-muted)}
+  .tgl.on{background:var(--text)} .tgl.on i{left:21px;background:var(--bg)}
+  .geri{display:flex;align-items:baseline;gap:10px;padding:13px 16px;border-radius:var(--r-sm);background:var(--field)}
+  .shot{border-radius:var(--r-sm);background:var(--well);height:96px;display:flex;align-items:center;justify-content:center}
+  .kayit{display:grid;grid-template-columns:74px 116px 1fr;gap:8px 14px;font-family:var(--mono);font-size:11.5px;color:var(--text-muted)}
+  .kayit b{color:var(--text);font-weight:500}
+</style>
+
+<div class="shell" style="height:860px">
+  <div class="side">
+    <div class="side__head"><span class="side__title">pcbridge</span><span class="ib ib--filled"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 4.5v11M4.5 10h11" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/></svg></span></div>
+    <div class="side__modes"><div class="modesw"><i class="modesw__thumb"></i><span class="on">Botlar</span><span>Terminal</span></div></div>
+    <div style="flex:none;padding:0 12px 10px"><div class="fld"><svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="var(--text-muted)" stroke-width="1.7"/><path d="M13.2 13.2L17 17" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round"/></svg><span class="muted">Bot ve session ara</span></div></div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;gap:1px;overflow:hidden;padding-top:2px">
+      <div style="display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px"><span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 250)">M</span><div style="flex-grow:1;min-width:0"><div style="font-size:14px">Masaüstü Botu</div><div class="muted" style="font-size:12px">7 session</div></div></div>
+      <div style="display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px"><span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 150)">K</span><div style="flex-grow:1;min-width:0"><div style="font-size:14px">Kod Asistanı</div><div class="muted" style="font-size:12px">3 session</div></div></div>
+      <div style="display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border-radius:var(--r-sm);margin:0 8px"><span class="av" style="width:26px;height:26px;font-size:12px;background:oklch(var(--av-l) var(--av-c) 30)">R</span><div style="flex-grow:1;min-width:0"><div style="font-size:14px">Rapor Botu</div><div class="muted" style="font-size:12px">1 session</div></div></div>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:7px 12px 12px 18px;border-radius:var(--r-sm);background:var(--surface);margin:0 8px 8px">
+      <span class="dot" style="background:var(--ok)"></span>
+      <span style="font-size:12.5px;flex-grow:1">Sistem</span>
+      <span class="mono muted" style="font-size:11.5px">Ctrl 0</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="main__head">
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">Sistem</span>
+      <span class="mono muted" style="font-size:12px">33 araç · 2 ajan</span>
+      <span style="flex-grow:1"></span>
+      <span class="ib"><svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M16 10a6 6 0 1 1-1.8-4.2M16 4v3h-3" stroke="var(--text-muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
+
+    <div class="sys">
+      <div class="sysnav">
+        <span><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 10h13M10 3.5c3.5 3.6 3.5 9.4 0 13-3.5-3.6-3.5-9.4 0-13" stroke="currentColor" stroke-width="1.6"/></svg>Bağlantı</span>
+        <span><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="5" rx="1.6" stroke="currentColor" stroke-width="1.6"/><rect x="3.5" y="11" width="13" height="5" rx="1.6" stroke="currentColor" stroke-width="1.6"/><path d="M6.3 7h.01M6.3 13.5h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Model sunucusu</span>
+        <span><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="4" y="6.5" width="12" height="9" rx="2.4" stroke="currentColor" stroke-width="1.6"/><path d="M10 3.5v3M7.4 10.6h.01M12.6 10.6h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Ajanlar</span>
+        <span class="on"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="7" width="13" height="9.5" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M7 7V5.2a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Masaüstü izni</span>
+        <span><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M10 2.6v2M10 15.4v2M2.6 10h2M15.4 10h2M4.8 4.8l1.4 1.4M13.8 13.8l1.4 1.4M15.2 4.8l-1.4 1.4M6.2 13.8l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Görünüm</span>
+        <span><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><rect x="2.8" y="5.5" width="14.4" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M6 8.4h.01M9 8.4h.01M12 8.4h.01M6.6 11.6h6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Kısayollar</span>
+      </div>
+
+      <div class="sysgov">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="flex-grow:1;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:15px;font-weight:600">Masaüstü kontrolü</span>
+              <span class="not">Bot fareyi ve klavyeyi kullanabilir, ekranı görebilir. Kapalıyken <span class="mono">screen_capture</span> dahil hiçbir masaüstü aracı çalışmaz.</span>
+            </div>
+            <span class="tgl on"><i></i></span>
+          </div>
+          <div class="geri">
+            <span class="mono" style="font-size:22px;font-weight:500;color:var(--run);letter-spacing:-.02em">1:24</span>
+            <div style="display:flex;flex-direction:column;gap:2px;flex-grow:1">
+              <span style="font-size:12.5px">boşta kirası — her eylemden sonra 90 sn'ye döner</span>
+              <span class="not">sert tavan <span class="mono">48:07</span> · gerekçe: “Chrome'da kanal araması”</span>
+            </div>
+            <span class="btn-quiet" style="padding:6px 12px">Kilitle</span>
+          </div>
+          <div class="grp">
+            <span class="lbl">Süre</span>
+            <div class="seg"><span>15 dk</span><span class="on">60 dk</span><span>2 sa</span><span>4 sa</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <span class="h">Son ekran görüntüsü</span>
+          <div class="shot"><span class="mono" style="font-size:11.5px;color:var(--well-muted)">2 monitör · 3840×1080 · 17:52:14</span></div>
+          <span class="not">Görüntü diske yazılmıyor; yalnızca son çağrının önizlemesi tutuluyor.</span>
+        </div>
+
+        <div class="card">
+          <span class="h">Denetim kaydı</span>
+          <div class="kayit">
+            <span>17:52:14</span><b>screen_capture</b><span>monitor 2 · scale 0</span>
+            <span>17:52:19</span><b>mouse</b><span>click (2028, 102) · monitor 2 (HDMI-1)</span>
+            <span>17:52:21</span><b>keyboard</b><span>type · chars: 23</span>
+            <span>17:52:26</span><b style="color:var(--fail)">keyboard</b><span>key delete — ⛔ odak masaüstünde</span>
+          </div>
+          <span class="not">Yazılan metin kaydedilmiyor, yalnızca karakter sayısı — kayıt bu yüzden olduğu gibi gösterilebiliyor.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

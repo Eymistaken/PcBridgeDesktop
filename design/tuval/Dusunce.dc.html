@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+/* Palet ve ölçüler src/styles/tokens.css + app.css'ten BİREBİR alındı.
+   Koyu tema birincil; aydınlık varyant koddaki blokla aynı türetilir. */
+:root{
+  --bg:#151618; --bg-side:#0f0f11; --field:#1f2023; --surface:#26282a;
+  --surface-2:#36383b; --line:#2f3033; --well:#08090b;
+  --well-text:#eaebed; --well-muted:#96989c;
+  --text:#eaebed; --text-muted:#96989c;
+  --run:#d3a056; --ok:#75b683; --fail:#e2726b;
+  --av-l:0.62; --av-c:0.14;
+  --r-sm:12px; --r-lg:20px;
+  --dur-tap:70ms; --dur-fast:120ms; --dur-base:180ms; --dur-slow:300ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-in:cubic-bezier(.55,0,1,.45);
+  --ease-inout:cubic-bezier(.32,.72,0,1);
+  --sans:"Geist","Geist Sans",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:var(--text)}a:hover{color:var(--text-muted)}
+.mono{font-family:var(--mono);letter-spacing:-.01em}
+.muted{color:var(--text-muted)}
+.dot{width:7px;height:7px;border-radius:9999px;flex:none;display:block}
+.av{border-radius:9999px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--bg)}
+.ib{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;flex:none}
+.ib--filled{background:var(--field)}
+.h{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.lbl{font-size:11.5px;font-weight:500;color:var(--text-muted)}
+.btn-primary{padding:9px 20px;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font-size:13.5px;font-weight:600;border:0}
+.btn-quiet{padding:9px 18px;border-radius:var(--r-sm);color:var(--text-muted);font-size:13.5px;background:none;border:0}
+.seg{display:flex;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field);align-self:flex-start}
+.seg>span{padding:7px 15px;border-radius:9px;font-size:13.5px;color:var(--text-muted)}
+.seg>span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+.fld{display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:var(--r-sm);background:var(--field);font-size:13.5px}
+.card{border-radius:var(--r-lg);padding:18px 20px;background:var(--bg-side);display:flex;flex-direction:column;gap:13px}
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:24px;padding:0 9px;border-radius:9px;background:var(--surface);font-family:var(--mono);font-size:11.5px}
+/* uygulama kabuğu */
+.shell{display:flex;height:100%;background:var(--bg);overflow:hidden}
+.side{width:300px;flex:none;display:flex;flex-direction:column;background:var(--bg-side);min-height:0}
+.side__head{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px 0 18px}
+.side__title{font-size:16px;font-weight:600;letter-spacing:-.015em;flex-grow:1}
+.side__modes{flex:none;padding:0 12px 10px}
+.modesw{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:var(--r-sm);background:var(--field)}
+.modesw__thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 4.5px);border-radius:9px;background:var(--surface-2)}
+.modesw>span{position:relative;text-align:center;padding:7px 0;font-size:13.5px;color:var(--text-muted)}
+.modesw>span.on{color:var(--text);font-weight:500}
+.main{flex-grow:1;display:flex;flex-direction:column;min-width:0;min-height:0;--olcu:860px}
+.main__head{height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 20px 0 24px}
+/* devinim işareti — tuvalde durumu göstermek için, kodda karşılığı CSS geçişi */
+.ipucu{position:absolute;font-size:10.5px;letter-spacing:.02em;color:var(--run);font-family:var(--mono)}
+.not{font-size:11.5px;line-height:1.55;color:var(--text-muted)}
+.baslik{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+
+  </style>
+</helmet>
+<style>
+  .sayfa{padding:30px 34px 34px;display:flex;flex-direction:column;gap:22px;background:var(--bg)}
+  .etiket{display:flex;align-items:baseline;gap:10px}
+  .etiket b{font-size:13px;font-weight:600}
+  .rozet{font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:9999px;background:var(--surface);color:var(--text-muted)}
+  .rozet.iyi{color:var(--ok)} .rozet.kotu{color:var(--fail)}
+  .dusunce{max-width:74%;padding-bottom:11px;border-radius:var(--r-lg);background:var(--surface);overflow:hidden}
+  .dusunce__baslik{display:flex;align-items:center;gap:7px;width:100%;padding:9px 16px 5px;font-size:11.5px;color:var(--text-muted)}
+  .dusunce__kuyu{height:60px;padding:0 16px;overflow:hidden}
+  .dusunce__metin{font-size:13px;line-height:1.55;color:var(--text-muted);white-space:pre-wrap}
+  .tasiyor{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 34%);mask-image:linear-gradient(to bottom,transparent 0,#000 34%)}
+  .ikili{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .ikili .dusunce{max-width:100%}
+</style>
+
+<div class="sayfa" style="width:820px">
+
+  <div class="ikili">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="etiket"><b>Kısa düşünce · bugün</b><span class="rozet kotu">oturmuyor</span></div>
+      <p class="not" style="margin:0">Kutu her zaman tam üç satır (<span class="mono">60,45px</span> — kesirli). Bir satırlık düşünce ortada asılı kalıyor, altında ve üstünde boşluk var.</p>
+      <div class="dusunce">
+        <div class="dusunce__baslik">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="transform:rotate(-90deg)"><path d="m6 8 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>1,4 saniye düşündü</span>
+        </div>
+        <div class="dusunce__kuyu">
+          <div class="dusunce__metin" style="transform:translateY(20px)">Ekran görüntüsünü almam gerekiyor.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="etiket"><b>Kısa düşünce · önerilen</b><span class="rozet iyi">içeriğe oturuyor</span></div>
+      <p class="not" style="margin:0">Kutu içeriğe kadar <b>küçülüyor</b>, tavan yine üç satır. Yükseklik <span class="mono">--dur-slow</span> ile geçiyor, ölçüm JS'te (<span class="mono">gecirYukseklik</span>) — WebKitGTK'da <span class="mono">calc-size()</span> yok.</p>
+      <div class="dusunce">
+        <div class="dusunce__baslik">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="transform:rotate(-90deg)"><path d="m6 8 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>1,4 saniye düşündü</span>
+        </div>
+        <div class="dusunce__kuyu" style="height:20px">
+          <div class="dusunce__metin">Ekran görüntüsünü almam gerekiyor.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="etiket"><b>Akarken · kapalı</b><span class="rozet">değişmiyor</span></div>
+    <p class="not" style="margin:0">Üç satır sabit, son satırlar yukarı akıyor, üst kenar maskeyle soluyor. Bu hâl doğru çalışıyor — dokunulmuyor.</p>
+    <div class="dusunce">
+      <div class="dusunce__baslik">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="transform:rotate(-90deg)"><path d="m6 8 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Düşünüyor…</span>
+      </div>
+      <div class="dusunce__kuyu tasiyor">
+        <div class="dusunce__metin" style="transform:translateY(-40px)">Kullanıcı sağ ekrandaki Chrome'u istiyor. Önce screen_info çağırmalıyım.
+Ekran tablosu geldi: DP-2 (0,0) ve HDMI-1 (1920,0). Sağdaki HDMI-1.
+Şimdi screen_capture ile monitor 2'yi yakalayayım, ölçek uygulama koyacak.
+Görüntü koordinatı x≈108 çıkarsa global x = 1920 + 108 = 2028 olur.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="etiket"><b>Açılırken</b><span class="rozet iyi">yeni</span></div>
+    <p class="not" style="margin:0">Bugün yükseklik geçiyor ama <b>metin bir karede sertçe beliriyor</b>. Artık metin yüksekliğin biraz gerisinden <span class="mono">opacity</span> + 4px <span class="mono">translateY</span> ile geliyor; chevron <span class="mono">--dur-fast</span> ile dönüyor.</p>
+    <div class="dusunce">
+      <div class="dusunce__baslik">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style="transform:rotate(-42deg)"><path d="m6 8 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>4,2 saniye düşündü</span>
+      </div>
+      <div class="dusunce__kuyu" style="height:96px">
+        <div class="dusunce__metin" style="opacity:.45;transform:translateY(4px)">Kullanıcı sağ ekrandaki Chrome'u istiyor. Önce screen_info çağırmalıyım.
+Ekran tablosu geldi: DP-2 (0,0) ve HDMI-1 (1920,0). Sağdaki HDMI-1.
+Şimdi screen_capture ile monitor 2'yi yakalayayım, ölçek uygulama koyacak.
+Görüntü koordinatı x≈108 çıkarsa global x = 1920 + 108 = 2028 olur.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="etiket"><b>Açık</b></div>
+    <div class="dusunce">
+      <div class="dusunce__baslik">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="m6 8 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>4,2 saniye düşündü</span>
+      </div>
+      <div class="dusunce__kuyu" style="height:auto;min-height:60px">
+        <div class="dusunce__metin">Kullanıcı sağ ekrandaki Chrome'u istiyor. Önce screen_info çağırmalıyım.
+Ekran tablosu geldi: DP-2 (0,0) ve HDMI-1 (1920,0). Sağdaki HDMI-1.
+Şimdi screen_capture ile monitor 2'yi yakalayayım, ölçek uygulama koyacak.
+Görüntü koordinatı x≈108 çıkarsa global x = 1920 + 108 = 2028 olur.
+Bu hesabı her tıklamada tekrar yapmam gerekiyor — ofseti unutmamalıyım.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
