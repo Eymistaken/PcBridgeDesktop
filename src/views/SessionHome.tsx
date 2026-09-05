@@ -28,7 +28,13 @@ interface Props {
  * Ortada besteci, altında son session kartları, yanında arama ve "daha
  * fazla göster".
  */
-export default function SessionHome({ bot, sessions, onOpen, onDelete, composer }: Props) {
+export default function SessionHome({
+  bot,
+  sessions,
+  onOpen,
+  onDelete,
+  composer,
+}: Props) {
   const [arama, setArama] = useState<string | null>(null);
   const [hepsi, setHepsi] = useState(false);
   const izgara = useRef<HTMLDivElement>(null);
@@ -101,7 +107,11 @@ export default function SessionHome({ bot, sessions, onOpen, onDelete, composer 
                 </div>
               )}
               {arama === null && suzulmus.length > KART && (
-                <button type="button" className="home__daha" onClick={() => setHepsi((h) => !h)}>
+                <button
+                  type="button"
+                  className="home__daha"
+                  onClick={() => setHepsi((h) => !h)}
+                >
                   {hepsi ? t("home.less") : t("home.more")}
                 </button>
               )}
@@ -182,9 +192,14 @@ function OturumKarti({
         </button>
       </div>
       <span className="okart__meta">
-        <span className={oturum.running ? "dot dot--pulse" : "dot"} style={{ background: renk }} />
+        <span
+          className={oturum.running ? "dot dot--pulse" : "dot"}
+          style={{ background: renk }}
+        />
         {t("home.turns", { n: oturum.turnCount })} ·{" "}
-        {oturum.running ? t("home.running") : zaman(oturum.at ?? oturum.updatedAt)}
+        {oturum.running
+          ? t("home.running")
+          : zaman(oturum.at ?? oturum.updatedAt)}
       </span>
       <span className="okart__son">{oturum.line || t("home.empty")}</span>
     </div>

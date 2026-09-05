@@ -15,7 +15,13 @@ import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
 import { kisaltEv } from "../lib/yol";
-import type { Bot, PendingPermission, Permission, RunCtx, Turn } from "../lib/types";
+import type {
+  Bot,
+  PendingPermission,
+  Permission,
+  RunCtx,
+  Turn,
+} from "../lib/types";
 
 interface Props {
   bot: Bot;
@@ -113,7 +119,10 @@ export default function Chat({
     kap.addEventListener("scroll", dipIzle, { passive: true });
 
     const yaz = () => {
-      panel.style.setProperty("--besteci-h", `${Math.round(el.offsetHeight)}px`);
+      panel.style.setProperty(
+        "--besteci-h",
+        `${Math.round(el.offsetHeight)}px`,
+      );
       if (dipte.current) kap.scrollTop = kap.scrollHeight;
     };
     yaz();
@@ -129,8 +138,16 @@ export default function Chat({
   // Besteci üstündeki üç şerit de kapanırken bir karede yok oluyordu.
   // İzin sorusu ve koşum şeridi **içeriğini de** korumak zorunda: yanıt
   // verilir verilmez `pending` düşüyor ve kart boşalırdı.
-  const { icerik: kosum, render: kosumVar, cikiyor: kosumCikiyor } = useCikisIcerik(running);
-  const { icerik: izin, render: izinVar, cikiyor: izinCikiyor } = useCikisIcerik(pending);
+  const {
+    icerik: kosum,
+    render: kosumVar,
+    cikiyor: kosumCikiyor,
+  } = useCikisIcerik(running);
+  const {
+    icerik: izin,
+    render: izinVar,
+    cikiyor: izinCikiyor,
+  } = useCikisIcerik(pending);
   const { render: ozetVar, cikiyor: ozetCikiyor } = useCikis(compacting);
 
   /**
@@ -225,7 +242,11 @@ export default function Chat({
     <>
       <div className="main__head">
         <Avatar tone={bot.avatar} name={bot.name} size={26} />
-        <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{bot.name}</span>
+        <span
+          style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}
+        >
+          {bot.name}
+        </span>
         <span className="mono muted" style={{ fontSize: 12 }}>
           {[
             bot.model,
@@ -255,7 +276,9 @@ export default function Chat({
       <div className="chat" ref={kaydiran}>
         {turns.length === 0 && !running && (
           <div className="chat__bos">
-            <span style={{ fontSize: 14, fontWeight: 500 }}>{t("chat.empty")}</span>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>
+              {t("chat.empty")}
+            </span>
             <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
               {t("chat.emptyHint")}
             </span>
@@ -276,122 +299,148 @@ export default function Chat({
         ))}
 
         {error && (
-          <div className="bub" style={{ background: "var(--field)", color: "var(--fail)" }}>
+          <div
+            className="bub"
+            style={{ background: "var(--field)", color: "var(--fail)" }}
+          >
             {error}
           </div>
         )}
       </div>
 
       <div className="altlik" ref={altlik}>
-      {kosumVar && kosum && (
-        <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
-          <div className="jobstrip__box">
-            <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
-            <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {kosum.label}
-            </span>
-            <span className="mono muted" style={{ fontSize: 12, flex: "none" }}>
-              {kosum.jobId}
-            </span>
-            <div style={{ flexGrow: 1 }} />
-            <Elapsed startedAt={kosum.startedAt} />
-            <button
-              type="button"
-              className="ib"
-              title={t("chat.stop")}
-              aria-label={t("chat.stop")}
-              style={{ width: 30, height: 30, background: "var(--surface)" }}
-              onClick={() => onCancel(kosum.jobId)}
-            >
-              <IconStop />
-            </button>
+        {kosumVar && kosum && (
+          <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
+            <div className="jobstrip__box">
+              <span
+                className="dot dot--pulse"
+                style={{ background: "var(--run)" }}
+              />
+              <span
+                style={{
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {kosum.label}
+              </span>
+              <span
+                className="mono muted"
+                style={{ fontSize: 12, flex: "none" }}
+              >
+                {kosum.jobId}
+              </span>
+              <div style={{ flexGrow: 1 }} />
+              <Elapsed startedAt={kosum.startedAt} />
+              <button
+                type="button"
+                className="ib"
+                title={t("chat.stop")}
+                aria-label={t("chat.stop")}
+                style={{ width: 30, height: 30, background: "var(--surface)" }}
+                onClick={() => onCancel(kosum.jobId)}
+              >
+                <IconStop />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {ozetVar && (
-        <div className="jobstrip" data-cikis={ozetCikiyor || undefined}>
-          <div className="jobstrip__box">
-            <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
-            <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("ctx.compacting")}</span>
+        {ozetVar && (
+          <div className="jobstrip" data-cikis={ozetCikiyor || undefined}>
+            <div className="jobstrip__box">
+              <span
+                className="dot dot--pulse"
+                style={{ background: "var(--run)" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500 }}>
+                {t("ctx.compacting")}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {izinVar && izin && (
-        <PermAsk
-          istek={izin}
-          cikiyor={izinCikiyor}
+        {izinVar && izin && (
+          <PermAsk
+            istek={izin}
+            cikiyor={izinCikiyor}
+            botName={bot.name}
+            onAnswer={(allow) => onAnswer(izin.runId, allow)}
+          />
+        )}
+
+        <Composer
           botName={bot.name}
-          onAnswer={(allow) => onAnswer(izin.runId, allow)}
-        />
-      )}
+          workdir={bot.workdir}
+          busy={busy}
+          resetKey={`${bot.id}:${sessionId}`}
+          onSend={onSend}
+          foot={
+            <>
+              <PermMenu
+                value={bot.permission}
+                botName={bot.name}
+                tools={bot.tools}
+                force={bot.forceWhenBusy}
+                onChange={onPermission}
+                onForce={onForce}
+                onEditTools={onEditBot}
+              />
 
-      <Composer
-        botName={bot.name}
-        workdir={bot.workdir}
-        busy={busy}
-        resetKey={`${bot.id}:${sessionId}`}
-        onSend={onSend}
-        foot={
-          <>
-            <PermMenu
-              value={bot.permission}
-              botName={bot.name}
-              tools={bot.tools}
-              force={bot.forceWhenBusy}
-              onChange={onPermission}
-              onForce={onForce}
-              onEditTools={onEditBot}
-            />
+              <div style={{ flexGrow: 1 }} />
 
-            <div style={{ flexGrow: 1 }} />
+              {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
+               * dolduğunu fark etmeden koşum başlatıyordu. */}
+              {ctx &&
+                bot.backend === "yerel-model" &&
+                bot.contextBudget > 0 &&
+                ctx.promptTokens / bot.contextBudget >= UYARI &&
+                !busy &&
+                !running &&
+                !compacting && (
+                  <button
+                    type="button"
+                    className="ctxoneri"
+                    onClick={onCompact}
+                  >
+                    {t("ctx.suggest")}
+                  </button>
+                )}
 
-            {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
-              * dolduğunu fark etmeden koşum başlatıyordu. */}
-            {ctx &&
-              bot.backend === "yerel-model" &&
-              bot.contextBudget > 0 &&
-              ctx.promptTokens / bot.contextBudget >= UYARI &&
-              !busy &&
-              !running &&
-              !compacting && (
-                <button type="button" className="ctxoneri" onClick={onCompact}>
-                  {t("ctx.suggest")}
-                </button>
+              {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
+               * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
+              {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
+                <Picker
+                  chip
+                  up
+                  value={bot.effort ?? ""}
+                  options={efforts.map((e) => ({ value: e, label: e }))}
+                  placeholder={t("forge.effort")}
+                  ariaLabel={t("forge.effort")}
+                  onChange={onEffort}
+                />
               )}
 
-            {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
-              * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
-            {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
-              <Picker
-                chip
-                up
-                value={bot.effort ?? ""}
-                options={efforts.map((e) => ({ value: e, label: e }))}
-                placeholder={t("forge.effort")}
-                ariaLabel={t("forge.effort")}
-                onChange={onEffort}
+              <CtxMenu
+                model={bot.model}
+                budget={bot.contextBudget}
+                // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
+                // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
+                ctx={bot.backend === "yerel-model" ? ctx : null}
+                busy={busy || !!running}
+                tps={running ? tps : null}
+                baseUrl={baseUrl}
+                // Eski yolda modeli bir CLI yürütüyor ve o buluta gidiyor.
+                agent={bot.backend === "pcbridge-agent" ? bot.agent : undefined}
+                compacting={compacting}
+                onCompact={onCompact}
               />
-            )}
-
-            <CtxMenu
-              model={bot.model}
-              budget={bot.contextBudget}
-              // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
-              // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
-              ctx={bot.backend === "yerel-model" ? ctx : null}
-              busy={busy || !!running}
-              tps={running ? tps : null}
-              baseUrl={baseUrl}
-              // Eski yolda modeli bir CLI yürütüyor ve o buluta gidiyor.
-              agent={bot.backend === "pcbridge-agent" ? bot.agent : undefined}
-              compacting={compacting}
-              onCompact={onCompact}
-            />
-          </>
-        }
-      />
+            </>
+          }
+        />
       </div>
     </>
   );
@@ -414,7 +463,15 @@ function durduruldu(turn: Turn): boolean {
  */
 const TurnView = memo(TurnViewIc);
 
-function TurnViewIc({ turn, live, yeni }: { turn: Turn; live: boolean; yeni: boolean }) {
+function TurnViewIc({
+  turn,
+  live,
+  yeni,
+}: {
+  turn: Turn;
+  live: boolean;
+  yeni: boolean;
+}) {
   const blocks = useMemo(() => toBlocks(turn.events), [turn.events]);
   const bitis = finishedOf(turn.events);
   const kesildi = durduruldu(turn);
@@ -443,7 +500,12 @@ function TurnViewIc({ turn, live, yeni }: { turn: Turn; live: boolean; yeni: boo
 
       {blocks.map((b, i) => (
         // Yalnızca **süren** turun **son** bloğu canlı: akış orada.
-        <BlockView key={i} block={b} live={live && i === blocks.length - 1} yeni={yeni} />
+        <BlockView
+          key={i}
+          block={b}
+          live={live && i === blocks.length - 1}
+          yeni={yeni}
+        />
       ))}
 
       {kesildi ? (
@@ -476,12 +538,24 @@ function TurnViewIc({ turn, live, yeni }: { turn: Turn; live: boolean; yeni: boo
  * Sarmalayıcı `<div>` **balonun içinde**: maske `.bub`'a konsaydı zemini de
  * maskelerdi ve baloncukta saydam bir çentik açılırdı.
  */
-function MetinBloku({ text, live, yeni }: { text: string; live: boolean; yeni?: boolean }) {
+function MetinBloku({
+  text,
+  live,
+  yeni,
+}: {
+  text: string;
+  live: boolean;
+  yeni?: boolean;
+}) {
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (
     <div style={{ display: "flex" }}>
-      <div className="bub" data-yeni={yeni || undefined} style={{ background: "var(--surface)" }}>
+      <div
+        className="bub"
+        data-yeni={yeni || undefined}
+        style={{ background: "var(--surface)" }}
+      >
         <div ref={kap} className={live ? "akis--canli" : undefined}>
           <Markdown text={text} />
         </div>
@@ -490,7 +564,15 @@ function MetinBloku({ text, live, yeni }: { text: string; live: boolean; yeni?: 
   );
 }
 
-function BlockView({ block, live, yeni }: { block: Block; live: boolean; yeni: boolean }) {
+function BlockView({
+  block,
+  live,
+  yeni,
+}: {
+  block: Block;
+  live: boolean;
+  yeni: boolean;
+}) {
   const y = yeni || undefined;
   if (block.t === "text") {
     return <MetinBloku text={block.text} live={live} yeni={yeni} />;
@@ -536,7 +618,9 @@ function BlockView({ block, live, yeni }: { block: Block; live: boolean; yeni: b
           )}
           {basarisiz ? null : block.text}
           {basarisiz && (
-            <div style={{ color: "var(--fail)", marginTop: 6 }}>{detailText(block.text)}</div>
+            <div style={{ color: "var(--fail)", marginTop: 6 }}>
+              {detailText(block.text)}
+            </div>
           )}
         </div>
       </div>
@@ -584,7 +668,10 @@ function Elapsed({ startedAt }: { startedAt: number | null }) {
   if (!startedAt) return null;
   const sn = Math.max(0, Math.floor(now - startedAt));
   return (
-    <span className="mono" style={{ fontSize: 13, color: "var(--run)", flex: "none" }}>
+    <span
+      className="mono"
+      style={{ fontSize: 13, color: "var(--run)", flex: "none" }}
+    >
       {Math.floor(sn / 60)}:{String(sn % 60).padStart(2, "0")}
     </span>
   );
@@ -596,5 +683,7 @@ function saat(unix: number): string {
   const ayniGun = d.toDateString() === bugun.toDateString();
   const lc = locale();
   const hhmm = d.toLocaleTimeString(lc, { hour: "2-digit", minute: "2-digit" });
-  return ayniGun ? hhmm : `${d.toLocaleDateString(lc, { day: "numeric", month: "short" })} ${hhmm}`;
+  return ayniGun
+    ? hhmm
+    : `${d.toLocaleDateString(lc, { day: "numeric", month: "short" })} ${hhmm}`;
 }

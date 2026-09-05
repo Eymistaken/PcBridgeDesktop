@@ -1,4 +1,10 @@
-import { useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { IconAttach, IconClose, IconSend } from "./Icon";
@@ -110,7 +116,11 @@ export default function Composer({
   function gonder() {
     const metin = text.trim();
     if (!metin || busy) return;
-    onSend(ekler.length > 0 ? `${metin}\n\n${t("chat.attached")}\n${ekler.join("\n")}` : metin);
+    onSend(
+      ekler.length > 0
+        ? `${metin}\n\n${t("chat.attached")}\n${ekler.join("\n")}`
+        : metin,
+    );
     setText("");
     setEkler([]);
   }
@@ -145,7 +155,12 @@ export default function Composer({
       {ekler.length > 0 && (
         <div className="ekler">
           {ekListesi.map(({ oge: yol, cikiyor }) => (
-            <span key={yol} className="ek" data-cikis={cikiyor || undefined} title={yol}>
+            <span
+              key={yol}
+              className="ek"
+              data-cikis={cikiyor || undefined}
+              title={yol}
+            >
               <IconAttach size={13} color="var(--text-muted)" />
               <span className="mono ek__ad">{dosyaAdi(yol)}</span>
               <button
@@ -184,7 +199,9 @@ export default function Composer({
         {cokSatir && (
           <div className="composer__sira">
             {ekDugmesi}
-            <span className="mono muted composer__ipucu">{t("chat.enterHint")}</span>
+            <span className="mono muted composer__ipucu">
+              {t("chat.enterHint")}
+            </span>
             <div style={{ flexGrow: 1 }} />
             {gonderDugmesi}
           </div>

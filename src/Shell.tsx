@@ -71,7 +71,9 @@ const MODE_KEY = "pcbridge.mode";
 
 function okuMode(): Mode {
   try {
-    return localStorage.getItem(MODE_KEY) === "terminals" ? "terminals" : "agents";
+    return localStorage.getItem(MODE_KEY) === "terminals"
+      ? "terminals"
+      : "agents";
   } catch {
     return "agents";
   }
@@ -80,7 +82,9 @@ function okuMode(): Mode {
 function okuPanes(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(PANE_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, 4) : [];
+    return Array.isArray(v)
+      ? v.filter((x) => typeof x === "string").slice(0, 4)
+      : [];
   } catch {
     return [];
   }
@@ -96,7 +100,15 @@ interface Props {
   onAuthLost: (e: ConnError) => void;
 }
 
-export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAuthLost }: Props) {
+export default function Shell({
+  snap,
+  onSnap,
+  theme,
+  onTheme,
+  lang,
+  onLang,
+  onAuthLost,
+}: Props) {
   const [busyConn, setBusyConn] = useState(false);
   const [connError, setConnError] = useState<string>();
 
@@ -144,8 +156,16 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   // Örtü katmanları kapanırken bir karede yok olmasın. İçerik de devinim
   // boyunca korunuyor: `silinecek` `undefined` olur olmaz kartta gösterilecek
   // ad kalmıyordu.
-  const { icerik: forgeIcerik, render: forgeVar, cikiyor: forgeCikiyor } = useCikisIcerik(forge);
-  const { icerik: silIcerik, render: silVar, cikiyor: silCikiyor } = useCikisIcerik(silinecek);
+  const {
+    icerik: forgeIcerik,
+    render: forgeVar,
+    cikiyor: forgeCikiyor,
+  } = useCikisIcerik(forge);
+  const {
+    icerik: silIcerik,
+    render: silVar,
+    cikiyor: silCikiyor,
+  } = useCikisIcerik(silinecek);
 
   const [mode, setModeState] = useState<Mode>(okuMode);
 
@@ -158,7 +178,22 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       // Kalıcılık kaybolur ama uygulama çalışır.
     }
   }, []);
-  const [tview, setTview] = useState<TerminalsView>({ sessions: [], openHere: [], raw: null });
+  const [tview, setTview] = useState<TerminalsView>({
+    sessions: [],
+    openHere: [],
+    raw: null,
+  });
+  /**
+   * Terminal ağacı bir kez kurulunca **bağlı kalıyor** (kip geçişindeki
+   * kasmanın çözümü), ama hiç terminale geçmeyen kullanıcı o maliyeti
+   * ödemesin diye ilk geçişe kadar hiç kurulmuyor.
+   */
+  const [terminalAcildi, setTerminalAcildi] = useState(
+    () => okuMode() === "terminals",
+  );
+  useEffect(() => {
+    if (mode === "terminals") setTerminalAcildi(true);
+  }, [mode]);
   const [panes, setPanesState] = useState<string[]>(okuPanes);
 
   const setPanes = useCallback((p: string[]) => {
@@ -418,34 +453,47 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
    * besteci menüsü onları doğrudan yazıyor, ayrı bir oturum kopyası yok.
    * Aynı işi yapan iki denetimden biri bu depoda bir kez ölü kaldı.
    */
-  const alanDegistir = useCallback(async (bot: Bot, yama: Partial<BotDraft>) => {
-    try {
-      const yeni = await updateBot(bot.id, { ...botDraft(bot), ...yama });
-      setBots((prev) => prev.map((b) => (b.id === yeni.id ? yeni : b)));
-    } catch (e) {
-      setChatError(detailText(e));
-    }
-  }, []);
+  const alanDegistir = useCallback(
+    async (bot: Bot, yama: Partial<BotDraft>) => {
+      try {
+        const yeni = await updateBot(bot.id, { ...botDraft(bot), ...yama });
+        setBots((prev) => prev.map((b) => (b.id === yeni.id ? yeni : b)));
+      } catch (e) {
+        setChatError(detailText(e));
+      }
+    },
+    [],
+  );
 
   // Canlı akış.
   useEffect(() => {
-    void pendingPermissions().then(setPending).catch(() => undefined);
+    void pendingPermissions()
+      .then(setPending)
+      .catch(() => undefined);
     const abonelikler = [
       listen<PendingPermission>("job://permission", (e) => {
-        setPending((p) => [...p.filter((x) => x.runId !== e.payload.runId), e.payload]);
+        setPending((p) => [
+          ...p.filter((x) => x.runId !== e.payload.runId),
+          e.payload,
+        ]);
       }),
       listen<ChunkPayload>("job://chunk", (e) => {
         const p = e.payload;
         if (p.sessionId !== oturumRef.current) return;
         const simdi = performance.now();
         for (const olay of p.events) {
-          if ((olay.kind === "text" || olay.kind === "thinking") && olay.delta) {
+          if (
+            (olay.kind === "text" || olay.kind === "thinking") &&
+            olay.delta
+          ) {
             hizPencere.current.push(simdi);
           }
         }
         setTurns((prev) =>
           prev.map((t) =>
-            t.jobId === p.jobId ? { ...t, events: [...t.events, ...p.events] } : t,
+            t.jobId === p.jobId
+              ? { ...t, events: [...t.events, ...p.events] }
+              : t,
           ),
         );
       }),
@@ -679,7 +727,9 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!yol) return;
-      setChatError(t("chat.exported", { path: await exportSession(bot.id, sid, yol) }));
+      setChatError(
+        t("chat.exported", { path: await exportSession(bot.id, sid, yol) }),
+      );
     } catch (e) {
       setChatError(detailText(e));
     }
@@ -688,7 +738,10 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   // Süren iş: seçili botun bitmemiş son turu.
   const suren = [...turns].reverse().find((t) => {
     const s = t.meta.status;
-    return t.meta.exitCode === null && (s === "running" || s === null || s === undefined);
+    return (
+      t.meta.exitCode === null &&
+      (s === "running" || s === null || s === undefined)
+    );
   });
 
   /**
@@ -710,8 +763,14 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         <button
           className="ib ib--filled"
           type="button"
-          title={mode === "terminals" ? t("term.newSessionTitle") : t("side.newBotTitle")}
-          aria-label={mode === "terminals" ? t("term.newSession") : t("side.newBot")}
+          title={
+            mode === "terminals"
+              ? t("term.newSessionTitle")
+              : t("side.newBotTitle")
+          }
+          aria-label={
+            mode === "terminals" ? t("term.newSession") : t("side.newBot")
+          }
           onClick={() =>
             mode === "terminals" ? setYeniSinyal((n) => n + 1) : setForge({})
           }
@@ -724,235 +783,303 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         <ModeSwitch mode={mode} onMode={setMode} />
       </div>
 
-      {icerik}
+      <div className="side__govde">{icerik}</div>
     </div>
   );
 
-  if (mode === "terminals") {
-    return (
-      <div className="shell">
-        {yanKabuk(
-        <TerminalSidebar
+  /*
+   * ⚠️ **İki kip de BAĞLI kalıyor — kip anahtarındaki kasmanın sebebi buydu.**
+   *
+   * Eskiden `.main` `key="agents"` / `key="terminals"` ile zorla yeniden
+   * kuruluyordu. Terminal kipine her geçişte dört `Term` sıfırdan doğuyordu:
+   * yazı tipi beklemesi, 20 CSS tokeninin `getComputedStyle` ile okunması,
+   * `new Terminal` + üç eklenti + `open` + `fit`, bir IPC, iki `listen`, bir
+   * `ResizeObserver`, bir `MutationObserver` — hepsi kayan parçanın 300 ms'lik
+   * geçişiyle aynı pencerede. Ölçüldü (WebKitGTK, 8 geçiş): **5 kare 33 ms'yi
+   * aşıyor, en uzunu 91 ms.**
+   *
+   * Görünmeyen kip `visibility: hidden` ile duruyor — `display: none`
+   * **kullanılmıyor**: gizli kapta viewport 0x0 oluyor, `fit()` bozuluyor ve
+   * geçişler hiç ilerlemiyor (CLAUDE.md, Aşama 12 ölçümü).
+   *
+   * Terminal ağacı **ilk geçişte tembel** kuruluyor: hiç terminale
+   * geçmeyen kullanıcı o maliyeti hiç ödemiyor.
+   */
+  const terminalKatmani = terminalAcildi && (
+    <div
+      className="katman"
+      data-yon="sag"
+      data-etkin={mode === "terminals" || undefined}
+    >
+      <div className="main">
+        <Terminals
           view={tview}
           panes={panes}
-          desktop={desktop}
-          newSignal={yeniSinyal}
-          onOpenSystem={() => {
-            setSelectedId(undefined);
-            setMode("agents");
-          }}
-          onToggleDesktop={() => void masaustuCevir()}
-          onOpen={(name) => {
-            if (!panes.includes(name)) setPanes([...panes, name]);
-          }}
-          onNew={(name) => {
-            // Yeni oturum: bölmeyi açmak zaten `tmux new-session -A` ile
-            // yaratıyor, ayrıca bir tmux_start'a gerek yok.
-            if (!panes.includes(name)) setPanes([...panes, name]);
-            void terminalleriYukle();
-          }}
-          onKill={(name) => {
-            void tmuxKill(name)
-              .then(() => {
-                setPanes(panes.filter((p) => p !== name));
-                return terminalleriYukle();
-              })
-              .catch((e) => setConnError(errorText(e as ConnError)));
-          }}
-        />,
-        )}
-        <div className="main" key="terminals">
-          <Terminals
-            view={tview}
-            panes={panes}
-            onPanes={setPanes}
-            onReload={() => void terminalleriYukle()}
-          />
-        </div>
+          onPanes={setPanes}
+          onReload={() => void terminalleriYukle()}
+        />
       </div>
-    );
-  }
+    </div>
+  );
+
+  const terminalKenari = terminalAcildi && (
+    <div
+      className="katman"
+      data-yon="sag"
+      data-etkin={mode === "terminals" || undefined}
+    >
+      <TerminalSidebar
+        view={tview}
+        panes={panes}
+        desktop={desktop}
+        newSignal={yeniSinyal}
+        onOpenSystem={() => {
+          setSelectedId(undefined);
+          setMode("agents");
+        }}
+        onToggleDesktop={() => void masaustuCevir()}
+        onOpen={(name) => {
+          if (!panes.includes(name)) setPanes([...panes, name]);
+        }}
+        onNew={(name) => {
+          // Yeni oturum: bölmeyi açmak zaten `tmux new-session -A` ile
+          // yaratıyor, ayrıca bir tmux_start'a gerek yok.
+          if (!panes.includes(name)) setPanes([...panes, name]);
+          void terminalleriYukle();
+        }}
+        onKill={(name) => {
+          void tmuxKill(name)
+            .then(() => {
+              setPanes(panes.filter((p) => p !== name));
+              return terminalleriYukle();
+            })
+            .catch((e) => setConnError(errorText(e as ConnError)));
+        }}
+      />
+    </div>
+  );
 
   return (
     <div className="shell">
       {yanKabuk(
-      <Sidebar
-        snap={snap}
-        desktop={desktop}
-        onOpenSystem={() => setSelectedId(undefined)}
-        onToggleDesktop={() => void masaustuCevir()}
-        bots={bots}
-        summaries={summaries}
-        selectedId={selectedId}
-        onSelect={(id) => {
-          // Aynı bota yeniden tıklamak da **yeni session** açar: kullanıcının
-          // istediği eylem "bu asistanla yeni bir işe başla".
-          setSelectedId(id);
-          setSelectedSession(undefined);
-        }}
-        sessions={sessions}
-        selectedSession={selectedSession}
-        onSelectSession={setSelectedSession}
-        onDeleteSession={(sid) => selectedId && void oturumSil(selectedId, sid)}
-        onEdit={(bot) => setForge({ bot })}
-        onDelete={setSilinecek}
-        refreshing={busyConn}
-        connError={connError}
-        waiting={pending.map((p) => p.botId)}
-      />,
+        <>
+          {terminalKenari}
+          <div
+            className="katman"
+            data-yon="sol"
+            data-etkin={mode === "agents" || undefined}
+          >
+            <Sidebar
+              snap={snap}
+              desktop={desktop}
+              onOpenSystem={() => setSelectedId(undefined)}
+              onToggleDesktop={() => void masaustuCevir()}
+              bots={bots}
+              summaries={summaries}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                // Aynı bota yeniden tıklamak da **yeni session** açar: kullanıcının
+                // istediği eylem "bu asistanla yeni bir işe başla".
+                setSelectedId(id);
+                setSelectedSession(undefined);
+              }}
+              sessions={sessions}
+              selectedSession={selectedSession}
+              onSelectSession={setSelectedSession}
+              onDeleteSession={(sid) =>
+                selectedId && void oturumSil(selectedId, sid)
+              }
+              onEdit={(bot) => setForge({ bot })}
+              onDelete={setSilinecek}
+              refreshing={busyConn}
+              connError={connError}
+              waiting={pending.map((p) => p.botId)}
+            />
+          </div>
+        </>,
       )}
 
-      <div className="main" key="agents">
-        {secili && !selectedSession ? (
-          <>
-            <div className="main__head">
-              <Avatar tone={secili.avatar} name={secili.name} size={26} />
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
-                {secili.name}
-              </span>
-              <span className="mono muted" style={{ fontSize: 12 }}>
-                {[
-                  secili.model,
-                  secili.backend === "yerel-model"
-                    ? t("side.nTools", { n: secili.tools.length })
-                    : secili.effort,
-                  kisaltEv(secili.workdir),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-              <div style={{ flexGrow: 1 }} />
-              <button
-                className="ib"
-                type="button"
-                title={t("side.edit")}
-                aria-label={t("side.editBot", { name: secili.name })}
-                onClick={() => setForge({ bot: secili })}
-              >
-                <IconPencil />
-              </button>
-            </div>
-            <SessionHome
-              bot={secili}
-              sessions={sessions}
-              onOpen={setSelectedSession}
-              onDelete={(sid) => void oturumSil(secili.id, sid)}
-              composer={
-                <Composer
-                  botName={secili.name}
-                  workdir={secili.workdir}
-                  busy={sending}
-                  resetKey={`${secili.id}:yeni`}
-                  onSend={(t) => void gonder(t)}
-                  foot={
-                    <>
-                      <PermMenu
-                        value={secili.permission}
-                        botName={secili.name}
-                        tools={secili.tools}
-                        force={secili.forceWhenBusy}
-                        onChange={(p: Permission) => {
-                          if (secili.permission !== p) {
-                            void alanDegistir(secili, { permission: p });
-                          }
-                        }}
-                        onForce={(v: boolean) => void alanDegistir(secili, { forceWhenBusy: v })}
-                        onEditTools={() => setForge({ bot: secili })}
-                      />
-                      <div style={{ flexGrow: 1 }} />
-                    </>
+      <div className="ana">
+        {terminalKatmani}
+        <div
+          className="katman"
+          data-yon="sol"
+          data-etkin={mode === "agents" || undefined}
+        >
+          <div className="main">
+            {secili && !selectedSession ? (
+              <>
+                <div className="main__head">
+                  <Avatar tone={secili.avatar} name={secili.name} size={26} />
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {secili.name}
+                  </span>
+                  <span className="mono muted" style={{ fontSize: 12 }}>
+                    {[
+                      secili.model,
+                      secili.backend === "yerel-model"
+                        ? t("side.nTools", { n: secili.tools.length })
+                        : secili.effort,
+                      kisaltEv(secili.workdir),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                  <div style={{ flexGrow: 1 }} />
+                  <button
+                    className="ib"
+                    type="button"
+                    title={t("side.edit")}
+                    aria-label={t("side.editBot", { name: secili.name })}
+                    onClick={() => setForge({ bot: secili })}
+                  >
+                    <IconPencil />
+                  </button>
+                </div>
+                <SessionHome
+                  bot={secili}
+                  sessions={sessions}
+                  onOpen={setSelectedSession}
+                  onDelete={(sid) => void oturumSil(secili.id, sid)}
+                  composer={
+                    <Composer
+                      botName={secili.name}
+                      workdir={secili.workdir}
+                      busy={sending}
+                      resetKey={`${secili.id}:yeni`}
+                      onSend={(t) => void gonder(t)}
+                      foot={
+                        <>
+                          <PermMenu
+                            value={secili.permission}
+                            botName={secili.name}
+                            tools={secili.tools}
+                            force={secili.forceWhenBusy}
+                            onChange={(p: Permission) => {
+                              if (secili.permission !== p) {
+                                void alanDegistir(secili, { permission: p });
+                              }
+                            }}
+                            onForce={(v: boolean) =>
+                              void alanDegistir(secili, { forceWhenBusy: v })
+                            }
+                            onEditTools={() => setForge({ bot: secili })}
+                          />
+                          <div style={{ flexGrow: 1 }} />
+                        </>
+                      }
+                    />
                   }
                 />
-              }
-            />
-            {chatError && (
-              <div className="home__hata">{chatError}</div>
-            )}
-          </>
-        ) : secili ? (
-          <Chat
-            bot={secili}
-            turns={turns}
-            running={
-              suren
-                ? { jobId: suren.jobId, startedAt: suren.meta.startedAt, label: suren.meta.label ?? suren.prompt }
-                : undefined
-            }
-            busy={sending}
-            error={chatError}
-            onSend={(t) => void gonder(t)}
-            onCancel={(j) => void durdur(j)}
-            sessionId={selectedSession ?? ""}
-            sessionCount={sessions.length}
-            pending={pending.find((p) => p.sessionId === selectedSession)}
-            onAnswer={(runId, allow) => void izinYanitla(runId, allow)}
-            onPermission={(p) => {
-              if (secili.permission !== p) void alanDegistir(secili, { permission: p });
-            }}
-            onForce={(v) => void alanDegistir(secili, { forceWhenBusy: v })}
-            ctx={ctx}
-            tps={tps}
-            baseUrl={modelKaynak}
-            compacting={compacting}
-            onCompact={() => selectedSession && void ozetle(secili, selectedSession)}
-            efforts={
-              snap.agents
-                .find((a) => a.id === secili.agent)
-                ?.models.find((m) => m.id === secili.model)?.efforts ?? []
-            }
-            onEffort={(e) => void alanDegistir(secili, { effort: e })}
-            onEditBot={() => setForge({ bot: secili })}
-            onExport={() => selectedSession && void disaAktar(secili, selectedSession)}
-          />
-        ) : (
-          <>
-            <div className="main__head">
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
-                {t("sys.title")}
-              </span>
-              <span className="mono muted" style={{ fontSize: 12 }}>
-                {sayilar(snap.toolCount, snap.agents.length)}
-              </span>
-              <div style={{ flexGrow: 1 }} />
-              <button
-                className="ib"
-                type="button"
-                title={t("sys.refresh")}
-                aria-label={t("sys.refreshConn")}
-                disabled={busyConn}
-                onClick={() => void tazele()}
-              >
-                <IconRefresh />
-              </button>
-            </div>
-            <div className="main__body">
-              {connError && (
-                <div
-                  style={{
-                    marginBottom: 14,
-                    padding: "13px 16px",
-                    borderRadius: "var(--r-lg)",
-                    background: "var(--field)",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: "var(--fail)",
-                  }}
-                >
-                  {connError}
-                </div>
-              )}
-              <Connection
-                snap={snap}
-                theme={theme}
-                onTheme={onTheme}
-                lang={lang}
-                onLang={onLang}
-                desktop={desktop}
-                onDesktop={setDesktop}
+                {chatError && <div className="home__hata">{chatError}</div>}
+              </>
+            ) : secili ? (
+              <Chat
+                bot={secili}
+                turns={turns}
+                running={
+                  suren
+                    ? {
+                        jobId: suren.jobId,
+                        startedAt: suren.meta.startedAt,
+                        label: suren.meta.label ?? suren.prompt,
+                      }
+                    : undefined
+                }
+                busy={sending}
+                error={chatError}
+                onSend={(t) => void gonder(t)}
+                onCancel={(j) => void durdur(j)}
+                sessionId={selectedSession ?? ""}
+                sessionCount={sessions.length}
+                pending={pending.find((p) => p.sessionId === selectedSession)}
+                onAnswer={(runId, allow) => void izinYanitla(runId, allow)}
+                onPermission={(p) => {
+                  if (secili.permission !== p)
+                    void alanDegistir(secili, { permission: p });
+                }}
+                onForce={(v) => void alanDegistir(secili, { forceWhenBusy: v })}
+                ctx={ctx}
+                tps={tps}
+                baseUrl={modelKaynak}
+                compacting={compacting}
+                onCompact={() =>
+                  selectedSession && void ozetle(secili, selectedSession)
+                }
+                efforts={
+                  snap.agents
+                    .find((a) => a.id === secili.agent)
+                    ?.models.find((m) => m.id === secili.model)?.efforts ?? []
+                }
+                onEffort={(e) => void alanDegistir(secili, { effort: e })}
+                onEditBot={() => setForge({ bot: secili })}
+                onExport={() =>
+                  selectedSession && void disaAktar(secili, selectedSession)
+                }
               />
-            </div>
-          </>
-        )}
+            ) : (
+              <>
+                <div className="main__head">
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {t("sys.title")}
+                  </span>
+                  <span className="mono muted" style={{ fontSize: 12 }}>
+                    {sayilar(snap.toolCount, snap.agents.length)}
+                  </span>
+                  <div style={{ flexGrow: 1 }} />
+                  <button
+                    className="ib"
+                    type="button"
+                    title={t("sys.refresh")}
+                    aria-label={t("sys.refreshConn")}
+                    disabled={busyConn}
+                    onClick={() => void tazele()}
+                  >
+                    <IconRefresh />
+                  </button>
+                </div>
+                <div className="main__body">
+                  {connError && (
+                    <div
+                      style={{
+                        marginBottom: 14,
+                        padding: "13px 16px",
+                        borderRadius: "var(--r-lg)",
+                        background: "var(--field)",
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: "var(--fail)",
+                      }}
+                    >
+                      {connError}
+                    </div>
+                  )}
+                  <Connection
+                    snap={snap}
+                    theme={theme}
+                    onTheme={onTheme}
+                    lang={lang}
+                    onLang={onLang}
+                    desktop={desktop}
+                    onDesktop={setDesktop}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {forgeVar && forgeIcerik && (
@@ -979,15 +1106,27 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
           aria-label={t("del.title")}
         >
           <div className="card" style={{ width: 420, background: "var(--bg)" }}>
-            <span style={{ fontSize: 16, fontWeight: 600 }}>{t("del.ask", { name: silIcerik.name })}</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>
+              {t("del.ask", { name: silIcerik.name })}
+            </span>
             <span className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
               {t("del.blurb")}
             </span>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button type="button" className="btn-quiet" onClick={() => setSilinecek(undefined)}>
+            <div
+              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                className="btn-quiet"
+                onClick={() => setSilinecek(undefined)}
+              >
                 {t("del.cancel")}
               </button>
-              <button type="button" className="btn-primary" onClick={() => void sil(silIcerik)}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void sil(silIcerik)}
+              >
                 {t("del.confirm")}
               </button>
             </div>

@@ -538,12 +538,90 @@ input:focus {
   text-align: left;
 }
 
+/* Seçim ve hover **geçişli**: eskiden ikisi de bir karede takas ediyordu ve
+ * liste tıklandığında sertçe zıplıyor gibi duruyordu. */
+.row {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
 .row:hover {
   background: var(--field);
 }
 
 .row[aria-selected="true"] {
   background: var(--surface);
+}
+
+/* Basma yüzey kademesidir. ⚠️ Bot satırı ikincil metin taşıyor
+ * (`--text-muted`), o yüzden `--surface-2`'ye **çıkılmıyor** — orada oran
+ * 4.07:1 ile AA'nın altında. Seçili satır aşağı gidiyor. */
+.row:not([aria-selected="true"]):active {
+  background: var(--surface);
+  transition-duration: var(--dur-tap);
+}
+
+.row[aria-selected="true"]:active {
+  background: var(--field);
+  transition-duration: var(--dur-tap);
+}
+
+/* ── kip katmanları ──────────────────────────────────────────────── */
+/*
+ * İki kip de **bağlı** duruyor; görünmeyen olan üst üste bindirilmiş bir
+ * katmanda bekliyor.
+ *
+ * ⛔ `display: none` **kullanılmaz**: gizlenen kapta viewport 0x0 oluyor,
+ * xterm'in `fit()`'i bozuluyor ve geçişler hiç ilerlemiyor. `visibility`
+ * düzeni koruyor.
+ *
+ * Yön anlamlı: Botlar solda, Terminal sağda. Giden katman kendi yönüne
+ * çekiliyor, gelen kendi yönünden geliyor — anahtarın kayan parçasıyla aynı
+ * hikâye.
+ */
+.side__govde,
+.ana {
+  position: relative;
+  flex-grow: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.katman {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(var(--yon, 0));
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-inout),
+    /* Görünürlük **gecikmeyle** kapanıyor: hemen kapansa çıkış devinimi
+     * görünmezdi. Açılırken gecikme yok. */
+    visibility 0s linear var(--dur-base);
+}
+
+.katman[data-yon="sol"] {
+  --yon: -10px;
+}
+
+.katman[data-yon="sag"] {
+  --yon: 10px;
+}
+
+.katman[data-etkin] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-inout),
+    visibility 0s;
 }
 
 /* ── ana panel ───────────────────────────────────────────────────── */
@@ -2462,35 +2540,44 @@ button.btn-fld:active,
   animation: girisYukari var(--dur-base) var(--ease-inout) both;
 }
 
-/* Kip değişimi: `key` değişince .main yeniden kurulur ve bu oynar. */
-.main {
-  animation: girisSoluk var(--dur-base) var(--ease-out) both;
-}
+/* ⚠️ **`.main`'in giriş devinimi KALKTI.** Kip değişimi artık `.main`'i
+ * yeniden kurmuyor (`key` yok, iki kip de bağlı); geçişi `.katman`
+ * yapıyor. Kural kalsaydı sohbete her dönüşte panel boşuna solardı. */
 
-/*
- * Kip geçişinde **sol sütun** — YAPILACAKLAR.md madde (e).
- *
- * Kayan parça ve `.main` soluğu zaten vardı; eksik olan `Sidebar` ile
- * `TerminalSidebar`'ın takasıydı, ikisi bir karede yer değiştiriyordu.
- *
- * Devinim **kip anahtarının altındaki içerikte**, bütün sütunda değil:
- * `.side__head` ve `.side__modes` iki bileşende de aynı ve kullanıcının az
- * önce tıkladığı anahtarın titremesi yanlış olurdu. İkisi ayrı bileşen
- * olduğu için takasta zaten yeniden kuruluyorlar — ek bir `key` gerekmiyor.
- *
- * `.main` ile aynı kare kullanılıyor: aynı olayın iki yakası. */
-.side__search,
-.side__list {
-  animation: girisSoluk var(--dur-base) var(--ease-out) both;
-}
+/* ⚠️ Kenar çubuğu içeriğinin giriş devinimi de kalktı: sütun artık kip
+ * değişiminde sökülmüyor, `.katman` çapraz geçiyor. Kural kalsaydı her
+ * takasta iki kez devinim olurdu. */
 
+/* Bölme yalnızca **gerçekten yeni açıldığında** belirsin; kip geçişinde
+ * zaten bağlı duruyor ve yeniden kurulmuyor. */
 .pane {
   animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
-/* Sistem panelindeki kartlar sırayla belirsin — hepsi aynı anda değil. */
+/*
+ * Sistem panelindeki kartlar **sırayla** belirsin — hepsi aynı anda değil.
+ *
+ * Merdiven en fazla beş kademe: altıncıdan sonrası fark edilmiyor ama
+ * bekleme birikiyor ve panel geç açılıyormuş gibi duruyor.
+ */
 .main__body .card {
   animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
+.main__body .card:nth-child(2) {
+  animation-delay: 30ms;
+}
+
+.main__body .card:nth-child(3) {
+  animation-delay: 60ms;
+}
+
+.main__body .card:nth-child(4) {
+  animation-delay: 90ms;
+}
+
+.main__body .card:nth-child(n + 5) {
+  animation-delay: 120ms;
 }
 
 /*

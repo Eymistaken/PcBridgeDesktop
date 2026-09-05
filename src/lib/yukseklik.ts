@@ -19,6 +19,21 @@
  *      akış sürerken kutu büyümeyi bırakır.
  */
 
+/**
+ * Hareket azaltılmış mı.
+ *
+ * ⚠️ **JS ile kurulan devinim CSS'in `@media` bloğuna yakalanmıyor.** Buradaki
+ * geçişler satır içi `style.transition` ile kuruluyor ve `app.css`'teki genel
+ * `prefers-reduced-motion` kuralı (`transition-duration: 0.01ms !important`)
+ * onları da kısaltıyor ama `!important` satır içiyle yarışıyor. Açıkça
+ * sorulup atlanmaları daha dürüst.
+ *
+ * GTK'da bu ayar `gtk-enable-animations`'tan geliyor (CLAUDE.md, Aşama 12).
+ */
+function azaltilmis(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** Bir sonraki düzen etkisinde geçirilecek "önceki yükseklik" kutusu. */
 export type YukseklikIzi = { current: number | null };
 
@@ -44,7 +59,7 @@ export function gecirYukseklik(
 ): (() => void) | undefined {
   const bas = iz.current;
   iz.current = null;
-  if (!el || bas === null) return;
+  if (!el || bas === null || azaltilmis()) return;
 
   const son = el.getBoundingClientRect().height;
   // Bir pikselden küçük fark bir devinim değil; boşuna geçiş kurmayalım.
@@ -89,7 +104,7 @@ export function yukseklikAyarla(
   const hedef = Math.min(el.scrollHeight, tavan);
   el.style.height = onceki || `${hedef}px`;
   void el.offsetHeight;
-  el.style.transition = gecisli ? "" : "none";
+  el.style.transition = gecisli && !azaltilmis() ? "" : "none";
   el.style.height = `${hedef}px`;
   // ⚠️ **Ölçüyü döndürmek şart.** Çağıran bunu sonradan `el.scrollHeight` ile
   // okuyamaz: yükseklik geçiş hâlindeyken `scrollHeight` **ara değeri**
