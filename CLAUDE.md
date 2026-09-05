@@ -892,6 +892,23 @@ Yol boyunca elenen katmanlar — hepsi temiz çıktı:
 
 ### Devinim — 2026-09-05'te ölçüldü (Aşama 12)
 
+- ⚠️ **WebKitGTK öneksiz `user-select`'i DESTEKLEMİYOR.**
+  `CSS.supports('user-select','none')` → **false**;
+  `CSS.supports('-webkit-user-select','none')` → **true**. `body`'deki
+  öneksiz kural bir yıl boyunca ölüydü ve arayüzün her yazısı sürüklenince
+  seçiliyordu. **Her `user-select` yanına `-webkit-` konur.** Seçim yalnızca
+  yazılan yerde açık; terminal etkilenmiyor (xterm kendi seçim katmanını
+  çiziyor, native seçime bağlı değil).
+- **Düz bir CSS özel değişkeni geçiş yapamaz.** Akış maskesi ilk sürümde her
+  token'da zıplıyordu; `--akis-x` `@property` ile **tipli** tanımlanınca
+  geçirilebilir oldu (`syntax: "<length>"`). `@property` ve
+  `CSS.registerProperty` WebKitGTK'da **destekleniyor** — ölçüldü.
+  Başlangıç değeri çok büyük seçilir (`99999px`): sıfır olsaydı ilk
+  ölçümden önceki karede blok tamamen maskelenirdi.
+- **Mount'taki kaydırma yumuşak olmamalı.** `scrollIntoView({behavior:
+  "smooth"})` bileşen ilk kurulduğunda "geçmişin içinde hızla süzülme" gibi
+  görünüyor. Yumuşak kalan tek durum açık duran bir listeye içerik eklenmesi.
+
 - ⚠️ **Tarayıcı bölmesi gizliyken viewport 0x0.** `40vh` sıfır çıkıyor,
   `scrollHeight` saçmalıyor ve **geçişler hiç ilerlemiyor** —
   `getComputedStyle` geçiş boyunca hep **başlangıç** değerini döndürüyor,
