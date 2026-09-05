@@ -112,11 +112,32 @@ export default function Chat({
    * olması gereken tek durum o.
    */
   const sonBot = useRef<string>("");
+  const sonTurSayisi = useRef(0);
   useEffect(() => {
-    const ilkGosterim = sonBot.current !== bot.id;
+    const ayniBot = sonBot.current === bot.id;
+    /*
+     * ⚠️ **Bot değişimini "bot kimliği değişti mi" ile ölçmek yetmiyor.**
+     * İlk düzeltmede öyleydi ve hata sürdü: bota geçildiği anda `turns`
+     * hâlâ **boş** oluyor (geçmiş `botHistory` ile sonradan geliyor). Yani
+     * ilk çalıştırma boş listede oluyor, geçmiş dolunca etki **ikinci** kez
+     * çalışıyor ve o çalıştırma artık "aynı bot" sayıldığı için yumuşak
+     * kalıyordu — sohbet yukarıdan aşağıya süzülüyordu, kullanıcı bunu iki
+     * kez bildirdi.
+     *
+     * Ölçüt bu yüzden **içerik**: yumuşak kaydırma yalnızca *zaten dolu
+     * olduğunu gördüğümüz* bir sohbete tur eklenince. Geçmişin ilk kez
+     * yerleşmesi bir "ekleme" değil, sohbetin açılışıdır.
+     */
+    const zatenDoluydu = ayniBot && sonTurSayisi.current > 0;
+    const turEklendi = turns.length > sonTurSayisi.current;
     sonBot.current = bot.id;
+    sonTurSayisi.current = turns.length;
+
     const yumusak =
-      !ilkGosterim && !running && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      zatenDoluydu &&
+      turEklendi &&
+      !running &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     dip.current?.scrollIntoView({ block: "end", behavior: yumusak ? "smooth" : "auto" });
   }, [turns, running, bot.id]);
 

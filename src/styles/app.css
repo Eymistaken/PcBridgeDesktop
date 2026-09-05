@@ -2447,18 +2447,26 @@ button.btn-fld:active,
       rgb(0 0 0 / 0) 100%
     ),
     linear-gradient(to bottom, #000 0, #000 var(--akis-y), rgb(0 0 0 / 0) var(--akis-y));
+  /* Yükseklik geçişi: alt satıra taşan metin baloncuğu sert genişletiyordu.
+   * Kırpma şart — yoksa yeni satır yükseklik yetişmeden taşar. */
+  overflow: hidden;
   /* Doğrusal: imleç sabit hızla akan bir metni izliyor, yavaşlayıp
    * hızlanması akışa yalan söylerdi. */
   transition:
     --akis-x var(--dur-base) linear,
-    --akis-y var(--dur-fast) linear;
+    --akis-y var(--dur-fast) linear,
+    height var(--dur-fast) linear;
 }
 
-/* Satır sarınca imleç sağdan sola atlıyor; o atlamayı geçirmek maskeyi
- * satırın üstünde geri süpürürdü. `Thinking`/`akis.ts` o karede geçişi
- * kapatıyor. */
+/* Satır sarınca (ve ilk ölçümde) imleç uzun bir mesafe atlıyor; o atlamayı
+ * geçirmek maskeyi satırın üstünde geri süpürürdü. `akis.ts` o karede
+ * `data-satir-atladi` koyuyor.
+ *
+ * ⚠️ **Yükseklik geçişi burada kapanmaz.** Kapatan ilk sürümdü ve baloncuk
+ * tam da satır sarımında — yani yüksekliğin değiştiği tek anda — sert
+ * genişlemeye devam etti. Atlayan yalnızca imleç. */
 .akis--canli[data-satir-atladi] {
-  transition: none;
+  transition: height var(--dur-fast) linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

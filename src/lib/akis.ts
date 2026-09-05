@@ -43,6 +43,9 @@ export function useAkisMaskesi(
     if (!canli || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       el.style.removeProperty("--akis-x");
       el.style.removeProperty("--akis-y");
+      // Blok kendi ölçüsüne dönsün: satır içi yükseklik kalırsa akış
+      // bittikten sonra gelen bir yeniden çizim kırpılırdı.
+      el.style.removeProperty("height");
       sonUst.current = null;
       return;
     }
@@ -54,21 +57,40 @@ export function useAkisMaskesi(
       if (!nokta) return;
 
       /*
-       * ⚠️ **Satır sarımında geçiş kapatılır.** İmleç satır sonundan yeni
-       * satırın başına atlıyor; `--akis-x`'i o atlamada geçirmek maskeyi
-       * satır boyunca **geriye** süpürürdü — yazılmış metin bir anda solup
-       * geri dolardı. O kare için `data-satir-atladi` konuyor, sonraki
-       * karede kalkıyor.
+       * Geçiş iki durumda **bir kare kapatılır**:
+       *
+       * 1. ⚠️ **İlk ölçüm.** `--akis-x`'in başlangıç değeri 99999px; oradan
+       *    gerçek imleç konumuna *geçmek* 180 ms sürüyor ve o süre boyunca
+       *    maske metnin çok sağında kalıyor — yani **ilk cümle maskesiz,
+       *    sert** doğuyor, sonrakiler yumuşak. Kullanıcı tam bunu bildirdi.
+       *    İlk konum atlanarak konur, yumuşaklık ikinci ölçümden başlar.
+       * 2. **Satır sarımı.** İmleç satır sonundan yeni satırın başına
+       *    atlıyor; onu geçirmek maskeyi satır boyunca **geriye** süpürür,
+       *    yazılmış metin bir anda solup geri dolardı.
        */
-      const satirDegisti = sonUst.current !== null && Math.abs(nokta.ust - sonUst.current) > 1;
+      const ilkOlcum = sonUst.current === null;
+      const satirDegisti = !ilkOlcum && Math.abs(nokta.ust - sonUst.current!) > 1;
       sonUst.current = nokta.ust;
-      if (satirDegisti) {
+      if (ilkOlcum || satirDegisti) {
         el.dataset.satirAtladi = "1";
         requestAnimationFrame(() => delete el.dataset.satirAtladi);
       }
 
       el.style.setProperty("--akis-x", `${nokta.x}px`);
       el.style.setProperty("--akis-y", `${nokta.ust}px`);
+
+      /*
+       * **Baloncuk yumuşak büyüsün.** Metin alt satıra geçince blok bir
+       * anda bir satır boyu uzuyor ve baloncuk sert genişliyordu.
+       * Yükseklik açıkça yazılıp geçiriliyor; sarmalayıcı `overflow: hidden`
+       * olduğu için yeni satır yükseklik yetişene kadar kırpılıyor — ve o
+       * satır zaten maskenin soluk bölgesi, yani kırpma görünmüyor.
+       *
+       * İlk ölçümde geçişsiz konuyor (blok zaten o boyda), bitince
+       * siliniyor ki blok kendi ölçüsüne dönsün.
+       */
+      const hedefYukseklik = el.scrollHeight;
+      if (hedefYukseklik > 0) el.style.height = `${hedefYukseklik}px`;
     });
   }, [kap, metin, canli]);
 

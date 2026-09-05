@@ -908,6 +908,12 @@ Yol boyunca elenen katmanlar — hepsi temiz çıktı:
 - **Mount'taki kaydırma yumuşak olmamalı.** `scrollIntoView({behavior:
   "smooth"})` bileşen ilk kurulduğunda "geçmişin içinde hızla süzülme" gibi
   görünüyor. Yumuşak kalan tek durum açık duran bir listeye içerik eklenmesi.
+  ⚠️ **Bunu "bot kimliği değişti mi" ile ölçmek YETMİYOR** — bir kez daha
+  hataya düşürdü. Bota geçildiği anda `turns` hâlâ **boş**; geçmiş
+  `botHistory` ile sonradan geliyor, yani etki ikinci kez çalışıyor ve o
+  çalıştırma "aynı bot" sayılıp yumuşak kalıyor. Ölçüt **içerik** olmalı:
+  yumuşak kaydırma yalnızca *zaten dolu olduğu görülmüş* bir sohbete tur
+  eklenince.
 
 - ⚠️ **Tarayıcı bölmesi gizliyken viewport 0x0.** `40vh` sıfır çıkıyor,
   `scrollHeight` saçmalıyor ve **geçişler hiç ilerlemiyor** —
