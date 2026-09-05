@@ -1,12 +1,22 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import Avatar from "./ui/Avatar";
 import ConnStrip from "./ui/ConnStrip";
-import { IconPencil, IconSearch, IconTrash } from "./ui/Icon";
+import { IconChevron, IconClose, IconPencil, IconPlus, IconSearch, IconTrash } from "./ui/Icon";
 import { locale, t } from "./lib/i18n";
 import { useCikisListesi } from "./lib/cikis";
 import { useFlip } from "./lib/flip";
-import type { Bot, BotSummary, ConnSnapshot, DesktopState } from "./lib/types";
+import { gecirYukseklik, olcOnce, type YukseklikIzi } from "./lib/yukseklik";
+import type {
+  Bot,
+  BotSummary,
+  ConnSnapshot,
+  DesktopState,
+  SessionSummary,
+} from "./lib/types";
+
+/** Katlanır listede doğrudan gösterilen session sayısı. */
+const ACIK_SESSION = 4;
 
 interface Props {
   snap: ConnSnapshot;
@@ -18,7 +28,13 @@ interface Props {
   bots: Bot[];
   summaries: Record<string, BotSummary>;
   selectedId?: string;
+  /** Bota tıklamak **yeni session** açar; son session'a dönmez. */
   onSelect: (id: string) => void;
+  /** Seçili botun session'ları — yalnızca açık bot için dolu. */
+  sessions: SessionSummary[];
+  selectedSession?: string;
+  onSelectSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   onEdit: (bot: Bot) => void;
   onDelete: (bot: Bot) => void;
   refreshing: boolean;
@@ -42,6 +58,10 @@ export default function Sidebar({
   summaries,
   selectedId,
   onSelect,
+  sessions,
+  selectedSession,
+  onSelectSession,
+  onDeleteSession,
   onEdit,
   onDelete,
   refreshing,
@@ -67,7 +87,11 @@ export default function Sidebar({
           ({ oge: b }) =>
             b.name.toLocaleLowerCase(lc).includes(q) ||
             b.agent.toLocaleLowerCase(lc).includes(q) ||
-            b.workdir.toLocaleLowerCase(lc).includes(q),
+            b.workdir.toLocaleLowerCase(lc).includes(q) ||
+            // Seçili botun session başlıkları da aranıyor: kullanıcı işin
+            // adını hatırlıyor, botunkini değil.
+            (b.id === selectedId &&
+              sessions.some((o) => o.title.toLocaleLowerCase(lc).includes(q))),
         )
       : [...kalanlar];
     // En son hareket eden üstte — artboard'daki sıra.
@@ -75,7 +99,7 @@ export default function Sidebar({
       (a, b) =>
         (summaries[b.oge.id]?.at ?? b.oge.updatedAt) - (summaries[a.oge.id]?.at ?? a.oge.updatedAt),
     );
-  }, [kalanlar, query, summaries]);
+  }, [kalanlar, query, summaries, selectedId, sessions]);
 
   return (
     <>
@@ -84,8 +108,8 @@ export default function Sidebar({
           <IconSearch />
           <input
             value={query}
-            placeholder={t("side.search")}
-            aria-label={t("side.search")}
+            placeholder={t("side.sessionSearch")}
+            aria-label={t("side.sessionSearch")}
             spellCheck={false}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -112,11 +136,9 @@ export default function Sidebar({
           const s = summaries[b.id];
           const secili = b.id === selectedId;
           return (
+            <div key={b.id} data-flip={b.id} data-cikis={cikiyor || undefined}>
             <div
-              key={b.id}
               className="row"
-              data-flip={b.id}
-              data-cikis={cikiyor || undefined}
               role="option"
               tabIndex={0}
               aria-selected={secili}
@@ -154,8 +176,9 @@ export default function Sidebar({
                   </span>
                 </div>
               </div>
-              {secili && (
-                <div style={{ display: "flex", gap: 2, flex: "none", alignSelf: "center" }}>
+              <div style={{ display: "flex", gap: 2, flex: "none", alignSelf: "center" }}>
+                {secili && (
+                  <>
                   <button
                     type="button"
                     className="ib"
@@ -182,9 +205,24 @@ export default function Sidebar({
                   >
                     <IconTrash />
                   </button>
-                </div>
-              )}
+                  </>
+                )}
+                <IconChevron acik={secili} />
+              </div>
             </div>
+
+            {/* Session listesi — yalnızca açık botta. Bot satırı **yeni**
+              * session açıyor; buradaki satırlar var olanı açıyor. */}
+            {secili && (
+              <SessionListesi
+                sessions={sessions}
+                selected={selectedSession}
+                onSelect={onSelectSession}
+                onDelete={onDeleteSession}
+                onNew={() => onSelect(b.id)}
+              />
+            )}
+          </div>
           );
         })}
       </div>
@@ -204,6 +242,116 @@ export default function Sidebar({
         onToggleDesktop={onToggleDesktop}
       />
     </>
+  );
+}
+
+/**
+ * Bot satırının altındaki katlanır session listesi.
+ *
+ * İlk dördü doğrudan, gerisi "N session daha" ile. Açılış/kapanış yüksekliği
+ * `gecirYukseklik` ile geçiyor — WebKitGTK'da `height: auto` CSS'ten
+ * geçirilemiyor (bkz. `lib/yukseklik.ts`).
+ */
+function SessionListesi({
+  sessions,
+  selected,
+  onSelect,
+  onDelete,
+  onNew,
+}: {
+  sessions: SessionSummary[];
+  selected?: string;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
+}) {
+  const [hepsi, setHepsi] = useState(false);
+  const kap = useRef<HTMLDivElement>(null);
+  const iz = useRef<number | null>(null) as YukseklikIzi;
+
+  // "N daha" açılıp kapanınca liste zıplamasın.
+  useLayoutEffect(() => gecirYukseklik(iz, kap.current, "var(--dur-base)"), [hepsi]);
+
+  const gorunen = hepsi ? sessions : sessions.slice(0, ACIK_SESSION);
+  const gizli = sessions.length - gorunen.length;
+
+  return (
+    <div className="oturumlist" ref={kap}>
+      {gorunen.map((o) => {
+        const renk = o.running
+          ? "var(--run)"
+          : o.status === "failed"
+            ? "var(--fail)"
+            : "var(--ok)";
+        return (
+          <div
+            key={o.id}
+            className="osat"
+            role="option"
+            tabIndex={0}
+            aria-selected={o.id === selected}
+            onClick={() => onSelect(o.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(o.id);
+              }
+            }}
+          >
+            <span
+              className={o.running ? "dot dot--pulse" : "dot"}
+              style={{ background: renk }}
+            />
+            <span className="osat__ad">{o.title || t("side.untitled")}</span>
+            <button
+              type="button"
+              className="ek__sil osat__sil"
+              title={t("side.deleteSession")}
+              aria-label={t("side.deleteSession")}
+              disabled={o.running}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(o.id);
+              }}
+            >
+              <IconClose size={11} />
+            </button>
+          </div>
+        );
+      })}
+
+      {gizli > 0 && (
+        <button
+          type="button"
+          className="osat osat--eylem"
+          onClick={() => {
+            olcOnce(iz, kap.current);
+            setHepsi(true);
+          }}
+        >
+          <IconChevron />
+          <span>{t("side.moreSessions", { n: gizli })}</span>
+        </button>
+      )}
+      {hepsi && sessions.length > ACIK_SESSION && (
+        <button
+          type="button"
+          className="osat osat--eylem"
+          onClick={() => {
+            olcOnce(iz, kap.current);
+            setHepsi(false);
+          }}
+        >
+          <IconChevron acik />
+          <span>{t("home.less")}</span>
+        </button>
+      )}
+
+      <button type="button" className="osat osat--eylem osat--yeni" onClick={onNew}>
+        <IconPlus size={12} color="var(--text)" />
+        <span>{t("side.newSession")}</span>
+      </button>
+    </div>
   );
 }
 

@@ -1,27 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 
 import Avatar from "../ui/Avatar";
+import Composer from "../ui/Composer";
 import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import Markdown from "../ui/Markdown";
 import PermAsk from "../ui/PermAsk";
-import { useCikis, useCikisIcerik, useCikisListesi } from "../lib/cikis";
+import { useCikis, useCikisIcerik } from "../lib/cikis";
 import { useAkisMaskesi } from "../lib/akis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
-import {
-  IconAttach,
-  IconCheck,
-  IconClose,
-  IconCross,
-  IconExport,
-  IconSend,
-  IconStop,
-} from "../ui/Icon";
+import { IconCheck, IconCross, IconExport, IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
+import { kisaltEv } from "../lib/yol";
 import type { Bot, PendingPermission, Permission, RunCtx, Turn } from "../lib/types";
 
 interface Props {
@@ -33,6 +26,8 @@ interface Props {
   error?: string;
   onSend: (text: string) => void;
   onCancel: (jobId: string) => void;
+  /** Açık session'ın kimliği — besteci sıfırlaması buna bakıyor. */
+  sessionId: string;
   /** Bu botun kaç session'ı var — başlıktaki sayaç. */
   sessionCount: number;
   /** Bu **session** için yanıt bekleyen izin isteği — yoksa kart çizilmez. */
@@ -66,6 +61,7 @@ export default function Chat({
   running,
   busy,
   error,
+  sessionId,
   sessionCount,
   onSend,
   onCancel,
@@ -83,10 +79,7 @@ export default function Chat({
   onEditBot,
   onExport,
 }: Props) {
-  const [text, setText] = useState("");
-  const [ekler, setEkler] = useState<string[]>([]);
   const dip = useRef<HTMLDivElement>(null);
-  const alan = useRef<HTMLTextAreaElement>(null);
 
   // Besteci üstündeki üç şerit de kapanırken bir karede yok oluyordu.
   // İzin sorusu ve koşum şeridi **içeriğini de** korumak zorunda: yanıt
@@ -94,8 +87,6 @@ export default function Chat({
   const { icerik: kosum, render: kosumVar, cikiyor: kosumCikiyor } = useCikisIcerik(running);
   const { icerik: izin, render: izinVar, cikiyor: izinCikiyor } = useCikisIcerik(pending);
   const { render: ozetVar, cikiyor: ozetCikiyor } = useCikis(compacting);
-  // Kaldırılan ek çipi de solarak gitsin.
-  const ekListesi = useCikisListesi(ekler, (yol) => yol);
 
   /**
    * Yeni içerik gelince dibe kay.
@@ -143,48 +134,6 @@ export default function Chat({
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     dip.current?.scrollIntoView({ block: "end", behavior: yumusak ? "smooth" : "auto" });
   }, [turns, running, bot.id]);
-
-  // Bot değişince yarım kalan metin ve ekler karışmasın.
-  useEffect(() => {
-    setText("");
-    setEkler([]);
-  }, [bot.id]);
-
-  // Yazdıkça büyüyen alan. Önce sıfırla, sonra ölç: aksi hâlde küçülmez.
-  useEffect(() => {
-    const el = alan.current;
-    if (!el) return;
-    el.style.height = "0px";
-    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
-  }, [text]);
-
-  /**
-   * Ek = **yol**, kopya değil. Ajan aynı makinede çalışıyor; dosyayı bir
-   * yere yüklemenin anlamı yok, mutlak yolu vermek yeter — ajan kendi
-   * `Read` aracıyla açar. Yollar prompt'a görünür biçimde ekleniyor:
-   * kullanıcı ne gönderdiğini kendi baloncuğunda okuyabilsin.
-   */
-  async function dosyaSec() {
-    const secilen = await open({
-      multiple: true,
-      title: t("chat.pickFiles"),
-      defaultPath: bot.workdir || undefined,
-    }).catch(() => null);
-    if (!secilen) return;
-    const yollar = Array.isArray(secilen) ? secilen : [secilen];
-    setEkler((eski) => [...eski, ...yollar.filter((y) => !eski.includes(y))]);
-    alan.current?.focus();
-  }
-
-  function gonder() {
-    const metin = text.trim();
-    if (!metin || busy) return;
-    onSend(
-      ekler.length > 0 ? `${metin}\n\n${t("chat.attached")}\n${ekler.join("\n")}` : metin,
-    );
-    setText("");
-    setEkler([]);
-  }
 
   return (
     <>
@@ -283,129 +232,73 @@ export default function Chat({
         />
       )}
 
-      <div className="composer">
-        {ekler.length > 0 && (
-          <div className="ekler">
-            {ekListesi.map(({ oge: yol, cikiyor }) => (
-              <span key={yol} className="ek" data-cikis={cikiyor || undefined} title={yol}>
-                <IconAttach size={13} color="var(--text-muted)" />
-                <span className="mono ek__ad">{dosyaAdi(yol)}</span>
-                <button
-                  type="button"
-                  className="ek__sil"
-                  title={t("chat.removeAttachment")}
-                  aria-label={t("chat.removeNamed", { name: dosyaAdi(yol) })}
-                  onClick={() => setEkler((e) => e.filter((x) => x !== yol))}
-                >
-                  <IconClose size={11} />
+      <Composer
+        botName={bot.name}
+        workdir={bot.workdir}
+        busy={busy}
+        resetKey={`${bot.id}:${sessionId}`}
+        onSend={onSend}
+        foot={
+          <>
+            <PermMenu
+              value={bot.permission}
+              botName={bot.name}
+              tools={bot.tools}
+              force={bot.forceWhenBusy}
+              onChange={onPermission}
+              onForce={onForce}
+              onEditTools={onEditBot}
+            />
+
+            <div style={{ flexGrow: 1 }} />
+
+            {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
+              * dolduğunu fark etmeden koşum başlatıyordu. */}
+            {ctx &&
+              bot.backend === "yerel-model" &&
+              bot.contextBudget > 0 &&
+              ctx.promptTokens / bot.contextBudget >= UYARI &&
+              !busy &&
+              !running &&
+              !compacting && (
+                <button type="button" className="ctxoneri" onClick={onCompact}>
+                  {t("ctx.suggest")}
                 </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="composer__box">
-          <button
-            type="button"
-            className="ib"
-            style={{ width: 36, height: 36, background: "var(--surface)" }}
-            title={t("chat.attach")}
-            aria-label={t("chat.attach")}
-            onClick={() => void dosyaSec()}
-          >
-            <IconAttach color="var(--text-muted)" />
-          </button>
-          <textarea
-            ref={alan}
-            className="composer__text"
-            rows={1}
-            value={text}
-            placeholder={t("chat.write", { name: bot.name })}
-            aria-label={t("chat.write", { name: bot.name })}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter ve Ctrl+Enter gönderir; Shift+Enter satır atlar.
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                gonder();
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="ib composer__send"
-            title={t("chat.send")}
-            aria-label={t("chat.send")}
-            disabled={busy || !text.trim()}
-            onClick={gonder}
-          >
-            <IconSend />
-          </button>
-        </div>
-        <div className="composer__foot">
-          <PermMenu
-            value={bot.permission}
-            botName={bot.name}
-            tools={bot.tools}
-            force={bot.forceWhenBusy}
-            onChange={onPermission}
-            onForce={onForce}
-            onEditTools={onEditBot}
-          />
+              )}
 
-          <div style={{ flexGrow: 1 }} />
-
-          {/* %90'da öneri. Menüyü açmadan görünmeli: kullanıcı bağlamın
-            * dolduğunu fark etmeden koşum başlatıyordu. */}
-          {ctx &&
-            bot.backend === "yerel-model" &&
-            bot.contextBudget > 0 &&
-            ctx.promptTokens / bot.contextBudget >= UYARI &&
-            !busy &&
-            !running &&
-            !compacting && (
-              <button type="button" className="ctxoneri" onClick={onCompact}>
-                {t("ctx.suggest")}
-              </button>
+            {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
+              * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
+            {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
+              <Picker
+                chip
+                up
+                value={bot.effort ?? ""}
+                options={efforts.map((e) => ({ value: e, label: e }))}
+                placeholder={t("forge.effort")}
+                ariaLabel={t("forge.effort")}
+                onChange={onEffort}
+              />
             )}
 
-          {/* Effort yalnızca eski yolda var; yerel modelde böyle bir kavram
-            * yok. `PermMenu` deseni: botun kendi alanını yazıyor. */}
-          {bot.backend === "pcbridge-agent" && efforts.length > 0 && (
-            <Picker
-              chip
-              up
-              value={bot.effort ?? ""}
-              options={efforts.map((e) => ({ value: e, label: e }))}
-              placeholder={t("forge.effort")}
-              ariaLabel={t("forge.effort")}
-              onChange={onEffort}
+            <CtxMenu
+              model={bot.model}
+              budget={bot.contextBudget}
+              // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
+              // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
+              ctx={bot.backend === "yerel-model" ? ctx : null}
+              busy={busy || !!running}
+              tps={running ? tps : null}
+              baseUrl={baseUrl}
+              // Eski yolda modeli bir CLI yürütüyor ve o buluta gidiyor.
+              agent={bot.backend === "pcbridge-agent" ? bot.agent : undefined}
+              compacting={compacting}
+              onCompact={onCompact}
             />
-          )}
-
-          <CtxMenu
-            model={bot.model}
-            budget={bot.contextBudget}
-            // Doluluk yalnızca yerel modelde ölçülüyor: `agent_run` yolunda
-            // koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor.
-            ctx={bot.backend === "yerel-model" ? ctx : null}
-            busy={busy || !!running}
-            tps={running ? tps : null}
-            baseUrl={baseUrl}
-            // Eski yolda modeli bir CLI yürütüyor ve o buluta gidiyor.
-            agent={bot.backend === "pcbridge-agent" ? bot.agent : undefined}
-            compacting={compacting}
-            onCompact={onCompact}
-          />
-        </div>
-      </div>
+          </>
+        }
+      />
     </>
   );
-}
-
-/** `/home/x/rapor.md` → `rapor.md` */
-function dosyaAdi(yol: string): string {
-  const i = yol.lastIndexOf("/");
-  return i < 0 ? yol : yol.slice(i + 1);
 }
 
 /**
@@ -581,10 +474,4 @@ function saat(unix: number): string {
   const lc = locale();
   const hhmm = d.toLocaleTimeString(lc, { hour: "2-digit", minute: "2-digit" });
   return ayniGun ? hhmm : `${d.toLocaleDateString(lc, { day: "numeric", month: "short" })} ${hhmm}`;
-}
-
-/** `/home/eymistaken/Belgeler/X` → `~/Belgeler/X` */
-function kisaltEv(p: string): string {
-  const m = p.match(/^\/home\/[^/]+(\/.*)?$/);
-  return m ? "~" + (m[1] ?? "") : p;
 }

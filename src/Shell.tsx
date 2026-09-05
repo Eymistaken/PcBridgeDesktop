@@ -6,11 +6,16 @@ import BotForge from "./BotForge";
 import Sidebar, { sayilar } from "./Sidebar";
 import Connection from "./views/Connection";
 import Chat from "./views/Chat";
+import SessionHome from "./views/SessionHome";
+import Composer from "./ui/Composer";
 import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
 import ModeSwitch from "./ui/ModeSwitch";
-import { IconPlus, IconRefresh } from "./ui/Icon";
+import Avatar from "./ui/Avatar";
+import PermMenu from "./ui/PermMenu";
+import { IconPencil, IconPlus, IconRefresh } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
+import { kisaltEv } from "./lib/yol";
 import { botDraft } from "./lib/types";
 import { useCikisIcerik } from "./lib/cikis";
 import {
@@ -19,6 +24,7 @@ import {
   cancelJob,
   compactSession,
   deleteBot,
+  deleteSession,
   detailText,
   desktopLock,
   desktopState as fetchDesktop,
@@ -50,6 +56,7 @@ import type {
   DesktopState,
   Mode,
   PendingPermission,
+  Permission,
   RunCtx,
   SessionSummary,
   StatusPayload,
@@ -291,29 +298,42 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   }, [ozetleriYukle]);
 
   /**
-   * Bot değişince session listesi yeniden okunur ve **en son dokunulan**
-   * seçilir.
+   * Bot değişince session listesi yeniden okunur.
    *
-   * ⚠️ Aşama 15'te bu değişecek: kullanıcının kararı "bota tıklayınca
-   * **yeni** session açılsın, son session'a dönülmesin". Şimdilik davranış
-   * eskisiyle aynı kalsın diye en tazesi seçiliyor — bu aşama yalnızca
-   * altyapıyı taşıyor.
+   * ⚠️ **Session seçilmiyor** — kullanıcının kararı (2026-09-05): bota
+   * tıklamak son session'a dönmüyor, boş bir ekran açıyor. Session ilk
+   * mesajla doğuyor (`bots::ensure_session`), o yüzden düğmeye basıp
+   * yazmayan kullanıcı arkasında boş kayıt bırakmıyor.
    */
   useEffect(() => {
+    setSelectedSession(undefined);
     if (!selectedId) {
       setSessions([]);
-      setSelectedSession(undefined);
       return;
     }
     let iptal = false;
-    void oturumlariYukle(selectedId).then((liste) => {
+    void oturumlariYukle(selectedId).then(() => {
       if (iptal) return;
-      setSelectedSession(liste[0]?.id);
     });
     return () => {
       iptal = true;
     };
   }, [selectedId, oturumlariYukle]);
+
+  /** Session'ı listeden düşürür; açık olan silinirse yeni-session ekranına döner. */
+  const oturumSil = useCallback(
+    async (botId: string, sid: string) => {
+      try {
+        await deleteSession(botId, sid);
+        setSelectedSession((s) => (s === sid ? undefined : s));
+        await oturumlariYukle(botId);
+        await ozetleriYukle();
+      } catch (e) {
+        setChatError(detailText(e));
+      }
+    },
+    [oturumlariYukle, ozetleriYukle],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -764,7 +784,16 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         bots={bots}
         summaries={summaries}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          // Aynı bota yeniden tıklamak da **yeni session** açar: kullanıcının
+          // istediği eylem "bu asistanla yeni bir işe başla".
+          setSelectedId(id);
+          setSelectedSession(undefined);
+        }}
+        sessions={sessions}
+        selectedSession={selectedSession}
+        onSelectSession={setSelectedSession}
+        onDeleteSession={(sid) => selectedId && void oturumSil(selectedId, sid)}
         onEdit={(bot) => setForge({ bot })}
         onDelete={setSilinecek}
         refreshing={busyConn}
@@ -774,7 +803,73 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       )}
 
       <div className="main" key="agents">
-        {secili ? (
+        {secili && !selectedSession ? (
+          <>
+            <div className="main__head">
+              <Avatar tone={secili.avatar} name={secili.name} size={26} />
+              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                {secili.name}
+              </span>
+              <span className="mono muted" style={{ fontSize: 12 }}>
+                {[
+                  secili.model,
+                  secili.backend === "yerel-model"
+                    ? t("side.nTools", { n: secili.tools.length })
+                    : secili.effort,
+                  kisaltEv(secili.workdir),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              <div style={{ flexGrow: 1 }} />
+              <button
+                className="ib"
+                type="button"
+                title={t("side.edit")}
+                aria-label={t("side.editBot", { name: secili.name })}
+                onClick={() => setForge({ bot: secili })}
+              >
+                <IconPencil />
+              </button>
+            </div>
+            <SessionHome
+              bot={secili}
+              sessions={sessions}
+              onOpen={setSelectedSession}
+              onDelete={(sid) => void oturumSil(secili.id, sid)}
+              composer={
+                <Composer
+                  botName={secili.name}
+                  workdir={secili.workdir}
+                  busy={sending}
+                  resetKey={`${secili.id}:yeni`}
+                  onSend={(t) => void gonder(t)}
+                  foot={
+                    <>
+                      <PermMenu
+                        value={secili.permission}
+                        botName={secili.name}
+                        tools={secili.tools}
+                        force={secili.forceWhenBusy}
+                        onChange={(p: Permission) => {
+                          if (secili.permission !== p) {
+                            void alanDegistir(secili, { permission: p });
+                          }
+                        }}
+                        onForce={(v: boolean) => void alanDegistir(secili, { forceWhenBusy: v })}
+                        onEditTools={() => setForge({ bot: secili })}
+                      />
+                      <div style={{ flexGrow: 1 }} />
+                    </>
+                  }
+                />
+              }
+            />
+            {chatError && (
+              <div className="home__hata">{chatError}</div>
+            )}
+          </>
+        ) : secili ? (
           <Chat
             bot={secili}
             turns={turns}
@@ -787,6 +882,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             error={chatError}
             onSend={(t) => void gonder(t)}
             onCancel={(j) => void durdur(j)}
+            sessionId={selectedSession ?? ""}
             sessionCount={sessions.length}
             pending={pending.find((p) => p.sessionId === selectedSession)}
             onAnswer={(runId, allow) => void izinYanitla(runId, allow)}

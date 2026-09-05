@@ -137,6 +137,27 @@ export function IconExport({
   );
 }
 
+/**
+ * Katlanır liste oku. **Tek çizim, döndürülüyor:** kapalı için ayrı bir
+ * `>` çizmek iki path'i ayrı ayrı bakımda tutmak olurdu ve geçiş
+ * (`transform`) tek çizimle kendiliğinden geliyor.
+ */
+export function IconChevron({
+  size = 12,
+  color = "var(--text-muted)",
+  strokeWidth = 1.6,
+  acik = false,
+}: IconProps & { acik?: boolean }) {
+  return svg(size, <path d="m6 8 4 4 4-4" />, {
+    stroke: color,
+    strokeWidth,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    style: { transform: acik ? undefined : "rotate(-90deg)" },
+    className: "chevron",
+  });
+}
+
 export function IconClose({ size = 12, color = "var(--text-muted)", strokeWidth = 1.8 }: IconProps) {
   return svg(size, <path d="M6 6l8 8M14 6l-8 8" />, {
     stroke: color,
