@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 
@@ -17,6 +17,14 @@ import { IconPencil, IconPlus, IconRefresh } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
 import { botDraft } from "./lib/types";
+import {
+  ekle,
+  kapat,
+  oku as okuAgacHam,
+  oturumaGore,
+  oturumlar,
+  type Dugum,
+} from "./lib/agac";
 import { useCikisIcerik } from "./lib/cikis";
 import {
   answerPermission,
@@ -79,14 +87,19 @@ function okuMode(): Mode {
   }
 }
 
-function okuPanes(): string[] {
+/**
+ * Bölme ağacını diskten okur.
+ *
+ * ⚠️ **Dörtlü sınır kalktı.** Eskiden burada ve `setPanes`'te `slice(0, 4)`
+ * vardı; Rust'ta hiçbir sınır yok (`pty.rs` sınırsız `HashMap`) ve dört bölme
+ * doluyken kenar çubuğundan beşinci oturuma tıklamak **sessizce yutuluyordu**.
+ * Eski düz dizi biçimi `agac.oku` içinde ızgaraya göç ediyor.
+ */
+function okuAgac(): Dugum | null {
   try {
-    const v = JSON.parse(localStorage.getItem(PANE_KEY) ?? "[]");
-    return Array.isArray(v)
-      ? v.filter((x) => typeof x === "string").slice(0, 4)
-      : [];
+    return okuAgacHam(localStorage.getItem(PANE_KEY));
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -194,17 +207,20 @@ export default function Shell({
   useEffect(() => {
     if (mode === "terminals") setTerminalAcildi(true);
   }, [mode]);
-  const [panes, setPanesState] = useState<string[]>(okuPanes);
+  const [agac, setAgacState] = useState<Dugum | null>(okuAgac);
 
-  const setPanes = useCallback((p: string[]) => {
-    const kesik = p.slice(0, 4);
-    setPanesState(kesik);
+  const setAgac = useCallback((a: Dugum | null) => {
+    setAgacState(a);
     try {
-      localStorage.setItem(PANE_KEY, JSON.stringify(kesik));
+      if (a) localStorage.setItem(PANE_KEY, JSON.stringify(a));
+      else localStorage.removeItem(PANE_KEY);
     } catch {
       // Kalıcılık kaybolur ama uygulama çalışmaya devam eder.
     }
   }, []);
+
+  /** Açık bölmelerin oturum adları — kenar çubuğu bunu okuyor. */
+  const panes = useMemo(() => oturumlar(agac), [agac]);
 
   /**
    * Masaüstü izni. Kaynak **disk**, MCP değil: süre kendiliğinden dolduğunda
@@ -814,8 +830,8 @@ export default function Shell({
       <div className="main">
         <Terminals
           view={tview}
-          panes={panes}
-          onPanes={setPanes}
+          agac={agac}
+          onAgac={setAgac}
           onReload={() => void terminalleriYukle()}
         />
       </div>
@@ -838,19 +854,19 @@ export default function Shell({
           setMode("agents");
         }}
         onToggleDesktop={() => void masaustuCevir()}
-        onOpen={(name) => {
-          if (!panes.includes(name)) setPanes([...panes, name]);
-        }}
+        onOpen={(name) => setAgac(ekle(agac, name))}
         onNew={(name) => {
-          // Yeni oturum: bölmeyi açmak zaten `tmux new-session -A` ile
-          // yaratıyor, ayrıca bir tmux_start'a gerek yok.
-          if (!panes.includes(name)) setPanes([...panes, name]);
+          // Yeni oturum: bölmeyi açmak zaten tmux oturumunu yaratıyor,
+          // ayrıca bir `tmux_start`a gerek yok.
+          setAgac(ekle(agac, name));
           void terminalleriYukle();
         }}
         onKill={(name) => {
           void tmuxKill(name)
             .then(() => {
-              setPanes(panes.filter((p) => p !== name));
+              // Oturum öldü: onu gösteren bölme de kalkmalı.
+              const yaprak = oturumaGore(agac, name);
+              if (yaprak && agac) setAgac(kapat(agac, yaprak.id));
               return terminalleriYukle();
             })
             .catch((e) => setConnError(errorText(e as ConnError)));
