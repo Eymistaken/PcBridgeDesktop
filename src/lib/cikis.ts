@@ -87,23 +87,36 @@ export function useCikisListesi<T>(
   anahtar: (oge: T) => string,
   sure?: number,
 ): Array<{ oge: T; cikiyor: boolean }> {
-  const onceki = useRef<T[]>(liste);
+  const [onceki, setOnceki] = useState<T[]>(liste);
   const [gidenler, setGidenler] = useState<Array<{ oge: T; sira: number }>>([]);
 
-  useEffect(() => {
+  /*
+   * ⚠️ **Fark ÇİZİM SIRASINDA alınıyor, etkide değil** — ve bu bir üslup
+   * tercihi değil, ölçülmüş bir hatanın düzeltmesi.
+   *
+   * Önce `useEffect` ile yapılmıştı. Etki boyamadan **sonra** çalıştığı için
+   * satır bir kare boyunca listeden düşüyor, altındakiler o karede yukarı
+   * atlıyor, sonra etki satırı geri koyunca FLIP onları aşağı kaydırıyordu.
+   * WebKitGTK'da ölçüldü: silmeden 30 ms sonra alttaki satır 283 px yerine
+   * 233 px'teydi, 150 ms sonra 279'a geri dönüyordu — gözle görülür bir
+   * sıçrama. Çizim sırasında kurulan durum React'in kendi "props değişince
+   * durumu ayarla" deseni: yeniden çizim boyamadan önce oluyor, ara kare yok.
+   */
+  if (onceki !== liste) {
     const yeni = new Set(liste.map(anahtar));
-    const dusen = onceki.current
+    const gidenAnahtarlar = new Set(gidenler.map((g) => anahtar(g.oge)));
+    const dusen = onceki
       .map((oge, sira) => ({ oge, sira }))
-      .filter(({ oge }) => !yeni.has(anahtar(oge)));
-    onceki.current = liste;
-    if (dusen.length === 0) return;
+      .filter(({ oge }) => !yeni.has(anahtar(oge)) && !gidenAnahtarlar.has(anahtar(oge)));
+    setOnceki(liste);
+    if (dusen.length > 0) setGidenler((g) => [...g, ...dusen]);
+  }
 
-    setGidenler((g) => [...g, ...dusen]);
+  useEffect(() => {
+    if (gidenler.length === 0) return;
     const zamanlayici = window.setTimeout(() => setGidenler([]), sure ?? cikisSuresi());
     return () => window.clearTimeout(zamanlayici);
-    // `anahtar` her render'da yeni bir kapanış olabilir; bağımlılık listeye ait.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liste, sure]);
+  }, [gidenler, sure]);
 
   if (gidenler.length === 0) return liste.map((oge) => ({ oge, cikiyor: false }));
 

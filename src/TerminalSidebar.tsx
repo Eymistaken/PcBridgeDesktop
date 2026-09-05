@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
 
 import ConnStrip from "./ui/ConnStrip";
-import ModeSwitch from "./ui/ModeSwitch";
-import { IconPlus, IconPrompt, IconTrash } from "./ui/Icon";
+import { IconPrompt, IconTrash } from "./ui/Icon";
 import { t } from "./lib/i18n";
-import type { DesktopState, Mode, TerminalsView } from "./lib/types";
+import type { DesktopState, TerminalsView } from "./lib/types";
 
 interface Props {
   view: TerminalsView;
   panes: string[];
-  mode: Mode;
-  onMode: (m: Mode) => void;
   desktop: DesktopState;
   /** Ctrl+N: değer artınca yeni oturum alanı açılır. */
   newSignal: number;
@@ -25,8 +22,6 @@ interface Props {
 export default function TerminalSidebar({
   view,
   panes,
-  mode,
-  onMode,
   desktop,
   newSignal,
   onOpenSystem,
@@ -46,24 +41,7 @@ export default function TerminalSidebar({
   const uzakta = view.sessions.filter((s) => !panes.includes(s.name));
 
   return (
-    <div className="side">
-      <div className="side__head">
-        <span className="side__title">pcbridge</span>
-        <button
-          className="ib ib--filled"
-          type="button"
-          title={t("term.newSessionTitle")}
-          aria-label={t("term.newSession")}
-          onClick={() => setYeni("")}
-        >
-          <IconPlus />
-        </button>
-      </div>
-
-      <div className="side__modes">
-        <ModeSwitch mode={mode} onMode={onMode} />
-      </div>
-
+    <>
       {yeni !== undefined && (
         <div className="side__search">
           <form
@@ -133,7 +111,7 @@ export default function TerminalSidebar({
         onClick={onOpenSystem}
         onToggleDesktop={onToggleDesktop}
       />
-    </div>
+    </>
   );
 }
 

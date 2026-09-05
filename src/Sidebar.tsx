@@ -1,17 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import Avatar from "./ui/Avatar";
 import ConnStrip from "./ui/ConnStrip";
-import ModeSwitch from "./ui/ModeSwitch";
-import { IconPencil, IconPlus, IconSearch, IconTrash } from "./ui/Icon";
+import { IconPencil, IconSearch, IconTrash } from "./ui/Icon";
 import { locale, t } from "./lib/i18n";
 import { useCikisListesi } from "./lib/cikis";
-import type { Bot, BotSummary, ConnSnapshot, DesktopState, Mode } from "./lib/types";
+import { useFlip } from "./lib/flip";
+import type { Bot, BotSummary, ConnSnapshot, DesktopState } from "./lib/types";
 
 interface Props {
   snap: ConnSnapshot;
-  mode: Mode;
-  onMode: (m: Mode) => void;
   desktop: DesktopState;
   /** Şeride basınca sistem paneli — bağlantı, masaüstü izni, denetim kaydı. */
   onOpenSystem: () => void;
@@ -21,7 +19,6 @@ interface Props {
   summaries: Record<string, BotSummary>;
   selectedId?: string;
   onSelect: (id: string) => void;
-  onNew: () => void;
   onEdit: (bot: Bot) => void;
   onDelete: (bot: Bot) => void;
   refreshing: boolean;
@@ -38,8 +35,6 @@ interface Props {
 
 export default function Sidebar({
   snap,
-  mode,
-  onMode,
   desktop,
   onOpenSystem,
   onToggleDesktop,
@@ -47,7 +42,6 @@ export default function Sidebar({
   summaries,
   selectedId,
   onSelect,
-  onNew,
   onEdit,
   onDelete,
   refreshing,
@@ -60,6 +54,10 @@ export default function Sidebar({
   // filtreyle düşen satırın beklemesi, arama kutusuna yazarken her tuşta
   // takılan bir liste demek olurdu.
   const kalanlar = useCikisListesi(bots, (b) => b.id);
+
+  // Filtre ve silme sonrası satırlar zıplamadan yerleşsin.
+  const liste = useRef<HTMLDivElement>(null);
+  useFlip(liste);
 
   const filtered = useMemo(() => {
     const lc = locale();
@@ -80,18 +78,7 @@ export default function Sidebar({
   }, [kalanlar, query, summaries]);
 
   return (
-    <div className="side">
-      <div className="side__head">
-        <span className="side__title">pcbridge</span>
-        <button className="ib ib--filled" type="button" title={t("side.newBotTitle")} aria-label={t("side.newBot")} onClick={onNew}>
-          <IconPlus />
-        </button>
-      </div>
-
-      <div className="side__modes">
-        <ModeSwitch mode={mode} onMode={onMode} />
-      </div>
-
+    <>
       <div className="side__search">
         <div className="field">
           <IconSearch />
@@ -105,7 +92,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="side__list">
+      <div className="side__list" ref={liste}>
         {bots.length === 0 && (
           <div className="side__empty">
             <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("side.noBots")}</span>
@@ -128,6 +115,7 @@ export default function Sidebar({
             <div
               key={b.id}
               className="row"
+              data-flip={b.id}
               data-cikis={cikiyor || undefined}
               role="option"
               tabIndex={0}
@@ -215,7 +203,7 @@ export default function Sidebar({
         onClick={onOpenSystem}
         onToggleDesktop={onToggleDesktop}
       />
-    </div>
+    </>
   );
 }
 

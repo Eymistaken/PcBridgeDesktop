@@ -93,9 +93,18 @@ export default function Chat({
   // Kaldırılan ek çipi de solarak gitsin.
   const ekListesi = useCikisListesi(ekler, (yol) => yol);
 
-  // Yeni içerik gelince dibe kay.
+  /**
+   * Yeni içerik gelince dibe kay.
+   *
+   * ⚠️ **Yumuşak kaydırma yalnızca akış YOKKEN.** Akış sürerken bu etki her
+   * token'da çalışıyor; `behavior: "smooth"` her seferinde yeni bir kaydırma
+   * isteği kuyruğa koyuyor ve bir öncekini kesiyor, sonuç dibe hiç
+   * yetişemeyen bir liste oluyor. Akış sırasında ani kaydırma doğru davranış.
+   */
   useEffect(() => {
-    dip.current?.scrollIntoView({ block: "end" });
+    const yumusak =
+      !running && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    dip.current?.scrollIntoView({ block: "end", behavior: yumusak ? "smooth" : "auto" });
   }, [turns, running]);
 
   // Bot değişince yarım kalan metin ve ekler karışmasın.

@@ -8,7 +8,8 @@ import Connection from "./views/Connection";
 import Chat from "./views/Chat";
 import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
-import { IconRefresh } from "./ui/Icon";
+import ModeSwitch from "./ui/ModeSwitch";
+import { IconPlus, IconRefresh } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
 import { botDraft } from "./lib/types";
 import { useCikisIcerik } from "./lib/cikis";
@@ -593,14 +594,50 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     return t.meta.exitCode === null && (s === "running" || s === null || s === undefined);
   });
 
+  /**
+   * Kenar çubuğunun **kabuğu** — başlık ve kip anahtarı burada, iki kipte de
+   * aynı düğümler.
+   *
+   * ⚠️ Eskiden ikisi de `Sidebar` ve `TerminalSidebar`'ın **içindeydi** ve
+   * kip değişince bütün sütun sökülüp yeniden kuruluyordu. Sonucu ölçüldü:
+   * `.modesw__thumb`'ın kayma geçişi **hiç oynamıyordu** — yeni kurulan bir
+   * öğenin önceki `transform` değeri olmadığı için geçişin başlangıç ucu yok.
+   * YAPILACAKLAR.md "kayan parça çalışıyor" diyordu; WebKitGTK'da bakılınca
+   * parça takasta ışınlanıyordu. Kabuk dışarı alınınca anahtar takasta
+   * hayatta kalıyor ve gerçekten kayıyor.
+   */
+  const yanKabuk = (icerik: React.ReactNode) => (
+    <div className="side">
+      <div className="side__head">
+        <span className="side__title">pcbridge</span>
+        <button
+          className="ib ib--filled"
+          type="button"
+          title={mode === "terminals" ? t("term.newSessionTitle") : t("side.newBotTitle")}
+          aria-label={mode === "terminals" ? t("term.newSession") : t("side.newBot")}
+          onClick={() =>
+            mode === "terminals" ? setYeniSinyal((n) => n + 1) : setForge({})
+          }
+        >
+          <IconPlus />
+        </button>
+      </div>
+
+      <div className="side__modes">
+        <ModeSwitch mode={mode} onMode={setMode} />
+      </div>
+
+      {icerik}
+    </div>
+  );
+
   if (mode === "terminals") {
     return (
       <div className="shell">
+        {yanKabuk(
         <TerminalSidebar
           view={tview}
           panes={panes}
-          mode={mode}
-          onMode={setMode}
           desktop={desktop}
           newSignal={yeniSinyal}
           onOpenSystem={() => {
@@ -625,7 +662,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
               })
               .catch((e) => setConnError(errorText(e as ConnError)));
           }}
-        />
+        />,
+        )}
         <div className="main" key="terminals">
           <Terminals
             view={tview}
@@ -640,10 +678,9 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
 
   return (
     <div className="shell">
+      {yanKabuk(
       <Sidebar
         snap={snap}
-        mode={mode}
-        onMode={setMode}
         desktop={desktop}
         onOpenSystem={() => setSelectedId(undefined)}
         onToggleDesktop={() => void masaustuCevir()}
@@ -651,13 +688,13 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         summaries={summaries}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onNew={() => setForge({})}
         onEdit={(bot) => setForge({ bot })}
         onDelete={setSilinecek}
         refreshing={busyConn}
         connError={connError}
         waiting={pending.map((p) => p.botId)}
-      />
+      />,
+      )}
 
       <div className="main" key="agents">
         {secili ? (

@@ -75,6 +75,50 @@ export default function Thinking({ text, ms, live }: Props) {
     kap.scrollTop = kap.scrollHeight;
   }, [metin, acik, live]);
 
+  /**
+   * Açılıp kapanma yükseklik geçişi taşısın — kutu bir karede açılıyordu.
+   *
+   * ⚠️ **CSS ile yapılamıyor:** kapalı hâl sabit yükseklikte, açık hâl
+   * `height: auto`. WebKitGTK 4.1'de `interpolate-size: allow-keywords` ve
+   * `calc-size()` **desteklenmiyor** (gerçek motorda ölçüldü), yani `auto`
+   * bir geçişin ucu olamıyor. O yüzden iki uç JS'te ölçülüp arası
+   * geçiriliyor.
+   *
+   * **Bitince satır içi yükseklik siliniyor.** Kalsaydı akış sürerken açık
+   * kutu büyümeyi bırakırdı — `auto` geri gelmeli.
+   *
+   * ⚠️ Aşama 10'un düzeltmesi burada bozulmuyor: kapalı hâlin sabit
+   * yüksekliğine ve açık hâlin aynı ölçüdeki `min-height`'ına dokunulmadı;
+   * bu kod yalnızca ikisinin **arasını** dolduruyor.
+   */
+  const oncekiYukseklik = useRef<number>(null);
+  useLayoutEffect(() => {
+    const kap = kaydirilan.current;
+    const bas = oncekiYukseklik.current;
+    oncekiYukseklik.current = null;
+    if (!kap || bas === null) return;
+
+    const son = kap.getBoundingClientRect().height;
+    if (Math.abs(son - bas) < 1) return;
+
+    kap.style.height = `${bas}px`;
+    void kap.offsetHeight; // yeniden akış: iki uç ayrı karelerde olmalı
+    kap.style.transition = "height var(--dur-slow) var(--ease-inout)";
+    kap.style.height = `${son}px`;
+
+    const bitir = () => {
+      kap.style.height = "";
+      kap.style.transition = "";
+      kap.removeEventListener("transitionend", bitir);
+      window.clearTimeout(guvenlik);
+    };
+    kap.addEventListener("transitionend", bitir);
+    // `transitionend` gelmezse (kesilen geçiş, sıfır süre) kutu satır içi
+    // yükseklikte kilitli kalırdı.
+    const guvenlik = window.setTimeout(bitir, 600);
+    return bitir;
+  }, [acik]);
+
   // **Boş düşünce hiç çizilmez.** `toBlocks` artık metinsiz olaydan blok
   // üretmiyor, ama diskteki eski `events.jsonl` kayıtları o olayları hâlâ
   // taşıyor; bu satır eski sohbetleri de düzeltiyor. Hook'lardan sonra
@@ -88,7 +132,12 @@ export default function Thinking({ text, ms, live }: Props) {
           type="button"
           className="dusunce__baslik"
           aria-expanded={acik}
-          onClick={() => setAcik((a) => !a)}
+          onClick={() => {
+            // Eski yükseklik **sınıf değişmeden** okunuyor: düzen etkisi
+            // çalıştığında kutu zaten yeni ölçüsünde oluyor.
+            oncekiYukseklik.current = kaydirilan.current?.getBoundingClientRect().height ?? null;
+            setAcik((a) => !a);
+          }}
         >
           <IconChevron acik={acik} />
           <span>

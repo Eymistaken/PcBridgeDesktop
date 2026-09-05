@@ -2276,6 +2276,23 @@ button.btn-fld:active,
   animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
 
+/*
+ * Kip geçişinde **sol sütun** — YAPILACAKLAR.md madde (e).
+ *
+ * Kayan parça ve `.main` soluğu zaten vardı; eksik olan `Sidebar` ile
+ * `TerminalSidebar`'ın takasıydı, ikisi bir karede yer değiştiriyordu.
+ *
+ * Devinim **kip anahtarının altındaki içerikte**, bütün sütunda değil:
+ * `.side__head` ve `.side__modes` iki bileşende de aynı ve kullanıcının az
+ * önce tıkladığı anahtarın titremesi yanlış olurdu. İkisi ayrı bileşen
+ * olduğu için takasta zaten yeniden kuruluyorlar — ek bir `key` gerekmiyor.
+ *
+ * `.main` ile aynı kare kullanılıyor: aynı olayın iki yakası. */
+.side__search,
+.side__list {
+  animation: girisSoluk var(--dur-base) var(--ease-out) both;
+}
+
 .pane {
   animation: girisSoluk var(--dur-base) var(--ease-out) both;
 }
