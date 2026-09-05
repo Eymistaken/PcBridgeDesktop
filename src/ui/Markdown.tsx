@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, memo } from "react";
 
 import { markdown, satirIci, type Blok, type Satirici } from "../lib/markdown";
 
@@ -10,9 +10,21 @@ import { markdown, satirIci, type Blok, type Satirici } from "../lib/markdown";
  * işaretlemeye dönüşemiyor. Her öğe tasarım tokenlarını kullanıyor; markdown
  * kendi rengini getirmiyor.
  */
-export default function Markdown({ text }: { text: string }) {
+function MarkdownIc({ text }: { text: string }) {
   return <Bloklar list={markdown(text)} />;
 }
+
+/**
+ * ⚠️ **`memo` başarım için şart, süs değil.**
+ *
+ * Akıştaki her parçada `Shell` `turns`'ü yeni bir diziyle değiştiriyor,
+ * `Chat` yeniden çiziliyor ve memoize olmayan `Markdown` **bütün** mesajları
+ * yeniden ayrıştırıyordu — uzun bir sohbette akış her token'da sohbetin
+ * tamamını yeniden çözümlüyor. Tek prop bir dizge, sığ karşılaştırma tam
+ * doğru sonucu veriyor.
+ */
+const Markdown = memo(MarkdownIc);
+export default Markdown;
 
 function Bloklar({ list }: { list: Blok[] }) {
   return (

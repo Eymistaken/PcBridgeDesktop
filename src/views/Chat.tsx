@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import Avatar from "../ui/Avatar";
 import Composer from "../ui/Composer";
@@ -79,7 +79,52 @@ export default function Chat({
   onEditBot,
   onExport,
 }: Props) {
-  const dip = useRef<HTMLDivElement>(null);
+  const kaydiran = useRef<HTMLDivElement>(null);
+  const altlik = useRef<HTMLDivElement>(null);
+
+  /**
+   * Yüzen altlığın **ölçülen** yüksekliğini panele yazar.
+   *
+   * Besteci, koşum şeridi ve izin kartı sohbetin üstünde yüzüyor; sohbetin
+   * alt dolgusu ve kenar maskesi bu sayıyı okuyor (`--besteci-h`). Sabit bir
+   * tahmin yetmezdi: yükseklik ek çipleriyle, çok satırla ve şeritlerin
+   * gelip gitmesiyle değişiyor.
+   */
+  useEffect(() => {
+    const el = altlik.current;
+    const kap = kaydiran.current;
+    const panel = el?.closest(".main") as HTMLElement | null;
+    if (!el || !kap || !panel) return;
+
+    /*
+     * ⚠️ **Besteci büyüyünce sohbet dibe geri çekilmeli.**
+     *
+     * Ölçüldü (WebKitGTK): dört satır yazınca altlık 103 → 213 px'e çıkıyor,
+     * `.chat`'in alt dolgusu da o kadar büyüyor ama kaydırma konumu yerinde
+     * kalıyordu — son baloncuk bestecinin **136 px arkasına** giriyordu.
+     *
+     * Dip takibi bir dinleyiciyle: kullanıcı yukarı kaydırmışsa geri
+     * çekilmiyoruz (okuduğu yerden koparmak olurdu), yalnızca zaten diptekiyse.
+     */
+    const dipte = { current: true };
+    const dipIzle = () => {
+      dipte.current = kap.scrollHeight - kap.scrollTop - kap.clientHeight < 8;
+    };
+    kap.addEventListener("scroll", dipIzle, { passive: true });
+
+    const yaz = () => {
+      panel.style.setProperty("--besteci-h", `${Math.round(el.offsetHeight)}px`);
+      if (dipte.current) kap.scrollTop = kap.scrollHeight;
+    };
+    yaz();
+    const gozcu = new ResizeObserver(yaz);
+    gozcu.observe(el);
+    return () => {
+      gozcu.disconnect();
+      kap.removeEventListener("scroll", dipIzle);
+      panel.style.removeProperty("--besteci-h");
+    };
+  }, []);
 
   // Besteci üstündeki üç şerit de kapanırken bir karede yok oluyordu.
   // İzin sorusu ve koşum şeridi **içeriğini de** korumak zorunda: yanıt
@@ -96,7 +141,7 @@ export default function Chat({
    * 1. ⚠️ **Sohbet ilk gösterildiğinde.** Kip anahtarından dönmek `Chat`'i
    *    yeniden kuruyor; yumuşak kaydırma o anda "geçmişin içinde hızla aşağı
    *    süzülme" gibi görünüyordu. Görüntü **en altta başlamalı**, oraya
-   *    inmemeli. Bot değişimi de aynı: yeni sohbet dibinden açılır.
+   *    inmemeli. Session değişimi de aynı: yeni sohbet dibinden açılır.
    * 2. **Akış sürerken.** Bu etki her token'da çalışıyor; `smooth` her
    *    seferinde yeni bir kaydırma isteği kuyruğa koyup bir öncekini keser ve
    *    liste dibe hiç yetişemez.
@@ -105,10 +150,35 @@ export default function Chat({
    * Geriye kalan: **açık duran bir sohbete yeni bir tur eklenmesi.** Yumuşak
    * olması gereken tek durum o.
    */
-  const sonBot = useRef<string>("");
+  const sonOturum = useRef<string>("");
   const sonTurSayisi = useRef(0);
+  /**
+   * Bu sohbet **kurulduğunda** kaç tur vardı.
+   *
+   * Bundan sonrası "yeni" sayılıyor ve giriş devinimini oynatıyor; mount'ta
+   * gelen geçmiş animasyonsuz oturuyor.
+   */
+  const mountTurSayisi = useRef<number>(-1);
+  if (mountTurSayisi.current < 0 && turns.length > 0) {
+    mountTurSayisi.current = turns.length;
+  }
   useEffect(() => {
-    const ayniBot = sonBot.current === bot.id;
+    /*
+     * ⚠️ **Ölçüt session, bot değil — ve ref'ler gerçekten sıfırlanıyor.**
+     *
+     * Eski hata zinciri: `Shell` bot değişiminde `turns`'ü temizlemiyordu,
+     * o yüzden seçim anındaki ilk koşumda `turns` hâlâ **önceki** botundu
+     * ve `sonTurSayisi`'na onun sayısı yazılıyordu. Geçmiş gelince ikinci
+     * koşum "aynı bot, zaten doluydu, tur eklendi" diye okuyor ve yumuşak
+     * kaydırma yapıyordu — sohbet eski mesajların içinden aşağı süzülüyordu.
+     * Kullanıcı bunu iki kez bildirdi.
+     *
+     * `Shell` artık `turns`'ü boşaltıyor (Aşama 14) ve burada da ölçüt
+     * session kimliği: session değişince sayaç sıfırlanıyor, yani "zaten
+     * doluydu" bir sonraki sohbete taşınamıyor.
+     */
+    const ayniOturum = sonOturum.current === sessionId;
+    if (!ayniOturum) sonTurSayisi.current = 0;
     /*
      * ⚠️ **Bot değişimini "bot kimliği değişti mi" ile ölçmek yetmiyor.**
      * İlk düzeltmede öyleydi ve hata sürdü: bota geçildiği anda `turns`
@@ -122,9 +192,9 @@ export default function Chat({
      * olduğunu gördüğümüz* bir sohbete tur eklenince. Geçmişin ilk kez
      * yerleşmesi bir "ekleme" değil, sohbetin açılışıdır.
      */
-    const zatenDoluydu = ayniBot && sonTurSayisi.current > 0;
+    const zatenDoluydu = ayniOturum && sonTurSayisi.current > 0;
     const turEklendi = turns.length > sonTurSayisi.current;
-    sonBot.current = bot.id;
+    sonOturum.current = sessionId;
     sonTurSayisi.current = turns.length;
 
     const yumusak =
@@ -132,8 +202,24 @@ export default function Chat({
       turEklendi &&
       !running &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    dip.current?.scrollIntoView({ block: "end", behavior: yumusak ? "smooth" : "auto" });
-  }, [turns, running, bot.id]);
+    /*
+     * ⚠️ **Kabın kendisi kaydırılıyor, işaretçi `scrollIntoView` ile değil.**
+     *
+     * Eski yol dipteki sıfır yükseklikli işaretçiyi kabın alt kenarına
+     * hizalıyordu — ama besteci artık sohbetin **üstünde yüzüyor** ve
+     * `.chat` onun için bir alt dolgu ayırıyor. İşaretçi kenara oturunca o
+     * dolgu görünürün dışında kalıyor ve son mesaj bestecinin arkasına
+     * giriyordu. Ölçüldü: `scrollTop` en fazlanın tam **117 px** (dolgunun
+     * kendisi kadar) altında kalıyordu.
+     *
+     * Dibe kaydırmak dolguyu da tüketiyor; son mesaj bestecinin üstünde
+     * duruyor.
+     */
+    const el = kaydiran.current;
+    if (!el) return;
+    if (yumusak) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    else el.scrollTop = el.scrollHeight;
+  }, [turns, running, sessionId]);
 
   return (
     <>
@@ -166,7 +252,7 @@ export default function Chat({
         </button>
       </div>
 
-      <div className="chat">
+      <div className="chat" ref={kaydiran}>
         {turns.length === 0 && !running && (
           <div className="chat__bos">
             <span style={{ fontSize: 14, fontWeight: 500 }}>{t("chat.empty")}</span>
@@ -176,8 +262,17 @@ export default function Chat({
           </div>
         )}
 
-        {turns.map((tur) => (
-          <TurnView key={tur.jobId} turn={tur} live={running?.jobId === tur.jobId} />
+        {turns.map((tur, i) => (
+          <TurnView
+            key={tur.jobId}
+            turn={tur}
+            live={running?.jobId === tur.jobId}
+            // ⚠️ Giriş devinimi **yalnızca sonradan eklenen** tura.
+            // Eskiden `.bub`'un hepsi koşulsuz oynuyordu: sohbet her
+            // kurulduğunda (kip anahtarı, session takası) geçmişin
+            // tamamı aynı anda animasyon başlatıyordu.
+            yeni={i >= mountTurSayisi.current}
+          />
         ))}
 
         {error && (
@@ -185,9 +280,9 @@ export default function Chat({
             {error}
           </div>
         )}
-        <div ref={dip} />
       </div>
 
+      <div className="altlik" ref={altlik}>
       {kosumVar && kosum && (
         <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
           <div className="jobstrip__box">
@@ -297,6 +392,7 @@ export default function Chat({
           </>
         }
       />
+      </div>
     </>
   );
 }
@@ -311,18 +407,35 @@ function durduruldu(turn: Turn): boolean {
   return c === 130 || c === 143 || c === 137;
 }
 
-function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
+/**
+ * ⚠️ **`memo`** — `Markdown`'la aynı gerekçe. Akıştaki her parça `turns`
+ * dizisini yeniliyor ama **yalnızca bir turun** nesnesi değişiyor; ötekiler
+ * kimliklerini koruyor. Memo olmadan hepsi yeniden çiziliyordu.
+ */
+const TurnView = memo(TurnViewIc);
+
+function TurnViewIc({ turn, live, yeni }: { turn: Turn; live: boolean; yeni: boolean }) {
   const blocks = useMemo(() => toBlocks(turn.events), [turn.events]);
   const bitis = finishedOf(turn.events);
   const kesildi = durduruldu(turn);
 
+  // `data-yeni` giriş devinimini tetikliyor — bkz. `app.css` "devinim".
+  const y = yeni || undefined;
   return (
     <>
-      {turn.meta.startedAt && <span className="ts">{saat(turn.meta.startedAt)}</span>}
+      {turn.meta.startedAt && (
+        <span className="ts" data-yeni={y}>
+          {saat(turn.meta.startedAt)}
+        </span>
+      )}
 
       {turn.prompt && (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div className="bub" style={{ background: "var(--surface-2)", whiteSpace: "pre-wrap" }}>
+          <div
+            className="bub"
+            data-yeni={y}
+            style={{ background: "var(--surface-2)", whiteSpace: "pre-wrap" }}
+          >
             {turn.prompt}
           </div>
         </div>
@@ -330,16 +443,22 @@ function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
 
       {blocks.map((b, i) => (
         // Yalnızca **süren** turun **son** bloğu canlı: akış orada.
-        <BlockView key={i} block={b} live={live && i === blocks.length - 1} />
+        <BlockView key={i} block={b} live={live && i === blocks.length - 1} yeni={yeni} />
       ))}
 
       {kesildi ? (
-        <span className="ts">{t("chat.stopped")}</span>
+        <span className="ts" data-yeni={y}>
+          {t("chat.stopped")}
+        </span>
       ) : (
         bitis &&
         !bitis.ok && (
           <div style={{ display: "flex" }}>
-            <div className="bub" style={{ background: "var(--surface)", color: "var(--fail)" }}>
+            <div
+              className="bub"
+              data-yeni={y}
+              style={{ background: "var(--surface)", color: "var(--fail)" }}
+            >
               {bitis.error ?? t("chat.failed")}
             </div>
           </div>
@@ -357,12 +476,12 @@ function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
  * Sarmalayıcı `<div>` **balonun içinde**: maske `.bub`'a konsaydı zemini de
  * maskelerdi ve baloncukta saydam bir çentik açılırdı.
  */
-function MetinBloku({ text, live }: { text: string; live: boolean }) {
+function MetinBloku({ text, live, yeni }: { text: string; live: boolean; yeni?: boolean }) {
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (
     <div style={{ display: "flex" }}>
-      <div className="bub" style={{ background: "var(--surface)" }}>
+      <div className="bub" data-yeni={yeni || undefined} style={{ background: "var(--surface)" }}>
         <div ref={kap} className={live ? "akis--canli" : undefined}>
           <Markdown text={text} />
         </div>
@@ -371,19 +490,22 @@ function MetinBloku({ text, live }: { text: string; live: boolean }) {
   );
 }
 
-function BlockView({ block, live }: { block: Block; live: boolean }) {
+function BlockView({ block, live, yeni }: { block: Block; live: boolean; yeni: boolean }) {
+  const y = yeni || undefined;
   if (block.t === "text") {
-    return <MetinBloku text={block.text} live={live} />;
+    return <MetinBloku text={block.text} live={live} yeni={yeni} />;
   }
 
   if (block.t === "thinking") {
-    return <Thinking text={block.text} ms={block.ms} live={live} />;
+    return <Thinking text={block.text} ms={block.ms} live={live} yeni={yeni} />;
   }
 
   if (block.t === "raw") {
     return (
       <div style={{ display: "flex" }}>
-        <pre className="bub mono well">{block.text}</pre>
+        <pre className="bub mono well" data-yeni={y}>
+          {block.text}
+        </pre>
       </div>
     );
   }
@@ -397,6 +519,7 @@ function BlockView({ block, live }: { block: Block; live: boolean }) {
       <div style={{ display: "flex" }}>
         <div
           className="bub muted"
+          data-yeni={y}
           style={{
             background: "var(--surface)",
             whiteSpace: "pre-wrap",
@@ -423,7 +546,7 @@ function BlockView({ block, live }: { block: Block; live: boolean }) {
   // Döküm baloncuğu — referansın imza hamlesi.
   return (
     <div style={{ display: "flex" }}>
-      <div className="bub bub--dokum">
+      <div className="bub bub--dokum" data-yeni={y}>
         {block.rows.map((r, i) => (
           <div key={r.id + i} className="dokum__row">
             {r.state === "ok" && <IconCheck />}

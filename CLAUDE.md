@@ -1015,6 +1015,28 @@ Gtk.main()
 - Boşta `requestAnimationFrame` 62 fps koşuyor; "rAF durmuş olabilir"
   hipotezi bu ölçümle elendi.
 
+⚠️ **Tarayıcı bölmesi GİZLİYKEN devinim saati donuyor** — 2026-09-05'te
+ikinci kez tuzağa düşürdü. Belirtiler: `getAnimations()[0].currentTime` **0**'da
+kalıyor ama `playState` `"running"` diyor, `getComputedStyle` bir geçiş boyunca
+hep **başlangıç** değerini döndürüyor ve doğru bir CSS kuralı "hiç uygulanmadı"
+gibi görünüyor. O gün bu yüzden bestecinin `transition: border-radius, padding`
+kuralı "kuralı iptal ediyor" diye yanlış tanılandı ve kaldırıldı; asıl motorda
+ölçülünce geçişin **oynadığı** görüldü (9999px → 1049px → 20px) ve kural geri
+kondu.
+
+**Ölçmeden önce `tabs_context` ile bölmenin görünür olduğunu doğrula**, ya da
+doğrudan `scripts/olc-webkit.py` kullan. Betik `document.timeline.currentTime`
+farkını da döndürüyor: 200 ms beklemede fark ~0 çıkıyorsa **ölçüm çöptür.**
+
+```bash
+python3 scripts/olc-webkit.py http://localhost:1420/sayfa.html olcum.js 1800
+```
+
+`olcum.js` bir `async` gövde; son ifadesi JSON'a çevrilip basılıyor. İki uç
+not: `evaluate_javascript` **Promise döndüremiyor** (`Unsupported result type`),
+o yüzden sonuç `window.__sonuc`'a yazılıp yoklanıyor; ve enjekte edilen
+betiğin **tamamlama değeri düz bir dizge olmalı**, IIFE'nin Promise'i değil.
+
 ### 2. Bileşenleri uygulamayı açmadan görmek
 
 Geçici bir `onizleme.tsx` + `onizleme.html` yazıp **gerçek bileşenleri**

@@ -788,14 +788,55 @@ input::placeholder {
   --olcu: 860px;
 }
 
+/*
+ * Sohbet **bestecinin altından akıyor.**
+ *
+ * ⚠️ Eskiden besteci akışın altında ayrı bir şeritti ve `.composer`'ın hiç
+ * zemini yoktu: `--bg` görünüyordu, içerik `--olcu` ile ortalandığı için
+ * geniş pencerede şeridin iki yanı da çıplak kalıyordu. Kullanıcı bunu
+ * "arkaplan ile aynı renkte kutumsu ölü alan" diye bildirdi.
+ *
+ * Artık besteci `position: absolute` ile panelin dibinde duruyor ve sohbet
+ * onun arkasından geçiyor. Alt dolgu bestecinin **ölçülen** yüksekliği
+ * kadar (`--besteci-h`, `Composer` yazıyor): metin altında kalmıyor.
+ */
 .chat {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 8px 32px 0;
+  padding-bottom: calc(var(--besteci-h, 96px) + 14px);
   overflow-y: auto;
   min-height: 0;
+  /*
+   * Alt kenarda soluma — metin bestecinin altına **kesilerek** değil
+   * solarak giriyor.
+   *
+   * ✅ Nötr: iki uç da aynı hue, yalnızca opaklık değişiyor. Kullanıcının
+   * 2026-09-04 netleştirmesi bunu açıkça serbest bırakıyor ("renkli,
+   * dekoratif gradyan" yasak; işlevsel ve renksiz olan değil).
+   *
+   * Maske **kaydırma kabında**, o yüzden içerikle birlikte kaymıyor: kenar
+   * hep aynı yerde soluyor.
+   */
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--besteci-h, 96px) - 10px),
+    rgb(0 0 0 / 0) calc(100% - var(--besteci-h, 96px) + 18px)
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--besteci-h, 96px) - 10px),
+    rgb(0 0 0 / 0) calc(100% - var(--besteci-h, 96px) + 18px)
+  );
+}
+
+/* Ana panel besteciyi konumlandırıyor. */
+.main {
+  position: relative;
 }
 
 .chat > *,
@@ -1231,6 +1272,12 @@ pre.well {
   overflow: hidden;
 }
 
+/* ⚠️ **`max-height` geçişi burada işe yaramaz** — denendi ve kaldırıldı:
+ * kutunun yüksekliği içerikten geliyor (`min(içerik, 60px)`), tavan sabit
+ * kalıyor, yani geçirilecek bir şey yok. Akıştaki büyüme `Thinking.tsx`'te
+ * JS ölçümüyle geçiriliyor (`gecirYukseklik`), açılma/kapanmayla aynı
+ * yardımcı. */
+
 .dusunce__baslik {
   display: flex;
   align-items: center;
@@ -1259,8 +1306,17 @@ pre.well {
  * hesaplanıyor ve `clientHeight` dolguyu da sayıyor; alt dolgu buradayken
  * metin görünür alanın tamamen dışına itiliyordu. Alt boşluk kartın kendisinde
  * (`.dusunce`), açık hâlde de doğru yerde duruyor. */
+/*
+ * Kapalı: **en fazla** üç satır — ama içerik kısaysa kutu ona oturuyor.
+ *
+ * ⚠️ Eskiden `height: calc(3 * 1.55 * 13px)` idi: hem kesirli (60,45px) hem
+ * de koşulsuz. Bir satırlık düşünce 60px'lik kutunun ortasında asılı
+ * kalıyordu ve kullanıcı bunu "tam oturaklı değil" diye bildirdi. Artık
+ * `max-height`: kutu içeriğe kadar küçülüyor, tavan yine üç satır ve
+ * **tam sayı** (3 × 20 = 60).
+ */
 .dusunce__kuyu {
-  height: calc(3 * 1.55 * 13px);
+  max-height: 60px;
   padding: 0 16px;
   overflow: hidden;
 }
@@ -1281,9 +1337,16 @@ pre.well {
  * **`min-height` kapalı hâlin ölçüsüyle aynı.** Kapalı kutu sabit üç satır;
  * `height: auto` tek başınayken üç satırdan kısa bir düşünceyi açmak kutuyu
  * **daraltıyordu** — kullanıcı "genişletince daralıyor" diye bildirdi. */
+/*
+ * Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor.
+ *
+ * ⚠️ **`min-height` KALKTI.** Kapalı hâl sabit üç satırken, üç satırdan kısa
+ * bir düşünceyi açmak kutuyu daraltıyordu ve `min-height` o yüzden
+ * konmuştu. Kapalı hâl artık içeriğe oturduğu için daralma diye bir şey yok;
+ * `min-height` tutulsaydı bu kez kısa düşünce **açılırken** 60px'e
+ * genişleyip yine boşluk bırakırdı.
+ */
 .dusunce__kuyu--acik {
-  height: auto;
-  min-height: calc(3 * 1.55 * 13px);
   max-height: 40vh;
   overflow-y: auto;
   mask-image: none;
@@ -1303,6 +1366,18 @@ pre.well {
 .dusunce__kuyu--acik .dusunce__metin {
   transform: none !important;
   transition: none;
+}
+
+/*
+ * Metin açılırken **belirsin.** Eskiden kutu yükseklik geçişiyle açılıyor
+ * ama içindeki yazı bir karede sertçe var oluyordu — kullanıcı bunu "sert
+ * şekilde açılıyor" diye bildirdi.
+ *
+ * Kare `both` ile: gecikme boyunca metin görünmez kalıyor, yükseklik
+ * geçişinin biraz gerisinden geliyor.
+ */
+.dusunce__metin[data-acik] {
+  animation: girisYukari var(--dur-base) var(--ease-out) calc(var(--dur-tap)) both;
 }
 
 /* Hareketi azaltılmış sistemde satırlar kaymadan yerleşir. */
@@ -1698,9 +1773,34 @@ pre.well {
 
 /* ── besteci ─────────────────────────────────────────────────────── */
 
+/*
+ * **Yüzen altlık:** koşum şeridi, izin kartı ve besteci.
+ *
+ * Kap tıklamayı geçiriyor (`pointer-events: none`), yalnızca içindeki
+ * kutular yakalıyor — arkasındaki sohbet kaydırılabilir kalıyor.
+ */
+.altlik {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0 32px 18px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.altlik > * {
+  pointer-events: auto;
+}
+
 .composer {
   flex: none;
-  padding: 14px 32px 22px;
+}
+
+/* Session açılış ekranında besteci akışın içinde: orada altında
+ * kaydırılacak bir sohbet yok, yüzecek bir şey de yok. */
+.home .composer {
+  padding: 0;
 }
 
 /*
@@ -1722,19 +1822,11 @@ pre.well {
   padding: 8px;
   border-radius: 9999px;
   background: var(--field);
-  /*
-   * ⚠️ **Kutuda geçiş YOK — ölçülerek kaldırıldı.**
-   *
-   * `transition: border-radius, padding` konunca ikisi de **başlangıç
-   * değerinde çakılıyordu**: `data-cok` gelmesine ve `flex-direction: column`
-   * uygulanmasına rağmen hesaplanan yarıçap 9999px, dolgu 8px kalıyor ve tek
-   * bir `transitionend` gelmiyordu. Geçiş elle kapatılınca değerler anında
-   * doğru çıkıyor (20px / 14px 16px 10px). Yani geçiş devinim katmıyor,
-   * **kuralı iptal ediyordu.**
-   *
-   * Devinim zaten metin alanının yükseklik geçişinden geliyor
-   * (`lib/yukseklik.ts`); kutu onun etrafında yeniden akıyor.
-   */
+  /* Kutu iki hâl arasında yumuşak geçiyor; metin alanının kendi yükseklik
+   * geçişiyle (`lib/yukseklik.ts`) aynı ritimde. */
+  transition:
+    border-radius var(--dur-base) var(--ease-inout),
+    padding var(--dur-base) var(--ease-inout);
 }
 
 .composer__box[data-cok] {
@@ -2334,8 +2426,26 @@ button.btn-fld:active,
   animation: nabiz var(--dur-pulse) ease-in-out infinite;
 }
 
-.bub,
-.ts {
+/*
+ * ⚠️ **Giriş devinimi yalnızca SONRADAN eklenen tura.**
+ *
+ * Kural eskiden koşulsuzdu ve her `.bub` oynuyordu. Sonucu: sohbet her
+ * kurulduğunda — kip anahtarından dönmek, session değiştirmek — geçmişin
+ * **tamamı** aynı karede transform+opacity animasyonu başlatıyordu. Uzun
+ * bir sohbette bu onlarca eşzamanlı devinim demek ve kip geçişindeki
+ * kasmanın bir parçasıydı.
+ *
+ * `data-yeni`'yi `Chat.tsx::TurnView` koyuyor: mount'ta gelen geçmiş
+ * animasyonsuz oturuyor, ondan sonra eklenen tur belirerek geliyor.
+ */
+.bub[data-yeni],
+.ts[data-yeni] {
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
+/* Düşünce ve döküm baloncukları turun içinde; onlar da yalnızca yeni turda
+ * oynasın diye aynı kapıdan geçiyorlar. */
+.dusunce[data-yeni] {
   animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
