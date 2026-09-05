@@ -108,12 +108,14 @@ fn prompt_ayikla(preamble: &str, full: &str) -> String {
     full.strip_prefix(&onek).unwrap_or(full).to_string()
 }
 
-/// Botun tüm turlarını diskten kurar. Sohbet geçmişi bots.json'da değil,
-/// `jobs/<id>/` altında yaşıyor — tek doğru kaynak orası.
+/// **Bir session'ın** tüm turlarını diskten kurar. Sohbet geçmişi
+/// bots.json'da değil, `jobs/<id>/` altında yaşıyor — tek doğru kaynak orası.
+/// bots.json yalnızca hangi koşumun hangi session'a ait olduğunu söylüyor.
 #[tauri::command]
-fn bot_history(id: String) -> Result<Vec<Turn>, BotError> {
-    let bot = bots::get(&id)?;
-    Ok(bot
+fn session_history(bot_id: String, session_id: String) -> Result<Vec<Turn>, BotError> {
+    let bot = bots::get(&bot_id)?;
+    let oturum = bots::get_session(&bot_id, &session_id)?;
+    Ok(oturum
         .jobs
         .iter()
         .map(|job_id| {
@@ -150,33 +152,120 @@ struct BotSummary {
     line: Option<String>,
     at: Option<f64>,
     running: bool,
+    /// Kaç session var — kenar çubuğu satırının alt metni.
+    session_count: usize,
+    /// Özetin geldiği session; kenar çubuğu satırına tıklamak **yeni** bir
+    /// session açtığı için bu yalnızca gösterim.
+    session_id: Option<String>,
 }
 
-/// Her bot için son koşumun özeti. Tüm `out.log`'lar okunmaz; yalnızca
-/// son koşumun kuyruğu.
+/// Bir session'ın kenar çubuğu ve açılış kartı için özeti.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionSummary {
+    id: String,
+    title: String,
+    turn_count: usize,
+    job_id: Option<String>,
+    status: Option<String>,
+    line: Option<String>,
+    at: Option<f64>,
+    running: bool,
+    created_at: i64,
+    updated_at: i64,
+}
+
+/// Son koşumun durumunu ve son satırını okur — hem bot hem session özeti
+/// aynı işi yapıyordu, tek yerde.
+fn son_kosum_ozeti(jobs: &[String]) -> (Option<String>, Option<String>, Option<String>, Option<f64>, bool) {
+    let son = jobs.last().cloned();
+    let yerel = son.as_deref().map(runs::bizim).unwrap_or(false);
+    let meta = son
+        .as_deref()
+        .and_then(|j| if yerel { runs::read_meta(j) } else { jobs::read_meta(j) });
+    let running = meta.as_ref().map(|m| !m.bitti()).unwrap_or(false);
+    let line = son
+        .as_deref()
+        .and_then(|j| if yerel { runs::last_line(j) } else { jobs::last_line(j) });
+    let at = meta.as_ref().and_then(|m| m.finished_at.or(m.started_at));
+    (son, meta.and_then(|m| m.status), line, at, running)
+}
+
+/// Bir botun session'ları, **en son dokunulan önce**.
+#[tauri::command]
+fn list_sessions(bot_id: String) -> Result<Vec<SessionSummary>, BotError> {
+    let mut liste: Vec<SessionSummary> = bots::sessions(&bot_id)?
+        .into_iter()
+        .map(|o| {
+            let (job_id, status, line, at, running) = son_kosum_ozeti(&o.jobs);
+            SessionSummary {
+                id: o.id,
+                title: o.title,
+                turn_count: o.jobs.len(),
+                job_id,
+                status,
+                line,
+                at: at.or(Some(o.updated_at as f64)),
+                running,
+                created_at: o.created_at,
+                updated_at: o.updated_at,
+            }
+        })
+        .collect();
+    // Sıra **kullanıcının değil `updated_at`'in işi**: en son konuşulan üstte.
+    liste.sort_by_key(|o| std::cmp::Reverse(o.updated_at));
+    Ok(liste)
+}
+
+#[tauri::command]
+fn rename_session(
+    bot_id: String,
+    session_id: String,
+    title: String,
+) -> Result<bots::Session, BotError> {
+    bots::rename_session(&bot_id, &session_id, &title)
+}
+
+/// Session'ı listeden düşürür. Koşum dizinleri silinmez — bkz. `bots.rs`.
+#[tauri::command]
+async fn delete_session(
+    runs_state: tauri::State<'_, Arc<Runs>>,
+    bot_id: String,
+    session_id: String,
+) -> Result<(), BotError> {
+    // Süren bir koşumu olan session silinmez: koşum arkada dönmeye devam
+    // eder ve olaylarını sahipsiz bir session'a yayardı.
+    let oturum = bots::get_session(&bot_id, &session_id)?;
+    if oturum.jobs.iter().any(|j| runs_state.suruyor_mu(j)) {
+        return Err(BotError::Gecersiz("#sessionRunning".into()));
+    }
+    bots::delete_session(&bot_id, &session_id)
+}
+
+/// Her bot için **en son dokunulan session**'ın özeti. Tüm `out.log`'lar
+/// okunmaz; yalnızca o session'ın son koşumunun kuyruğu.
+///
+/// Botun kendi "son satırı" diye bir şey yok artık — bot bir asistan, konuşan
+/// şey session. Kenar çubuğu satırı en tazesini gösteriyor.
 #[tauri::command]
 fn bot_summaries() -> Result<Vec<BotSummary>, BotError> {
     Ok(bots::list()?
         .into_iter()
         .map(|b| {
-            let son = b.jobs.last().cloned();
-            let yerel = son.as_deref().map(runs::bizim).unwrap_or(false);
-            let meta = son
-                .as_deref()
-                .and_then(|j| if yerel { runs::read_meta(j) } else { jobs::read_meta(j) });
-            let running = meta.as_ref().map(|m| !m.bitti()).unwrap_or(false);
+            let sayi = b.sessions.len();
+            let son_oturum = b.sessions.iter().max_by_key(|o| o.updated_at);
+            let (job_id, status, line, at, running) = son_kosum_ozeti(
+                son_oturum.map(|o| o.jobs.as_slice()).unwrap_or(&[]),
+            );
             BotSummary {
                 id: b.id,
-                line: son
-                    .as_deref()
-                    .and_then(|j| if yerel { runs::last_line(j) } else { jobs::last_line(j) }),
-                at: meta
-                    .as_ref()
-                    .and_then(|m| m.finished_at.or(m.started_at))
-                    .or(Some(b.updated_at as f64)),
-                status: meta.and_then(|m| m.status),
-                job_id: son,
+                line,
+                at: at.or(Some(b.updated_at as f64)),
+                status,
+                job_id,
                 running,
+                session_count: sayi,
+                session_id: son_oturum.map(|o| o.id.clone()),
             }
         })
         .collect())
@@ -189,9 +278,9 @@ fn bot_summaries() -> Result<Vec<BotSummary>, BotError> {
 /// yolunda koşumu pcbridge yürütüyor ve `usage` bize hiç gelmiyor. O botlarda
 /// bar çizilmiyor, uydurma bir sayı gösterilmiyor.
 #[tauri::command]
-fn bot_ctx(id: String) -> Result<Option<runs::RunCtx>, BotError> {
-    let bot = bots::get(&id)?;
-    Ok(bot
+fn session_ctx(bot_id: String, session_id: String) -> Result<Option<runs::RunCtx>, BotError> {
+    let oturum = bots::get_session(&bot_id, &session_id)?;
+    Ok(oturum
         .jobs
         .iter()
         .rev()
@@ -208,11 +297,12 @@ fn bot_ctx(id: String) -> Result<Option<runs::RunCtx>, BotError> {
 /// Yazma Rust'ta: uygulamanın dosya sistemi eklentisi yok ve olmasını da
 /// istemiyoruz — tek bir hedefe yazan dar bir komut yeterli.
 #[tauri::command]
-fn export_bot(id: String, path: String) -> Result<String, BotError> {
-    let bot = bots::get(&id)?;
-    let turlar = bot_history(id.clone())?;
+fn export_session(bot_id: String, session_id: String, path: String) -> Result<String, BotError> {
+    let bot = bots::get(&bot_id)?;
+    let oturum = bots::get_session(&bot_id, &session_id)?;
+    let turlar = session_history(bot_id.clone(), session_id.clone())?;
 
-    let ctxler: Vec<serde_json::Value> = bot
+    let ctxler: Vec<serde_json::Value> = oturum
         .jobs
         .iter()
         .filter(|j| runs::bizim(j))
@@ -224,7 +314,13 @@ fn export_bot(id: String, path: String) -> Result<String, BotError> {
         "version": env!("CARGO_PKG_VERSION"),
         "exportedAt": runs::simdi(),
         "modelServer": model::read_config().base_url,
-        "bot": bot,
+        // Botun **yapılandırması** dışa aktarılıyor; öteki session'ların
+        // koşum listeleri değil — dışa aktarılan şey bu sohbet.
+        "bot": serde_json::json!({ "id": bot.id, "name": bot.name, "backend": bot.backend,
+            "agent": bot.agent, "model": bot.model, "effort": bot.effort,
+            "workdir": bot.workdir, "preamble": bot.preamble, "permission": bot.permission,
+            "tools": bot.tools, "contextBudget": bot.context_budget, "maxTurns": bot.max_turns }),
+        "session": oturum,
         "context": ctxler,
         "turns": turlar,
     });
@@ -246,15 +342,17 @@ fn export_bot(id: String, path: String) -> Result<String, BotError> {
 /// **Koşum sürerken çağrılmamalı:** akıştaki mesaj listesi o sırada diskle
 /// aynı değil. Arayüz düğmeyi kapatıyor, burada da kontrol ediliyor.
 #[tauri::command]
-async fn compact_bot(
+async fn compact_session(
     runs_state: tauri::State<'_, Arc<Runs>>,
-    id: String,
+    bot_id: String,
+    session_id: String,
 ) -> Result<u32, BotError> {
-    let bot = bots::get(&id)?;
-    if bot.jobs.iter().any(|j| runs_state.suruyor_mu(j)) {
+    let bot = bots::get(&bot_id)?;
+    let oturum = bots::get_session(&bot_id, &session_id)?;
+    if oturum.jobs.iter().any(|j| runs_state.suruyor_mu(j)) {
         return Err(BotError::Gecersiz("#compactWhileRunning".into()));
     }
-    agent::elle_ozetle(&bot)
+    agent::elle_ozetle(&bot, &oturum)
         .await
         .map_err(|e| BotError::Gecersiz(e.to_string()))
 }
@@ -263,6 +361,9 @@ async fn compact_bot(
 #[serde(rename_all = "camelCase")]
 struct Started {
     job_id: String,
+    /// Koşumun yazıldığı session. `sessionId` verilmediyse **burada
+    /// yaratıldı** — arayüz dönen kimliği seçili session yapıyor.
+    session_id: String,
 }
 
 /// Bota mesaj gönderir: `agent_run` → iş kimliği → dosyadan canlı izleme.
@@ -273,6 +374,7 @@ async fn send_message(
     watchers: tauri::State<'_, Watchers>,
     runs_state: tauri::State<'_, Arc<Runs>>,
     id: String,
+    session_id: Option<String>,
     text: String,
 ) -> Result<Started, ConnError> {
     let text = text.trim().to_string();
@@ -280,6 +382,12 @@ async fn send_message(
         return Err(ConnError::Protocol("#emptyMessage".into()));
     }
     let bot = bots::get(&id).map_err(|e| ConnError::Protocol(e.to_string()))?;
+
+    // **Session ilk mesajla doğuyor.** Arayüzde "yeni session" ayrı bir eylem
+    // değil: bota girmek boş bir ekran açıyor, kimlik burada yaratılıyor.
+    // Düğmeye basıp yazmayan kullanıcı arkasında boş kayıt bırakmıyor.
+    let sid = bots::ensure_session(&id, session_id.as_deref())
+        .map_err(|e| ConnError::Protocol(e.to_string()))?;
 
     // Yerel yolda koşum uygulamanın içinde dönüyor: pcbridge'e yalnızca
     // araç çağrıları için gidiliyor, `agent_run` hiç çağrılmıyor.
@@ -289,12 +397,16 @@ async fn send_message(
             state.inner().clone(),
             runs_state.inner().clone(),
             bot,
+            sid.clone(),
             text,
         )
         .await?;
-        return Ok(Started { job_id });
+        return Ok(Started { job_id, session_id: sid });
     }
 
+    // `resume_session` **session'ın**: iki session'ın aynı CLI oturumunu
+    // sürdürmesi bağlamları birbirine karıştırırdı.
+    let oturum = bots::get_session(&id, &sid).map_err(|e| ConnError::Protocol(e.to_string()))?;
     let job_id = state
         .agent_run(AgentRunRequest {
             prompt: prompt_birlestir(&bot.preamble, &text),
@@ -302,14 +414,15 @@ async fn send_message(
             model: bot.model.clone(),
             effort: bot.effort.clone(),
             workdir: bot.workdir.clone(),
-            resume_session: bot.session_id.clone(),
+            resume_session: oturum.session_id.clone(),
             timeout: bot.timeout,
         })
         .await?;
 
-    bots::record_job(&id, &job_id).map_err(|e| ConnError::Protocol(e.to_string()))?;
-    watchers.watch(app, job_id.clone(), id).await;
-    Ok(Started { job_id })
+    bots::record_job(&id, &sid, &job_id, &text)
+        .map_err(|e| ConnError::Protocol(e.to_string()))?;
+    watchers.watch(app, job_id.clone(), id, sid.clone()).await;
+    Ok(Started { job_id, session_id: sid })
 }
 
 #[tauri::command]
@@ -318,10 +431,11 @@ async fn cancel_job(
     state: tauri::State<'_, Arc<McpState>>,
     runs_state: tauri::State<'_, Arc<Runs>>,
     bot_id: String,
+    session_id: String,
     job_id: String,
 ) -> Result<String, ConnError> {
     if runs::bizim(&job_id) {
-        return Ok(if runs_state.cancel(&app, &job_id, &bot_id).await {
+        return Ok(if runs_state.cancel(&app, &job_id, &bot_id, &session_id).await {
             "#runCancelled".into()
         } else {
             // Koşum zaten bitmişti; kullanıcıya yalan söylemiyoruz.
@@ -363,19 +477,26 @@ async fn resume_watches(
 ) -> Result<Vec<String>, BotError> {
     let mut devam = Vec::new();
     for bot in bots::list()? {
-        // Yerel koşum **devam ettirilemez**: süreç öldüğünde modelle kurulan
-        // tur bellekteydi. Kabul edilen bedelin diskteki dürüst kaydı bu —
-        // yarım koşum `#appClosed` ile kapatılır, sonsuza kadar "sürüyor"
-        // görünmez.
-        runs::kapanista_temizle(&bot.jobs);
+        for oturum in &bot.sessions {
+            // Yerel koşum **devam ettirilemez**: süreç öldüğünde modelle
+            // kurulan tur bellekteydi. Kabul edilen bedelin diskteki dürüst
+            // kaydı bu — yarım koşum `#appClosed` ile kapatılır, sonsuza
+            // kadar "sürüyor" görünmez.
+            runs::kapanista_temizle(&oturum.jobs);
 
-        for job_id in bot.jobs.iter().filter(|j| !runs::bizim(j)) {
-            let bitti = jobs::read_meta(job_id).map(|m| m.bitti()).unwrap_or(true);
-            if !bitti {
-                watchers
-                    .watch(app.clone(), job_id.clone(), bot.id.clone())
-                    .await;
-                devam.push(job_id.clone());
+            for job_id in oturum.jobs.iter().filter(|j| !runs::bizim(j)) {
+                let bitti = jobs::read_meta(job_id).map(|m| m.bitti()).unwrap_or(true);
+                if !bitti {
+                    watchers
+                        .watch(
+                            app.clone(),
+                            job_id.clone(),
+                            bot.id.clone(),
+                            oturum.id.clone(),
+                        )
+                        .await;
+                    devam.push(job_id.clone());
+                }
             }
         }
     }
@@ -593,10 +714,13 @@ pub fn run() {
             create_bot,
             update_bot,
             delete_bot,
-            bot_history,
-            bot_ctx,
-            export_bot,
-            compact_bot,
+            session_history,
+            session_ctx,
+            list_sessions,
+            rename_session,
+            delete_session,
+            export_session,
+            compact_session,
             bot_summaries,
             send_message,
             cancel_job,

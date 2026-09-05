@@ -184,6 +184,9 @@ pub fn last_line(job_id: &str) -> Option<String> {
 struct ChunkPayload<'a> {
     job_id: &'a str,
     bot_id: &'a str,
+    /// Aynı botun iki session'ı paralel koşabiliyor; ön yüz seçili
+    /// **session**'a göre süzüyor.
+    session_id: &'a str,
     events: &'a [Event],
 }
 
@@ -192,6 +195,7 @@ struct ChunkPayload<'a> {
 struct StatusPayload<'a> {
     job_id: &'a str,
     bot_id: &'a str,
+    session_id: &'a str,
     meta: &'a JobMeta,
     /// İzleme bitti mi — arayüz şeridi buna göre kaldırır.
     done: bool,
@@ -200,23 +204,38 @@ struct StatusPayload<'a> {
 /// Olay yayını **tek yerde**: hem `agent_run` yolu hem uygulamanın kendi
 /// ajan döngüsü aynı iki olayı yayıyor (`job://chunk`, `job://status`).
 /// Arayüzdeki abonelik bu yüzden tek blok kalabiliyor (`Shell.tsx:226`).
-pub fn emit_chunk(app: &AppHandle, job_id: &str, bot_id: &str, events: &[Event]) {
+pub fn emit_chunk(
+    app: &AppHandle,
+    job_id: &str,
+    bot_id: &str,
+    session_id: &str,
+    events: &[Event],
+) {
     let _ = app.emit(
         "job://chunk",
         ChunkPayload {
             job_id,
             bot_id,
+            session_id,
             events,
         },
     );
 }
 
-pub fn emit_status(app: &AppHandle, job_id: &str, bot_id: &str, meta: &JobMeta, done: bool) {
+pub fn emit_status(
+    app: &AppHandle,
+    job_id: &str,
+    bot_id: &str,
+    session_id: &str,
+    meta: &JobMeta,
+    done: bool,
+) {
     let _ = app.emit(
         "job://status",
         StatusPayload {
             job_id,
             bot_id,
+            session_id,
             meta,
             done,
         },
@@ -230,7 +249,13 @@ pub struct Watchers {
 
 impl Watchers {
     /// `job_id`'yi izlemeye başlar. Aynı iş iki kez izlenmez.
-    pub async fn watch(&self, app: AppHandle, job_id: String, bot_id: String) {
+    pub async fn watch(
+        &self,
+        app: AppHandle,
+        job_id: String,
+        bot_id: String,
+        session_id: String,
+    ) {
         let mut map = self.inner.lock().await;
         if map.contains_key(&job_id) {
             return;
@@ -238,7 +263,7 @@ impl Watchers {
         let inner = self.inner.clone();
         let jid = job_id.clone();
         let handle = tauri::async_runtime::spawn(async move {
-            tail(app, jid.clone(), bot_id).await;
+            tail(app, jid.clone(), bot_id, session_id).await;
             inner.lock().await.remove(&jid);
         });
         map.insert(job_id, handle);
@@ -246,7 +271,7 @@ impl Watchers {
 
 }
 
-async fn tail(app: AppHandle, job_id: String, bot_id: String) {
+async fn tail(app: AppHandle, job_id: String, bot_id: String, session_id: String) {
     let log = job_dir(&job_id).join("out.log");
     let mut offset: u64 = 0;
     let mut parser: Option<Parser> = None;
@@ -287,12 +312,18 @@ async fn tail(app: AppHandle, job_id: String, bot_id: String) {
                         let metin = String::from_utf8_lossy(&buf);
                         let p = parser.get_or_insert_with(|| Parser::new(parser_kind(&meta)));
                         let events = p.push(&metin);
-                        // `resume_session` bot başına saklanır; kimlik akışın
-                        // ilk satırında geliyor, kaçırmadan yazıyoruz.
-                        if !bot_id.is_empty() {
+                        // `resume_session` **session başına** saklanır; kimlik
+                        // akışın ilk satırında geliyor, kaçırmadan yazıyoruz.
+                        // İki session'ın aynı CLI oturumunu sürdürmesi
+                        // bağlamları birbirine karıştırırdı.
+                        if !bot_id.is_empty() && !session_id.is_empty() {
                             for e in &events {
                                 if let Event::Session { id, .. } = e {
-                                    let _ = crate::bots::set_session(&bot_id, Some(id.clone()));
+                                    let _ = crate::bots::set_session(
+                                        &bot_id,
+                                        &session_id,
+                                        Some(id.clone()),
+                                    );
                                 }
                             }
                         }
@@ -307,6 +338,7 @@ async fn tail(app: AppHandle, job_id: String, bot_id: String) {
                                 ChunkPayload {
                                     job_id: &job_id,
                                     bot_id: &bot_id,
+                                    session_id: &session_id,
                                     events: &events,
                                 },
                             );
@@ -325,6 +357,7 @@ async fn tail(app: AppHandle, job_id: String, bot_id: String) {
                         ChunkPayload {
                             job_id: &job_id,
                             bot_id: &bot_id,
+                            session_id: &session_id,
                             events: &events,
                         },
                     );
@@ -335,6 +368,7 @@ async fn tail(app: AppHandle, job_id: String, bot_id: String) {
                 StatusPayload {
                     job_id: &job_id,
                     bot_id: &bot_id,
+                    session_id: &session_id,
                     meta: &meta,
                     done: true,
                 },
@@ -347,6 +381,7 @@ async fn tail(app: AppHandle, job_id: String, bot_id: String) {
             StatusPayload {
                 job_id: &job_id,
                 bot_id: &bot_id,
+                session_id: &session_id,
                 meta: &meta,
                 done: false,
             },

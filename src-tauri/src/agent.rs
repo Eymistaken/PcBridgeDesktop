@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use crate::bots::Bot;
+use crate::bots::{Bot, Session};
 use crate::jobs::JobMeta;
 use crate::model::{self, ChatRequest, Delta, Message, ModelError, ToolCall};
 use crate::parse::Event;
@@ -217,6 +217,10 @@ struct AppKayit {
     app: AppHandle,
     run_id: String,
     bot_id: String,
+    /// ⚠️ **Olaylara session de yazılıyor.** Aynı botun iki session'ı aynı
+    /// anda koşabiliyor; ön yüz yalnızca bota bakarsa açık ekran ötekinin
+    /// token'larını yazar.
+    session_id: String,
 }
 
 /// Uygulamadaki izin kapısı: isteği `Runs`'a yazar ve arayüze yayar.
@@ -228,6 +232,7 @@ struct AppKapi {
     app: AppHandle,
     runs: Arc<Runs>,
     bot_id: String,
+    session_id: String,
 }
 
 impl IzinKapisi for AppKapi {
@@ -236,6 +241,7 @@ impl IzinKapisi for AppKapi {
         let bekleyen = BekleyenIzin {
             run_id: run_id.to_string(),
             bot_id: self.bot_id.clone(),
+            session_id: self.session_id.clone(),
             istek: istek.clone(),
         };
         if let Ok(mut map) = self.runs.bekleyen.lock() {
@@ -243,6 +249,7 @@ impl IzinKapisi for AppKapi {
                 run_id.to_string(),
                 Bekleyen {
                     bot_id: self.bot_id.clone(),
+                    session_id: self.session_id.clone(),
                     istek,
                     yanit: tx,
                 },
@@ -261,7 +268,7 @@ impl Kayit for AppKayit {
         // Diske yazılmayan olay uygulama kapanınca kaybolur, yollanmayan
         // olay da ekranda hiç görünmez — ikisi tek yerde.
         runs::append(&self.run_id, events);
-        crate::jobs::emit_chunk(&self.app, &self.run_id, &self.bot_id, events);
+        crate::jobs::emit_chunk(&self.app, &self.run_id, &self.bot_id, &self.session_id, events);
     }
     fn mesaj(&self, msgs: &[Message]) {
         runs::append_messages(&self.run_id, msgs);
@@ -276,6 +283,7 @@ impl Kayit for AppKayit {
             CtxPayload {
                 run_id: self.run_id.clone(),
                 bot_id: self.bot_id.clone(),
+                session_id: self.session_id.clone(),
                 ctx,
             },
         );
@@ -287,6 +295,7 @@ impl Kayit for AppKayit {
             CompactPayload {
                 run_id: self.run_id.clone(),
                 bot_id: self.bot_id.clone(),
+                session_id: self.session_id.clone(),
                 active: aktif,
             },
         );
@@ -313,6 +322,7 @@ pub struct Runs {
 /// Kullanıcının yanıtını bekleyen tek bir istek.
 struct Bekleyen {
     bot_id: String,
+    session_id: String,
     istek: IzinIstegi,
     yanit: tokio::sync::oneshot::Sender<bool>,
 }
@@ -323,6 +333,7 @@ struct Bekleyen {
 pub struct CompactPayload {
     pub run_id: String,
     pub bot_id: String,
+    pub session_id: String,
     pub active: bool,
 }
 
@@ -332,15 +343,17 @@ pub struct CompactPayload {
 pub struct CtxPayload {
     pub run_id: String,
     pub bot_id: String,
+    pub session_id: String,
     pub ctx: runs::RunCtx,
 }
 
-/// Arayüze giden bekleyen istek — `bot_id` ile birlikte.
+/// Arayüze giden bekleyen istek — hangi botun hangi session'ı sordu.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BekleyenIzin {
     pub run_id: String,
     pub bot_id: String,
+    pub session_id: String,
     #[serde(flatten)]
     pub istek: IzinIstegi,
 }
@@ -379,6 +392,7 @@ impl Runs {
             run_id.to_string(),
             Bekleyen {
                 bot_id: "b1".into(),
+                session_id: "s-test".into(),
                 istek: IzinIstegi {
                     kind: IstekTuru::Arac,
                     id: "c1".into(),
@@ -403,6 +417,7 @@ impl Runs {
             .map(|(run_id, b)| BekleyenIzin {
                 run_id: run_id.clone(),
                 bot_id: b.bot_id.clone(),
+                session_id: b.session_id.clone(),
                 istek: b.istek.clone(),
             })
             .collect()
@@ -422,7 +437,13 @@ impl Runs {
     /// Yarıda kesilen MCP çağrısı öksüz kalır — sunucu tarafında iş sürebilir.
     /// Kabul edilen davranış; alternatifi her araç çağrısını iptal edilebilir
     /// yapmaktı ve rmcp bunu vermiyor.
-    pub async fn cancel(&self, app: &AppHandle, run_id: &str, bot_id: &str) -> bool {
+    pub async fn cancel(
+        &self,
+        app: &AppHandle,
+        run_id: &str,
+        bot_id: &str,
+        session_id: &str,
+    ) -> bool {
         // Önce bekleyen izin: kanal düşünce döngü `await`'ten reddedilmiş
         // olarak çıkar, sonra `abort()` zaten hepsini keser.
         self.izni_dus(run_id);
@@ -455,7 +476,7 @@ impl Runs {
             );
             runs::kapat(run_id, "cancelled", 130);
             if let Some(m) = runs::read_meta(run_id) {
-                crate::jobs::emit_status(app, run_id, bot_id, &m, true);
+                crate::jobs::emit_status(app, run_id, bot_id, session_id, &m, true);
             }
         }
         vardi
@@ -473,6 +494,7 @@ pub async fn baslat(
     mcp: Arc<crate::mcp::McpState>,
     runs_state: Arc<Runs>,
     bot: Bot,
+    session_id: String,
     text: String,
 ) -> Result<String, ModelError> {
     let cfg = model::read_config();
@@ -501,17 +523,22 @@ pub async fn baslat(
         resume_session: None,
     };
     runs::write_meta(&meta).map_err(|e| ModelError::Protocol(e.to_string()))?;
-    crate::bots::record_job(&bot.id, &run_id).map_err(|e| ModelError::Protocol(e.to_string()))?;
+    // **Koşum session'a yazılıyor, bota değil.** Bağlamı `kos` bu listeden
+    // kuracak; kayıt spawn'dan önce ki geçmiş eksik başlamasın.
+    crate::bots::record_job(&bot.id, &session_id, &run_id, &text)
+        .map_err(|e| ModelError::Protocol(e.to_string()))?;
 
     let rid = run_id.clone();
     let rs = runs_state.clone();
     let handle = tauri::async_runtime::spawn(async move {
         let bot_id = bot.id.clone();
+        let sid = session_id.clone();
         kos(
             app.clone(),
             mcp,
             rs.clone(),
             bot,
+            session_id,
             rid.clone(),
             model_id,
             cfg.base_url,
@@ -520,7 +547,7 @@ pub async fn baslat(
         .await;
         rs.cikar(&rid).await;
         if let Some(m) = runs::read_meta(&rid) {
-            crate::jobs::emit_status(&app, &rid, &bot_id, &m, true);
+            crate::jobs::emit_status(&app, &rid, &bot_id, &sid, &m, true);
         }
     });
     runs_state.ekle(run_id.clone(), handle).await;
@@ -538,6 +565,7 @@ async fn kos(
     mcp: Arc<crate::mcp::McpState>,
     runs_state: Arc<Runs>,
     bot: Bot,
+    session_id: String,
     run_id: String,
     model_id: String,
     base_url: String,
@@ -549,6 +577,7 @@ async fn kos(
         app: app.clone(),
         run_id: run_id.clone(),
         bot_id: bot_id.clone(),
+        session_id: session_id.clone(),
     };
 
     kayit.olay(&[Event::Session {
@@ -588,15 +617,24 @@ async fn kos(
         app: app.clone(),
         runs: runs_state,
         bot_id: bot_id.clone(),
+        session_id: session_id.clone(),
     };
 
-    // Geçmiş + gerekiyorsa özetleme.
-    let (mut ozet, mut gecmis_msg) = gecmis(&bot);
-    if ozetleme_gerek(&bot) {
+    // **Session diskten TAZE okunuyor.** `baslat` az önce `record_job` ile bu
+    // koşumu listeye ekledi; `bot` ise o yazmadan önce klonlanmıştı. Eski
+    // kopyayı kullanmak son koşumu geçmişin dışında bırakırdı.
+    let oturum = match crate::bots::get_session(&bot_id, &session_id) {
+        Ok(o) => o,
+        Err(e) => return kapat(false, 0, Some(e.to_string())),
+    };
+
+    // Geçmiş + gerekiyorsa özetleme. İkisi de **bu session'ın** koşumlarından.
+    let (mut ozet, mut gecmis_msg) = gecmis(&oturum);
+    if ozetleme_gerek(&bot, &oturum) {
         // Yerel modelde özetleme dakikalar sürebiliyor; başlarken ekranda bir
         // şey olmalı. Bitişi `Event::Summary` zaten anlatıyor.
         kayit.ozetleniyor(true);
-        let sonuc = ozetle(&base_url, &model_id, &bot, &ozet, &gecmis_msg).await;
+        let sonuc = ozetle(&base_url, &model_id, &bot, &oturum, &ozet, &gecmis_msg).await;
         kayit.ozetleniyor(false);
         if let Ok(o) = sonuc {
             let basarisiz = o.ozet.is_empty();
@@ -1795,17 +1833,20 @@ fn kesme_noktasi(mesajlar: &[Message]) -> Option<usize> {
 
 // ─────────────────────────── bağlam ───────────────────────────
 
-/// Botun yerel koşumlarından modelin göreceği geçmişi kurar.
+/// **Bir session'ın** yerel koşumlarından modelin göreceği geçmişi kurar.
 ///
 /// Bir koşumun `ctx.summary`'si doluysa o koşum bir **denetim noktasıdır**:
 /// kendisinden önceki bütün koşumların mesajları yerine o özet geçer. Özet
 /// bir kez hesaplanır, her koşumda yeniden üretilmez.
-fn gecmis(bot: &Bot) -> (Option<String>, Vec<Message>) {
-    gecmis_in(&runs::runs_dir(), bot)
+///
+/// ⚠️ **Sınır session'dır, bot değil.** Botun öteki session'larının koşumları
+/// bu listeye hiç girmiyor; ayrı bağlam demek tam olarak bu.
+fn gecmis(oturum: &Session) -> (Option<String>, Vec<Message>) {
+    gecmis_in(&runs::runs_dir(), oturum)
 }
 
-fn gecmis_in(kok: &std::path::Path, bot: &Bot) -> (Option<String>, Vec<Message>) {
-    let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
+fn gecmis_in(kok: &std::path::Path, oturum: &Session) -> (Option<String>, Vec<Message>) {
+    let yerel: Vec<&String> = oturum.jobs.iter().filter(|j| runs::bizim(j)).collect();
 
     let mut baslangic = 0usize;
     let mut ozet: Option<String> = None;
@@ -1823,13 +1864,15 @@ fn gecmis_in(kok: &std::path::Path, bot: &Bot) -> (Option<String>, Vec<Message>)
     (ozet, msgs)
 }
 
-/// Son koşumun **ölçülmüş** `prompt_tokens`'ı bütçenin eşiğini aştı mı?
-fn ozetleme_gerek(bot: &Bot) -> bool {
-    ozetleme_gerek_in(&runs::runs_dir(), bot)
+/// Session'ın son koşumunun **ölçülmüş** `prompt_tokens`'ı eşiği aştı mı?
+///
+/// Bütçe botun (bir ayar), doluluk session'ın (bir ölçüm).
+fn ozetleme_gerek(bot: &Bot, oturum: &Session) -> bool {
+    ozetleme_gerek_in(&runs::runs_dir(), bot, oturum)
 }
 
-fn ozetleme_gerek_in(kok: &std::path::Path, bot: &Bot) -> bool {
-    let Some(son) = bot.jobs.iter().rev().find(|j| runs::bizim(j)) else {
+fn ozetleme_gerek_in(kok: &std::path::Path, bot: &Bot, oturum: &Session) -> bool {
+    let Some(son) = oturum.jobs.iter().rev().find(|j| runs::bizim(j)) else {
         return false;
     };
     let kullanilan = runs::read_ctx_in(kok, son).prompt_tokens;
@@ -1899,7 +1942,7 @@ async fn ozetle_mesajlar(
 /// istediyse o karar onun. Düşecek mesaj yoksa yine reddediliyor.
 ///
 /// Dönüş: düşen mesaj sayısı.
-pub async fn elle_ozetle(bot: &Bot) -> Result<u32, ModelError> {
+pub async fn elle_ozetle(bot: &Bot, oturum: &Session) -> Result<u32, ModelError> {
     let cfg = model::read_config();
     if cfg.base_url.is_empty() {
         return Err(ModelError::NoServer);
@@ -1908,8 +1951,8 @@ pub async fn elle_ozetle(bot: &Bot) -> Result<u32, ModelError> {
         return Err(ModelError::Protocol("#noModel".into()));
     };
 
-    let (onceki, gecmis_msg) = gecmis(bot);
-    let o = ozetle_taban_yok(&cfg.base_url, &model_id, bot, &onceki, &gecmis_msg).await?;
+    let (onceki, gecmis_msg) = gecmis(oturum);
+    let o = ozetle_taban_yok(&cfg.base_url, &model_id, bot, oturum, &onceki, &gecmis_msg).await?;
     let dusen = o.dusen;
     runs::write_ctx_summary(
         &o.hedef,
@@ -1941,10 +1984,12 @@ pub struct Ozetleme {
 }
 
 /// Eski turları modele özetletir.
+#[allow(clippy::too_many_arguments)]
 async fn ozetle(
     base_url: &str,
     model_id: &str,
     bot: &Bot,
+    oturum: &Session,
     onceki_ozet: &Option<String>,
     gecmis_msg: &[Message],
 ) -> Result<Ozetleme, ModelError> {
@@ -1953,6 +1998,7 @@ async fn ozetle(
         base_url,
         model_id,
         bot,
+        oturum,
         onceki_ozet,
         gecmis_msg,
         true,
@@ -1961,10 +2007,12 @@ async fn ozetle(
 }
 
 /// Kazanç tabanı **uygulanmadan** özetler — kullanıcı düğmeye bastığında.
+#[allow(clippy::too_many_arguments)]
 async fn ozetle_taban_yok(
     base_url: &str,
     model_id: &str,
     bot: &Bot,
+    oturum: &Session,
     onceki_ozet: &Option<String>,
     gecmis_msg: &[Message],
 ) -> Result<Ozetleme, ModelError> {
@@ -1973,6 +2021,7 @@ async fn ozetle_taban_yok(
         base_url,
         model_id,
         bot,
+        oturum,
         onceki_ozet,
         gecmis_msg,
         false,
@@ -1986,13 +2035,14 @@ async fn ozetle_in(
     base_url: &str,
     model_id: &str,
     bot: &Bot,
+    oturum: &Session,
     onceki_ozet: &Option<String>,
     gecmis_msg: &[Message],
     // Kazanç tabanı uygulansın mı. Kullanıcı açıkça istediğinde `false`:
     // taban, kendiliğinden boşa çalışmayı kesmek için var.
     taban_uygula: bool,
 ) -> Result<Ozetleme, ModelError> {
-    let yerel: Vec<&String> = bot.jobs.iter().filter(|j| runs::bizim(j)).collect();
+    let yerel: Vec<&String> = oturum.jobs.iter().filter(|j| runs::bizim(j)).collect();
     if yerel.len() <= KORUNAN_KOSUM {
         return Err(ModelError::Protocol("#compactNoRuns".into()));
     }
@@ -2079,8 +2129,22 @@ mod tests {
             context_budget: 8192,
             max_turns: TEST_MAX_TUR,
             force_when_busy: false,
-            session_id: None,
+            sessions: Vec::new(),
             jobs: Vec::new(),
+            session_id: None,
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    /// Testlerin session'ı. Bağlamın sınırı artık bu; `bot()` yalnızca
+    /// ayarları taşıyor.
+    fn oturum(jobs: Vec<String>) -> Session {
+        Session {
+            id: "s-test".into(),
+            title: String::new(),
+            jobs,
+            session_id: None,
             created_at: 0,
             updated_at: 0,
         }
@@ -2206,6 +2270,76 @@ mod tests {
         ids
     }
 
+    /// **Bu aşamanın asıl vaadi: iki session'ın bağlamı ayrı.**
+    ///
+    /// Aynı botun iki session'ı, her birinin kendi koşumları. `gecmis_in`
+    /// yalnızca kendi listesini okuyor; ötekinin mesajları hiç görünmüyor.
+    /// Dişi var mı diye sınandı: `gecmis_in` bot bazlı bırakılınca bu test
+    /// kırmızıya dönüyor (10 mesaj yerine 16 gelir).
+    #[test]
+    fn iki_sessionun_baglami_birbirini_gormez() {
+        let k = std::env::temp_dir().join(format!("pcbd-yalitim-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&k);
+        std::fs::create_dir_all(&k).unwrap();
+
+        // A: "chrome" işini konuşuyor. B: "yedek" işini.
+        let mut a_ids = Vec::new();
+        for i in 0..3 {
+            let id = format!("local-a-{i:04}");
+            runs::append_messages_in(
+                &k,
+                &id,
+                &[
+                    Message::user(format!("chrome sorusu {i}")),
+                    Message::assistant(format!("chrome yanıtı {i}"), vec![]),
+                ],
+            );
+            a_ids.push(id);
+        }
+        let mut b_ids = Vec::new();
+        for i in 0..2 {
+            let id = format!("local-b-{i:04}");
+            runs::append_messages_in(
+                &k,
+                &id,
+                &[
+                    Message::user(format!("yedek sorusu {i}")),
+                    Message::assistant(format!("yedek yanıtı {i}"), vec![]),
+                ],
+            );
+            b_ids.push(id);
+        }
+
+        let (_, a_msg) = gecmis_in(&k, &oturum(a_ids.clone()));
+        let (_, b_msg) = gecmis_in(&k, &oturum(b_ids.clone()));
+
+        assert_eq!(a_msg.len(), 6, "A yalnızca kendi 3 koşumunu taşımalı");
+        assert_eq!(b_msg.len(), 4, "B yalnızca kendi 2 koşumunu taşımalı");
+
+        let a_metin: String = a_msg.iter().filter_map(|m| m.content.clone()).collect();
+        let b_metin: String = b_msg.iter().filter_map(|m| m.content.clone()).collect();
+        assert!(!a_metin.contains("yedek"), "A, B'nin mesajlarını gördü: {a_metin}");
+        assert!(!b_metin.contains("chrome"), "B, A'nın mesajlarını gördü: {b_metin}");
+
+        // Denetim noktası da session'ın: A'ya konan özet B'yi etkilemiyor.
+        runs::write_ctx_in(
+            &k,
+            &a_ids[1],
+            &runs::RunCtx {
+                summary: Some("chrome işinin özeti".into()),
+                ..Default::default()
+            },
+        );
+        let (a_ozet, a_msg2) = gecmis_in(&k, &oturum(a_ids));
+        let (b_ozet, b_msg2) = gecmis_in(&k, &oturum(b_ids));
+        assert_eq!(a_ozet.as_deref(), Some("chrome işinin özeti"));
+        assert_eq!(a_msg2.len(), 4, "A işaretten itibaren 2 koşum taşımalı");
+        assert!(b_ozet.is_none(), "B'ye A'nın özeti sızdı");
+        assert_eq!(b_msg2.len(), 4, "B değişmemeli");
+
+        let _ = std::fs::remove_dir_all(&k);
+    }
+
     #[test]
     fn ozetleme_esigi_olculen_sayiya_bakar() {
         let k = std::env::temp_dir().join(format!("pcbd-esik-{}", std::process::id()));
@@ -2213,16 +2347,19 @@ mod tests {
         std::fs::create_dir_all(&k).unwrap();
 
         let mut b = bot("");
-        assert!(!ozetleme_gerek_in(&k, &b), "koşum yoksa özetleme yok");
+        assert!(
+            !ozetleme_gerek_in(&k, &b, &oturum(Vec::new())),
+            "koşum yoksa özetleme yok"
+        );
 
         b.context_budget = 1000;
         // pcbridge koşumlarının bizde `ctx`'i yok; sayılmıyorlar.
-        b.jobs = vec!["20260902-231500-a1b2c3".into()];
-        assert!(!ozetleme_gerek_in(&k, &b));
+        let o = oturum(vec!["20260902-231500-a1b2c3".into()]);
+        assert!(!ozetleme_gerek_in(&k, &b, &o));
 
         // Ölçülen sayı eşiğin altındaysa özetleme yok…
         let ids = sahte_kosumlar(&k, 1);
-        b.jobs = ids.clone();
+        let o = oturum(ids.clone());
         runs::write_ctx_in(
             &k,
             &ids[0],
@@ -2231,7 +2368,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        assert!(!ozetleme_gerek_in(&k, &b), "700 < 1000·0.75");
+        assert!(!ozetleme_gerek_in(&k, &b, &o), "700 < 1000·0.75");
 
         // …üstündeyse var.
         runs::write_ctx_in(
@@ -2242,7 +2379,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        assert!(ozetleme_gerek_in(&k, &b), "800 > 1000·0.75");
+        assert!(ozetleme_gerek_in(&k, &b, &o), "800 > 1000·0.75");
 
         let _ = std::fs::remove_dir_all(&k);
     }
@@ -2254,11 +2391,10 @@ mod tests {
         std::fs::create_dir_all(&k).unwrap();
 
         let ids = sahte_kosumlar(&k, 5);
-        let mut b = bot("");
-        b.jobs = ids.clone();
+        let o = oturum(ids.clone());
 
         // Özet yokken bütün koşumlar taşınır: 5 koşum × 2 mesaj.
-        let (ozet, msgs) = gecmis_in(&k, &b);
+        let (ozet, msgs) = gecmis_in(&k, &o);
         assert!(ozet.is_none());
         assert_eq!(msgs.len(), 10);
 
@@ -2274,7 +2410,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let (ozet, msgs) = gecmis_in(&k, &b);
+        let (ozet, msgs) = gecmis_in(&k, &o);
         assert_eq!(ozet.as_deref(), Some("ilk iki koşumun özeti"));
         assert_eq!(msgs.len(), 6, "3., 4. ve 5. koşum kalmalı");
         assert!(
@@ -2294,7 +2430,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let (ozet, msgs) = gecmis_in(&k, &b);
+        let (ozet, msgs) = gecmis_in(&k, &o);
         assert!(ozet.is_none(), "boş özet metin olarak taşınmamalı");
         assert_eq!(msgs.len(), 6, "kesme yine de uygulanmalı");
 
@@ -2320,14 +2456,14 @@ mod tests {
         // Altı koşum: 0-2 özetlendi, 3-4 korundu, 5 az önce koştu.
         let ids = sahte_kosumlar(&k, 6);
         let mut b = bot("");
-        b.jobs = ids.clone();
+        let o = oturum(ids.clone());
 
         // `kos`'un yaptığı: işaret **korunan pencerenin ilk koşumuna**.
         runs::write_ctx_summary_in(&k, &ids[3], Some("ilk üç koşumun özeti".into()), 6);
         // `tur_dongusu`'nün koşum bitince yaptığı: kendi koşumuna token.
         runs::write_ctx_tokens_in(&k, &ids[5], 4096, runs::Dokum::default(), 0, 0);
 
-        let (ozet, msgs) = gecmis_in(&k, &b);
+        let (ozet, msgs) = gecmis_in(&k, &o);
         assert_eq!(
             ozet.as_deref(),
             Some("ilk üç koşumun özeti"),
@@ -2342,7 +2478,7 @@ mod tests {
 
         // Eşik hâlâ **son** koşumun ölçülen sayısına bakıyor.
         b.context_budget = 4096;
-        assert!(ozetleme_gerek_in(&k, &b), "4096 > 4096·0.75");
+        assert!(ozetleme_gerek_in(&k, &b, &o), "4096 > 4096·0.75");
 
         let _ = std::fs::remove_dir_all(&k);
     }
@@ -2354,15 +2490,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&k);
         std::fs::create_dir_all(&k).unwrap();
         let ids = sahte_kosumlar(&k, KORUNAN_KOSUM);
-        let mut b = bot("");
-        b.jobs = ids;
-        let (_, msgs) = gecmis_in(&k, &b);
+        let b = bot("");
+        let o = oturum(ids);
+        let (_, msgs) = gecmis_in(&k, &o);
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        let sonuc = rt.block_on(ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &None, &msgs, true));
+        let sonuc = rt.block_on(ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &o, &None, &msgs, true));
         assert!(sonuc.is_err(), "özetlenecek koşum yokken denenmemeli");
 
         let _ = std::fs::remove_dir_all(&k);
@@ -2991,12 +3127,12 @@ mod tests {
             ids.push(id);
         }
 
-        let mut b = bot("");
-        b.jobs = ids.clone();
-        let (onceki, msgs) = gecmis_in(&k, &b);
+        let b = bot("");
+        let o = oturum(ids.clone());
+        let (onceki, msgs) = gecmis_in(&k, &o);
         assert_eq!(msgs.len(), 8);
 
-        let o = ozetle_in(&k, &base, &model_id, &b, &onceki, &msgs, true)
+        let o = ozetle_in(&k, &base, &model_id, &b, &o, &onceki, &msgs, true)
             .await
             .expect("özetleme çağrısı kurulmalı");
 
@@ -3559,13 +3695,13 @@ mod tests {
         // Üç koşum: ikisi korunuyor, dışarıda kalan tek koşum küçücük.
         let ids = sahte_kosumlar(&k, 3);
         let mut b = bot("");
-        b.jobs = ids;
+        let o = oturum(ids);
         b.context_budget = 8192;
-        let (onceki, msgs) = gecmis_in(&k, &b);
+        let (onceki, msgs) = gecmis_in(&k, &o);
 
         // Adres kapalı bir port: model çağrısı yapılsaydı **bağlantı hatası**
         // dönerdi. Taban çağrıdan önce kestiği için gerekçe onu söylemeli.
-        let rt_sonuc = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true).await;
+        let rt_sonuc = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &o, &onceki, &msgs, true).await;
         let hata = rt_sonuc.unwrap_err().to_string();
         assert!(hata.contains("kazancı düşük"), "taban devreye girmeliydi: {hata}");
 
@@ -3587,17 +3723,17 @@ mod tests {
         // dışarıda kalan tek koşum küçücük, taban geçilmiyor.
         let ids = sahte_kosumlar(&k, 3);
         let mut b = bot("");
-        b.jobs = ids;
+        let o = oturum(ids);
         b.context_budget = 8192;
-        let (onceki, msgs) = gecmis_in(&k, &b);
+        let (onceki, msgs) = gecmis_in(&k, &o);
 
         // Otomatik yol taban yüzünden çağrıyı hiç yapmıyor…
-        let oto = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true).await;
+        let oto = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &o, &onceki, &msgs, true).await;
         assert!(oto.unwrap_err().to_string().contains("kazancı düşük"));
 
         // …elle istenince yapıyor. Sunucu kapalı olduğu için özet boş döndü
         // (sert kırpma yolu), ama taban artık kapıyı kapatmıyor.
-        let elle = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, false)
+        let elle = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &o, &onceki, &msgs, false)
             .await
             .expect("taban atlanmalıydı");
         assert_eq!(elle.dusen, 2);
@@ -3626,14 +3762,14 @@ mod tests {
             );
         }
         let mut b = bot("");
-        b.jobs = (0..3).map(|i| format!("local-taban-{i:04}")).collect();
+        let o = oturum((0..3).map(|i| format!("local-taban-{i:04}")).collect());
         b.context_budget = 8192;
-        let (onceki, msgs) = gecmis_in(&k, &b);
+        let (onceki, msgs) = gecmis_in(&k, &o);
 
         // Taban geçildi ve model çağrısına gidildi. Sunucu kapalı olduğu için
         // özet boş döndü — bu bir hata değil, belgelenmiş sert kırpma yolu:
         // özetleme başarısız olsa da koşum ölmüyor.
-        let o = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &onceki, &msgs, true)
+        let o = ozetle_in(&k, "http://127.0.0.1:1", "m", &b, &o, &onceki, &msgs, true)
             .await
             .expect("taban geçilmeliydi, çağrı denenmeliydi");
         assert!(o.ozet.is_empty(), "sunucu kapalıyken özet boş olmalı");

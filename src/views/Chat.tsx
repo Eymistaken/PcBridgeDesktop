@@ -33,7 +33,9 @@ interface Props {
   error?: string;
   onSend: (text: string) => void;
   onCancel: (jobId: string) => void;
-  /** Bu bot için yanıt bekleyen izin isteği — yoksa kart çizilmez. */
+  /** Bu botun kaç session'ı var — başlıktaki sayaç. */
+  sessionCount: number;
+  /** Bu **session** için yanıt bekleyen izin isteği — yoksa kart çizilmez. */
   pending?: PendingPermission;
   onAnswer: (runId: string, allow: boolean) => void;
   /** Kip **botun kendi alanı**; menü onu doğrudan yazar. */
@@ -64,6 +66,7 @@ export default function Chat({
   running,
   busy,
   error,
+  sessionCount,
   onSend,
   onCancel,
   pending,
@@ -196,6 +199,7 @@ export default function Chat({
               ? t("side.nTools", { n: bot.tools.length })
               : bot.effort,
             kisaltEv(bot.workdir),
+            sessionCount > 1 ? t("side.sessions", { n: sessionCount }) : null,
           ]
             .filter(Boolean)
             .join(" · ")}

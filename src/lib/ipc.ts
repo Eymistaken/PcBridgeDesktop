@@ -16,6 +16,8 @@ import type {
   ModelInfo,
   PendingPermission,
   RunCtx,
+  Session,
+  SessionSummary,
   Shots,
   TerminalsView,
   Turn,
@@ -106,18 +108,43 @@ export const updateBot = (id: string, draft: BotDraft) =>
   call<Bot>("update_bot", { id, draft });
 export const deleteBot = (id: string) => call<void>("delete_bot", { id });
 
-// ─────────────────────────────── koşumlar ───────────────────────────────
-
-/** Botun tüm turları — diskteki `jobs/<id>/` kayıtlarından kurulur. */
-export const botHistory = (id: string) => call<Turn[]>("bot_history", { id });
+// ─────────────────────────────── session'lar ───────────────────────────────
 
 /**
- * Botun son **yerel** koşumundan bağlam defteri.
+ * Bir botun session'ları, **en son dokunulan önce**.
+ *
+ * Bot bir asistan; konuşan şey session. Her session'ın kendi koşum listesi ve
+ * kendi bağlamı var — ikisi birbirinin geçmişini hiç görmüyor.
+ */
+export const listSessions = (botId: string) =>
+  call<SessionSummary[]>("list_sessions", { botId });
+
+export const renameSession = (botId: string, sessionId: string, title: string) =>
+  call<Session>("rename_session", { botId, sessionId, title });
+
+/**
+ * Session'ı listeden düşürür.
+ *
+ * **Koşum dizinleri silinmez** — `runs/<id>/` ayrı bir doğru kaynak ve listeden
+ * düşen koşumu kimse okumaz. Süren koşumu olan session reddedilir.
+ */
+export const deleteSession = (botId: string, sessionId: string) =>
+  call<void>("delete_session", { botId, sessionId });
+
+// ─────────────────────────────── koşumlar ───────────────────────────────
+
+/** Bir session'ın tüm turları — diskteki `jobs/<id>/` kayıtlarından kurulur. */
+export const sessionHistory = (botId: string, sessionId: string) =>
+  call<Turn[]>("session_history", { botId, sessionId });
+
+/**
+ * Session'ın son **yerel** koşumundan bağlam defteri.
  *
  * `pcbridge-agent` yolunda `null` döner: koşumu pcbridge yürütüyor ve `usage`
  * bize hiç gelmiyor. O botlarda bar çizilmiyor, uydurma bir sayı gösterilmiyor.
  */
-export const botCtx = (id: string) => call<RunCtx | null>("bot_ctx", { id });
+export const sessionCtx = (botId: string, sessionId: string) =>
+  call<RunCtx | null>("session_ctx", { botId, sessionId });
 
 /**
  * Kullanıcının açıkça istediği özetleme; düşen mesaj sayısını döner.
@@ -125,31 +152,38 @@ export const botCtx = (id: string) => call<RunCtx | null>("bot_ctx", { id });
  * Otomatik yoldan farkı kazanç tabanının atlanması. **Koşum sürerken
  * çağrılmaz** — akıştaki mesaj listesi o sırada diskle aynı değil.
  */
-export const compactBot = (id: string) => call<number>("compact_bot", { id });
+export const compactSession = (botId: string, sessionId: string) =>
+  call<number>("compact_session", { botId, sessionId });
 
 /**
- * Sohbeti tek bir JSON dosyasına yazar; yazılan yolu döner.
+ * Session'ı tek bir JSON dosyasına yazar; yazılan yolu döner.
  *
  * **Sır taşımaz:** ne pcbridge token'ı ne model anahtarı diske yazılıyor —
- * ikisi de keyring'de. Dosyada botun alanları, koşum metaları, olaylar ve
- * bağlam defteri var.
+ * ikisi de keyring'de. Dosyada botun ayarları, bu session'ın koşum metaları,
+ * olaylar ve bağlam defteri var; **öteki session'lar yok.**
  */
-export const exportBot = (id: string, path: string) =>
-  call<string>("export_bot", { id, path });
+export const exportSession = (botId: string, sessionId: string, path: string) =>
+  call<string>("export_session", { botId, sessionId, path });
 
-/** Kenar çubuğu satırları — her botun son koşum özeti. */
+/** Kenar çubuğu satırları — her botun en son dokunulan session'ının özeti. */
 export const botSummaries = () => call<BotSummary[]>("bot_summaries");
 
-/** `agent_run` → iş kimliği. Akış Tauri olaylarıyla gelir. */
-export const sendMessage = (id: string, text: string) =>
-  call<{ jobId: string }>("send_message", { id, text });
+/**
+ * Mesaj gönderir. Akış Tauri olaylarıyla gelir.
+ *
+ * `sessionId` **verilmezse Rust yeni bir session açar** ve kimliğini döner —
+ * arayüzde "yeni session" ayrı bir eylem değil, bota girmek zaten boş bir
+ * ekran açıyor ve session ilk mesajla doğuyor.
+ */
+export const sendMessage = (id: string, sessionId: string | null, text: string) =>
+  call<{ jobId: string; sessionId: string }>("send_message", { id, sessionId, text });
 
 /**
- * Koşumu durdurur. `botId` yerel koşum için gerekli: iptal edilen döngünün
- * bitiş olayını doğru bota yollayabilmek için.
+ * Koşumu durdurur. `botId` ve `sessionId` yerel koşum için gerekli: iptal
+ * edilen döngünün bitiş olayını doğru session'a yollayabilmek için.
  */
-export const cancelJob = (botId: string, jobId: string) =>
-  call<string>("cancel_job", { botId, jobId });
+export const cancelJob = (botId: string, sessionId: string, jobId: string) =>
+  call<string>("cancel_job", { botId, sessionId, jobId });
 
 /**
  * Bekleyen bir izin isteğine kullanıcının kararı.
@@ -175,7 +209,13 @@ export const resumeWatches = () => call<string[]>("resume_watches");
 
 export const terminals = () => call<TerminalsView>("terminals");
 
-/** `tmux new-session -A -s <ad>` — varsa bağlanır, yoksa yaratır. */
+/**
+ * Bölmeyi açar: `tmux new-session -d -s <ad>` (varsa hata verir, zararsız),
+ * sonra PTY içinde `tmux attach-session -t <ad>`.
+ *
+ * ⚠️ **`-A` bilinçli olarak kullanılmıyor** (`pty.rs:140-166`): oturumu onu
+ * yaratan istemciye bağlıyor ve PTY düşünce oturum da ölüyordu.
+ */
 export const ptyOpen = (session: string, cols: number, rows: number, workdir?: string) =>
   call<void>("pty_open", { session, cols, rows, workdir: workdir ?? null });
 

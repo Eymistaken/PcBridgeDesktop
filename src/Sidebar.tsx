@@ -224,15 +224,18 @@ function hostPort(endpoint: string): string {
 function altMetin(b: Bot, s?: BotSummary): string {
   if (s?.line) return s.line;
   if (s?.running) return t("side.running");
-  if (b.jobs.length === 0) {
+  // Koşum sayısı **botun** değil session'ların işi; bot satırında anlamlı
+  // olan kaç iş var. Hiç yoksa botun kimliği yazılıyor.
+  const sayi = s?.sessionCount ?? b.sessions.length;
+  if (sayi === 0) {
     // Yerel botta ajan yok; anlamlı olan model ve kaç aracı gördüğü.
     const kimlik =
       b.backend === "yerel-model"
         ? `${b.model ?? "—"} · ${t("side.nTools", { n: b.tools.length })}`
         : `${b.agent}${b.model ? " · " + b.model : ""}`;
-    return `${kimlik} · ${t("side.noRuns")}`;
+    return `${kimlik} · ${t("side.noSessions")}`;
   }
-  return t("side.runs", { n: b.jobs.length });
+  return t("side.sessions", { n: sayi });
 }
 
 function zaman(unix: number): string {

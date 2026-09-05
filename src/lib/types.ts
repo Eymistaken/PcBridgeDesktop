@@ -153,9 +153,44 @@ export interface Bot {
    * bilinçli bir eylem olmalı.
    */
   forceWhenBusy: boolean;
-  sessionId: string | null;
-  /** Koşum kimlikleri, eskiden yeniye. Geçmiş bunlardan kurulur. */
+  /**
+   * Botun işleri.
+   *
+   * **Bir bot bir sohbet değil.** Bot bir asistan: ayarları (model, araç
+   * filtresi, izin kipi) kendisinde durur, işleri session'larda. Her
+   * session'ın kendi koşum listesi ve **kendi bağlamı** var; ikisi
+   * birbirinin geçmişini hiç görmez.
+   */
+  sessions: Session[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Botun tek bir işi: kendi koşumları, kendi bağlamı. */
+export interface Session {
+  id: string;
+  /** İlk mesajdan türer. Koşum yapılmamışsa **boş** — arayüz "Yeni session"
+   * yazar, uydurma bir ad koymaz. */
+  title: string;
   jobs: string[];
+  /** pcbridge CLI'nın `resume_session`'ı — **session başına.** */
+  sessionId: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Kenar çubuğu satırı ve açılış kartı için session özeti. */
+export interface SessionSummary {
+  id: string;
+  title: string;
+  /** Kaç koşum — arayüzde "N tur". */
+  turnCount: number;
+  jobId: string | null;
+  status: string | null;
+  /** Ajanın son söylediği satır. */
+  line: string | null;
+  at: number | null;
+  running: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -251,6 +286,7 @@ export const TOOL_GROUPS: ToolGroup[] = ["read", "write", "desktop"];
 export interface PendingPermission {
   runId: string;
   botId: string;
+  sessionId: string;
   /**
    * Ne soruluyor: bir araç çağrısı mı, yoksa tur tavanına gelmiş koşumun
    * devam edip etmeyeceği mi. Aynı kuyruk ve aynı kart ikisini de taşıyor —
@@ -343,6 +379,7 @@ export interface Dokum {
 export interface CtxPayload {
   runId: string;
   botId: string;
+  sessionId: string;
   ctx: RunCtx;
 }
 
@@ -350,6 +387,7 @@ export interface CtxPayload {
 export interface CompactPayload {
   runId: string;
   botId: string;
+  sessionId: string;
   active: boolean;
 }
 
@@ -380,12 +418,16 @@ export interface Turn {
 export interface ChunkPayload {
   jobId: string;
   botId: string;
+  /** ⚠️ Aynı botun iki session'ı paralel koşabilir; süzme **buna** bakar.
+   * Yalnızca `botId`'ye bakmak açık ekrana ötekinin token'larını yazardı. */
+  sessionId: string;
   events: JobEvent[];
 }
 
 export interface StatusPayload {
   jobId: string;
   botId: string;
+  sessionId: string;
   meta: JobMeta;
   done: boolean;
 }
@@ -394,10 +436,15 @@ export interface BotSummary {
   id: string;
   jobId: string | null;
   status: string | null;
-  /** Ajanın son söylediği satır. */
+  /** En son dokunulan session'da ajanın son söylediği satır. */
   line: string | null;
   at: number | null;
   running: boolean;
+  /** Kaç session var — kenar çubuğu satırının alt metni. */
+  sessionCount: number;
+  /** Özetin geldiği session; satıra tıklamak **yeni** session açtığı için
+   * bu yalnızca gösterim. */
+  sessionId: string | null;
 }
 
 // ────────────────────────────── terminaller ──────────────────────────────

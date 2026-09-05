@@ -15,24 +15,25 @@ import { botDraft } from "./lib/types";
 import { useCikisIcerik } from "./lib/cikis";
 import {
   answerPermission,
-  botCtx,
-  botHistory,
   botSummaries,
   cancelJob,
-  compactBot,
+  compactSession,
   deleteBot,
   detailText,
   desktopLock,
   desktopState as fetchDesktop,
   desktopUnlock,
   errorText,
-  exportBot,
+  exportSession,
   listBots,
+  listSessions,
   modelConfig,
   pendingPermissions,
   refresh as refreshConn,
   resumeWatches,
   sendMessage,
+  sessionCtx,
+  sessionHistory,
   terminals as loadTerminals,
   tmuxKill,
   updateBot,
@@ -50,6 +51,7 @@ import type {
   Mode,
   PendingPermission,
   RunCtx,
+  SessionSummary,
   StatusPayload,
   TerminalsView,
   Theme,
@@ -94,6 +96,15 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   const [bots, setBots] = useState<Bot[]>([]);
   const [summaries, setSummaries] = useState<Record<string, BotSummary>>({});
   const [selectedId, setSelectedId] = useState<string>();
+  /**
+   * Seçili session.
+   *
+   * `undefined` **geçerli bir durum**: bot seçili ama henüz session yok
+   * (yeni bot, ya da kullanıcı "yeni session" ekranında). O hâlde
+   * `sendMessage` `null` gönderir ve Rust session'ı yaratıp kimliğini döner.
+   */
+  const [selectedSession, setSelectedSession] = useState<string>();
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [chatError, setChatError] = useState<string>();
   const [sending, setSending] = useState(false);
@@ -232,6 +243,13 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   // Olay dinleyicileri seçili botu görebilsin diye ref'te tutuyoruz.
   const seciliRef = useRef<string | undefined>(undefined);
   seciliRef.current = selectedId;
+  /**
+   * ⚠️ **Süzme session'a bakar, bota değil.** Aynı botun iki session'ı
+   * paralel koşabiliyor; yalnızca `botId`'ye bakmak açık ekrana ötekinin
+   * token'larını yazardı.
+   */
+  const oturumRef = useRef<string | undefined>(undefined);
+  oturumRef.current = selectedSession;
   // Kısayol dinleyicisi bir kez kuruluyor; güncel kipi ref'ten okur.
   const modeRef = useRef<Mode>(mode);
   modeRef.current = mode;
@@ -247,12 +265,55 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     }
   }, []);
 
+  /**
+   * Seçili botun session listesi.
+   *
+   * Arama ve açılış kartları bunu okuyor; sıra Rust'ta `updatedAt`'e göre
+   * verilmiş (en son dokunulan önce).
+   */
+  const oturumlariYukle = useCallback(async (botId: string) => {
+    try {
+      const liste = await listSessions(botId);
+      setSessions(liste);
+      return liste;
+    } catch {
+      // Liste kozmetik: okunamazsa boş kalır, sohbet çalışmaya devam eder.
+      setSessions([]);
+      return [];
+    }
+  }, []);
+
   const botlariYukle = useCallback(async () => {
     const liste = await listBots();
     setBots(liste);
     await ozetleriYukle();
     return liste;
   }, [ozetleriYukle]);
+
+  /**
+   * Bot değişince session listesi yeniden okunur ve **en son dokunulan**
+   * seçilir.
+   *
+   * ⚠️ Aşama 15'te bu değişecek: kullanıcının kararı "bota tıklayınca
+   * **yeni** session açılsın, son session'a dönülmesin". Şimdilik davranış
+   * eskisiyle aynı kalsın diye en tazesi seçiliyor — bu aşama yalnızca
+   * altyapıyı taşıyor.
+   */
+  useEffect(() => {
+    if (!selectedId) {
+      setSessions([]);
+      setSelectedSession(undefined);
+      return;
+    }
+    let iptal = false;
+    void oturumlariYukle(selectedId).then((liste) => {
+      if (iptal) return;
+      setSelectedSession(liste[0]?.id);
+    });
+    return () => {
+      iptal = true;
+    };
+  }, [selectedId, oturumlariYukle]);
 
   useEffect(() => {
     void (async () => {
@@ -266,12 +327,12 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   // Seçili botun son bağlam ölçümü. Koşum başlayınca `job://ctx` devralıyor.
   useEffect(() => {
     setCompacting(false);
-    if (!selectedId) {
+    if (!selectedId || !selectedSession) {
       setCtx(null);
       return;
     }
     let iptal = false;
-    void botCtx(selectedId)
+    void sessionCtx(selectedId, selectedSession)
       .then((c) => {
         if (!iptal) setCtx(c);
       })
@@ -282,17 +343,23 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     return () => {
       iptal = true;
     };
-  }, [selectedId]);
+  }, [selectedId, selectedSession]);
 
-  // Seçili botun geçmişi diskten kurulur.
+  /**
+   * Seçili session'ın geçmişi diskten kurulur.
+   *
+   * ⚠️ **`turns` önce boşaltılıyor.** Eskiden yalnızca `selectedId` yokken
+   * temizleniyordu; A'dan B'ye geçildiğinde `botHistory(B)` çözülene kadar
+   * ekranda **A'nın baloncukları** B'nin başlığı altında duruyordu. Kozmetik
+   * değil, doğruluk hatası — ve `Chat`'in kaydırma sezgiseli de bu yüzden
+   * yanlış tarafa düşüyordu (bkz. `Chat.tsx`).
+   */
   useEffect(() => {
-    if (!selectedId) {
-      setTurns([]);
-      return;
-    }
+    setTurns([]);
+    if (!selectedId || !selectedSession) return;
     let iptal = false;
     setChatError(undefined);
-    void botHistory(selectedId)
+    void sessionHistory(selectedId, selectedSession)
       .then((t) => {
         if (!iptal) setTurns(t);
       })
@@ -302,7 +369,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     return () => {
       iptal = true;
     };
-  }, [selectedId]);
+  }, [selectedId, selectedSession]);
 
   /**
    * Yanıt bekleyen izin istekleri, koşum kimliğine göre.
@@ -349,7 +416,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
       }),
       listen<ChunkPayload>("job://chunk", (e) => {
         const p = e.payload;
-        if (p.botId !== seciliRef.current) return;
+        if (p.sessionId !== oturumRef.current) return;
         const simdi = performance.now();
         for (const olay of p.events) {
           if ((olay.kind === "text" || olay.kind === "thinking") && olay.delta) {
@@ -363,16 +430,16 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         );
       }),
       listen<CtxPayload>("job://ctx", (e) => {
-        if (e.payload.botId !== seciliRef.current) return;
+        if (e.payload.sessionId !== oturumRef.current) return;
         setCtx(e.payload.ctx);
       }),
       listen<CompactPayload>("job://compacting", (e) => {
-        if (e.payload.botId !== seciliRef.current) return;
+        if (e.payload.sessionId !== oturumRef.current) return;
         setCompacting(e.payload.active);
       }),
       listen<StatusPayload>("job://status", (e) => {
         const p = e.payload;
-        if (p.botId === seciliRef.current) {
+        if (p.sessionId === oturumRef.current) {
           setTurns((prev) =>
             prev.map((t) => (t.jobId === p.jobId ? { ...t, meta: p.meta } : t)),
           );
@@ -381,8 +448,10 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
           // Koşum bitti: bekleyen isteği Rust zaten düşürdü, kart da kalkmalı.
           setPending((q) => q.filter((x) => x.runId !== p.jobId));
           // Koşum yarıda kesilmişse "özetleniyor" şeridi asılı kalırdı.
-          if (p.botId === seciliRef.current) setCompacting(false);
+          if (p.sessionId === oturumRef.current) setCompacting(false);
           void ozetleriYukle();
+          // Session listesi de tazelensin: başlık ve durum noktası değişti.
+          if (p.botId === seciliRef.current) void oturumlariYukle(p.botId);
         }
       }),
     ];
@@ -486,7 +555,14 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
     setChatError(undefined);
     const simdi = Date.now() / 1000;
     try {
-      const { jobId } = await sendMessage(selectedId, text);
+      // `selectedSession` yoksa Rust yeni bir session açıp kimliğini döner —
+      // "yeni session" ayrı bir eylem değil, ilk mesajla doğuyor.
+      const { jobId, sessionId } = await sendMessage(
+        selectedId,
+        selectedSession ?? null,
+        text,
+      );
+      setSelectedSession(sessionId);
       // İyimser tur: akış gelmeye başlayana kadar ekran boş kalmasın.
       setTurns((prev) => [
         ...prev,
@@ -511,6 +587,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         },
       ]);
       await botlariYukle();
+      await oturumlariYukle(selectedId);
     } catch (e) {
       const err = e as ConnError;
       if (err.kind === "unauthorized" || err.kind === "noToken") {
@@ -524,9 +601,9 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
   }
 
   async function durdur(jobId: string) {
-    if (!selectedId) return;
+    if (!selectedId || !selectedSession) return;
     try {
-      await cancelJob(selectedId, jobId);
+      await cancelJob(selectedId, selectedSession, jobId);
     } catch (e) {
       setChatError(errorText(e as ConnError));
     }
@@ -550,13 +627,13 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
    * bar hâlâ eski sayıyı gösteriyor olurdu. Sayının kendisi ancak **sonraki
    * koşumda** düşer — özetin kazancını ölçen şey sunucunun `usage`'ı.
    */
-  const ozetle = useCallback(async (bot: Bot) => {
+  const ozetle = useCallback(async (bot: Bot, sid: string) => {
     setCompacting(true);
     setChatError(undefined);
     try {
-      await compactBot(bot.id);
-      setTurns(await botHistory(bot.id));
-      setCtx(await botCtx(bot.id));
+      await compactSession(bot.id, sid);
+      setTurns(await sessionHistory(bot.id, sid));
+      setCtx(await sessionCtx(bot.id, sid));
     } catch (e) {
       setChatError(detailText(e));
     } finally {
@@ -568,7 +645,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
    * Sohbeti dosyaya yazar. Yeri kullanıcı seçiyor; uygulamanın kendi
    * dizinine sessizce yazmak, dosyayı bulmayı ayrı bir işe çevirirdi.
    */
-  const disaAktar = useCallback(async (bot: Bot) => {
+  const disaAktar = useCallback(async (bot: Bot, sid: string) => {
     const ad = `${bot.name.replace(/[^\p{L}\p{N}_-]+/gu, "-")}-${new Date()
       .toISOString()
       .slice(0, 19)
@@ -582,7 +659,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!yol) return;
-      setChatError(t("chat.exported", { path: await exportBot(bot.id, yol) }));
+      setChatError(t("chat.exported", { path: await exportSession(bot.id, sid, yol) }));
     } catch (e) {
       setChatError(detailText(e));
     }
@@ -710,7 +787,8 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             error={chatError}
             onSend={(t) => void gonder(t)}
             onCancel={(j) => void durdur(j)}
-            pending={pending.find((p) => p.botId === secili.id)}
+            sessionCount={sessions.length}
+            pending={pending.find((p) => p.sessionId === selectedSession)}
             onAnswer={(runId, allow) => void izinYanitla(runId, allow)}
             onPermission={(p) => {
               if (secili.permission !== p) void alanDegistir(secili, { permission: p });
@@ -720,7 +798,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             tps={tps}
             baseUrl={modelKaynak}
             compacting={compacting}
-            onCompact={() => void ozetle(secili)}
+            onCompact={() => selectedSession && void ozetle(secili, selectedSession)}
             efforts={
               snap.agents
                 .find((a) => a.id === secili.agent)
@@ -728,7 +806,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
             }
             onEffort={(e) => void alanDegistir(secili, { effort: e })}
             onEditBot={() => setForge({ bot: secili })}
-            onExport={() => void disaAktar(secili)}
+            onExport={() => selectedSession && void disaAktar(secili, selectedSession)}
           />
         ) : (
           <>
