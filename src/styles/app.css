@@ -169,6 +169,7 @@ input:focus {
 /* segmentli seçim — seçim yükselen yüzeyle anlatılır, renkli çubukla değil.
  * İç yarıçap: dış 10 − dolgu 3 = 7. */
 .seg {
+  position: relative;
   display: flex;
   gap: 3px;
   padding: 3px;
@@ -177,7 +178,36 @@ input:focus {
   align-self: flex-start;
 }
 
+.seg[data-esit] {
+  align-self: stretch;
+}
+
+.seg[data-esit] > button {
+  flex: 1;
+}
+
+/*
+ * Kayan parça — `ModeSwitch`'in deseni.
+ *
+ * ⚠️ Seçim eskiden bir karede öteki düğmeye ışınlanıyordu. Parçanın yeri
+ * `Seg.tsx`'te **ölçülüyor**: seçenekler farklı genişlikte ve yüzde hesabı
+ * yalnızca eşit genişlikte doğru olurdu.
+ */
+.seg__parca {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  transition:
+    transform var(--dur-slow) var(--ease-inout),
+    width var(--dur-slow) var(--ease-inout);
+  pointer-events: none;
+}
+
 .seg > button {
+  position: relative;
   padding: 7px 15px;
   border-radius: 9px;
   font-size: 13.5px;
@@ -189,8 +219,10 @@ input:focus {
   color: var(--text);
 }
 
+/* Yüzeyi artık kayan parça taşıyor; düğme yalnızca metin rengini değiştiriyor.
+ * ⚠️ `background` **kalkmalıydı**: parçayla birlikte iki yüzey üst üste
+ * biniyor ve kayma sırasında hedef düğme baştan dolu görünüyordu. */
 .seg > button[aria-pressed="true"] {
-  background: var(--surface-2);
   color: var(--text);
   font-weight: 500;
 }
@@ -819,6 +851,10 @@ input::placeholder {
 }
 
 .forge {
+  /* Sekmeler farklı yükseklikte (ölçüldü: 242 ↔ 635 px). Taban, en kısa
+   * sekmede örtünün hata vermiş gibi küçülmesini engelliyor; yükseklik
+   * geçişi `BotForge.tsx`'te `gecirYukseklik` ile. */
+  min-height: 330px;
   width: 880px;
   max-width: 100%;
   max-height: 100%;
@@ -837,6 +873,46 @@ input::placeholder {
   padding: 22px 26px 18px;
 }
 
+/*
+ * Sekme şeridi. `.seg`'in kardeşi ama **tam genişlikte**: BotForge'un on bir
+ * alan grubu tek uzun formdaydı ve kullanıcı aradığını kaydırarak arıyordu.
+ */
+.sek {
+  flex: none;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin: 0 22px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+}
+
+.sek > button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.sek > button:hover {
+  color: var(--text);
+}
+
+.sek > button[aria-selected="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Sekme içeriği belirerek geliyor — `key` ile yeniden kuruluyor. */
+.forge__body > * {
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
 .forge__body {
   flex-grow: 1;
   display: flex;
@@ -844,6 +920,10 @@ input::placeholder {
   gap: 20px;
   padding: 0 26px 4px;
   overflow-y: auto;
+  /* ⚠️ **`min-height: 0` burada kalmalı**, esnek kutunun taşmaması ona
+   * bağlı. Taban yükseklik **örtünün kendisine** kondu (`.forge`): denendi,
+   * gövdeye konunca `flex-basis: 0` gerekiyor ve o da gövdeyi içerikten
+   * koparıyordu — Motor sekmesi 568 px'ten 347'ye kırpıldı. */
   min-height: 0;
 }
 
@@ -3249,4 +3329,86 @@ button.btn-fld:active,
 .chevron {
   flex: none;
   transition: transform var(--dur-fast) var(--ease-out);
+}
+
+/* ── sistem paneli: bölüm listesi + panel ────────────────────────── */
+/*
+ * ⚠️ Eskiden altı kart **tek uzun sütundaydı** — içlerinde 390 satırlık
+ * masaüstü paneli de vardı — ve her şey kaydırılarak aranıyordu. Bilgi
+ * mimarisi değişti; palet, tipografi ve köşeler aynı.
+ */
+.sys {
+  display: flex;
+  gap: 22px;
+  min-height: 0;
+  align-items: flex-start;
+}
+
+.sysnav {
+  width: 206px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+}
+
+.sysnav > button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  color: var(--text-muted);
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.sysnav > button:hover {
+  color: var(--text);
+  background: var(--field);
+}
+
+.sysnav > button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ⚠️ Basmada `--surface-2`'ye çıkılmıyor: satırlar `--text-muted` taşıyor
+ * ve orada oran 4.07:1 ile AA'nın altında. Seçili satır aşağı gidiyor. */
+.sysnav > button:not([aria-selected="true"]):active {
+  background: var(--surface);
+  transition-duration: var(--dur-tap);
+}
+
+.sysnav > button[aria-selected="true"]:active {
+  background: var(--field);
+  transition-duration: var(--dur-tap);
+}
+
+.sysgov {
+  flex-grow: 1;
+  min-width: 0;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Bölüm değişince içerik beliriyor — `key` ile yeniden kuruluyor. */
+.sysgov > * {
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
+.sysgov > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+
+.sysgov > *:nth-child(n + 3) {
+  animation-delay: 60ms;
 }

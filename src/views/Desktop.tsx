@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { sayac } from "../ui/ConnStrip";
+import Seg from "../ui/Seg";
 import { IconLock, IconScreen } from "../ui/Icon";
 import {
   auditTail,
@@ -71,7 +72,14 @@ export default function Desktop({ state, onState }: Props) {
           >
             <span />
           </button>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 3,
+              flexGrow: 1,
+            }}
+          >
             <span style={{ fontSize: 13.5, fontWeight: 500 }}>
               {state.unlocked ? t("desk.on") : t("desk.off")}
             </span>
@@ -88,30 +96,38 @@ export default function Desktop({ state, onState }: Props) {
         </div>
 
         {state.unlocked ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontSize: 12.5,
+            }}
+          >
             {state.hardRemaining > state.remaining && (
               <span className="muted">
                 {t("desk.leaseNote", { hard: sayac(state.hardRemaining) })}
               </span>
             )}
-            {state.reason && <span className="muted">{t("desk.reason", { reason: state.reason })}</span>}
+            {state.reason && (
+              <span className="muted">
+                {t("desk.reason", { reason: state.reason })}
+              </span>
+            )}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="grp">
               <span className="lbl">{t("desk.duration")}</span>
-              <div className="seg" role="group" aria-label={t("desk.durationLabel")}>
-                {SURELER.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    aria-pressed={dakika === d}
-                    onClick={() => setDakika(d)}
-                  >
-                    {t("desk.minutes", { n: d })}
-                  </button>
-                ))}
-              </div>
+              <Seg
+                value={String(dakika)}
+                ariaLabel={t("desk.durationLabel")}
+                options={SURELER.map((d) => ({
+                  value: String(d),
+                  label: t("desk.minutes", { n: d }),
+                }))}
+                onChange={(v) => setDakika(Number(v))}
+              />
             </div>
             <div className="grp">
               <span className="lbl">{t("desk.reasonLabel")}</span>
@@ -145,7 +161,11 @@ export default function Desktop({ state, onState }: Props) {
           </span>
         )}
         {hata && (
-          <span style={{ fontSize: 12.5, color: "var(--fail)", lineHeight: 1.5 }}>{hata}</span>
+          <span
+            style={{ fontSize: 12.5, color: "var(--fail)", lineHeight: 1.5 }}
+          >
+            {hata}
+          </span>
         )}
       </div>
 
@@ -186,7 +206,12 @@ function Ekran({ unlocked }: { unlocked: boolean }) {
         <span className="h" style={{ flexGrow: 1 }}>
           {t("desk.screen")}
         </span>
-        <button type="button" className="btn-quiet" disabled={mesgul || !unlocked} onClick={() => void al()}>
+        <button
+          type="button"
+          className="btn-quiet"
+          disabled={mesgul || !unlocked}
+          onClick={() => void al()}
+        >
           <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <IconScreen size={15} color="currentColor" />
             {mesgul ? t("desk.capturing") : t("desk.capture")}
@@ -212,7 +237,9 @@ function Ekran({ unlocked }: { unlocked: boolean }) {
           {shots.note}
         </span>
       )}
-      {hata && <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>}
+      {hata && (
+        <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>
+      )}
     </div>
   );
 }
@@ -236,7 +263,9 @@ function Durum() {
   return (
     <div className="card">
       <span className="h">{t("desk.computer")}</span>
-      {hata && <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>}
+      {hata && (
+        <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>
+      )}
       {metin === undefined && !hata && (
         <span className="muted" style={{ fontSize: 12.5 }}>
           {t("desk.reading")}
@@ -315,19 +344,29 @@ function Ozet({ metin }: { metin: string }) {
     );
   }
 
-  return <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{parcalar}</div>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {parcalar}
+    </div>
+  );
 }
 
 function Satir({ k, v }: { k: string; v: string }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-      <span className="muted" style={{ fontSize: 12.5, width: 130, flex: "none" }}>
+      <span
+        className="muted"
+        style={{ fontSize: 12.5, width: 130, flex: "none" }}
+      >
         {k}
       </span>
       {/* Sunucu bazen boş değer gönderiyor (ölçüldü: `bellek` bir kez boş
           geldi). Çıplak boş satır "arayüz bozuk" gibi duruyor; tire
           "sunucu söylemedi" diyor. */}
-      <span className="mono" style={{ fontSize: 12.5, minWidth: 0, overflowWrap: "anywhere" }}>
+      <span
+        className="mono"
+        style={{ fontSize: 12.5, minWidth: 0, overflowWrap: "anywhere" }}
+      >
         {v.trim() || "—"}
       </span>
     </div>
@@ -375,7 +414,11 @@ function Denetim() {
               <span
                 className="mono audit__ev"
                 style={{
-                  color: r.denied ? "var(--text-muted)" : r.error ? "var(--fail)" : "var(--text)",
+                  color: r.denied
+                    ? "var(--text-muted)"
+                    : r.error
+                      ? "var(--fail)"
+                      : "var(--text)",
                 }}
               >
                 {r.event}
