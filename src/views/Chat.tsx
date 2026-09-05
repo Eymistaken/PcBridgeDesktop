@@ -97,16 +97,28 @@ export default function Chat({
   /**
    * Yeni içerik gelince dibe kay.
    *
-   * ⚠️ **Yumuşak kaydırma yalnızca akış YOKKEN.** Akış sürerken bu etki her
-   * token'da çalışıyor; `behavior: "smooth"` her seferinde yeni bir kaydırma
-   * isteği kuyruğa koyuyor ve bir öncekini kesiyor, sonuç dibe hiç
-   * yetişemeyen bir liste oluyor. Akış sırasında ani kaydırma doğru davranış.
+   * Üç durumda **ani**, yalnızca birinde yumuşak:
+   *
+   * 1. ⚠️ **Sohbet ilk gösterildiğinde.** Kip anahtarından dönmek `Chat`'i
+   *    yeniden kuruyor; yumuşak kaydırma o anda "geçmişin içinde hızla aşağı
+   *    süzülme" gibi görünüyordu. Görüntü **en altta başlamalı**, oraya
+   *    inmemeli. Bot değişimi de aynı: yeni sohbet dibinden açılır.
+   * 2. **Akış sürerken.** Bu etki her token'da çalışıyor; `smooth` her
+   *    seferinde yeni bir kaydırma isteği kuyruğa koyup bir öncekini keser ve
+   *    liste dibe hiç yetişemez.
+   * 3. Hareket azaltılmışken.
+   *
+   * Geriye kalan: **açık duran bir sohbete yeni bir tur eklenmesi.** Yumuşak
+   * olması gereken tek durum o.
    */
+  const sonBot = useRef<string>("");
   useEffect(() => {
+    const ilkGosterim = sonBot.current !== bot.id;
+    sonBot.current = bot.id;
     const yumusak =
-      !running && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      !ilkGosterim && !running && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     dip.current?.scrollIntoView({ block: "end", behavior: yumusak ? "smooth" : "auto" });
-  }, [turns, running]);
+  }, [turns, running, bot.id]);
 
   // Bot değişince yarım kalan metin ve ekler karışmasın.
   useEffect(() => {

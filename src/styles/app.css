@@ -18,8 +18,19 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  /* Masaüstü uygulaması: metin seçimi yalnızca içerikte anlamlı. */
+  /*
+   * ⚠️ **WebKitGTK öneksiz `user-select`'i DESTEKLEMİYOR.**
+   * `CSS.supports('user-select','none')` → **false**,
+   * `CSS.supports('-webkit-user-select','none')` → **true** (motorda ölçüldü).
+   * Yani buradaki kural bir yıl boyunca hiçbir şey yapmadı ve arayüzün her
+   * yazısı sürüklenerek seçilebiliyordu — kullanıcı bunu bildirdi.
+   *
+   * Seçim **yalnızca yazdığın yerde** açık: girdi alanları ve besteci.
+   * Terminal kendi seçim katmanını çiziyor (xterm `SelectionService`), native
+   * seçime bağlı değil, o yüzden buradan etkilenmiyor.
+   */
   user-select: none;
+  -webkit-user-select: none;
   cursor: default;
 }
 
@@ -38,7 +49,9 @@ select {
   color: inherit;
   border: 0;
   background: none;
+  /* Yazılan yer: seçim olmadan imleç sürüklenemez, metin düzeltilemez. */
   user-select: text;
+  -webkit-user-select: text;
 }
 
 /* WebKitGTK yerel <select>'e kendi çerçevesini çiziyor; sözleşme düz alan
@@ -51,10 +64,11 @@ input:focus {
   outline: none;
 }
 
+/* Tek aralıklı yazı **arayüzün her yerinde** var — iş kimliği, yol, model
+ * adı, sayaç. Seçilebilir olması sürükleyince bunların hepsini yakalıyordu. */
 .mono {
   font-family: var(--mono);
   letter-spacing: -0.01em;
-  user-select: text;
 }
 
 /* Klavye odağı görünür kalmalı; fare tıklamasında halka çıkmaz. */
@@ -670,6 +684,7 @@ textarea {
   font-size: 13.5px;
   line-height: 1.55;
   user-select: text;
+  -webkit-user-select: text;
 }
 
 textarea:focus {
@@ -810,7 +825,6 @@ input::placeholder {
   font-size: 14px;
   line-height: 1.5;
   max-width: 640px;
-  user-select: text;
   overflow-wrap: anywhere;
 }
 
@@ -1123,7 +1137,6 @@ pre.well {
   right: 11px;
   font-size: 10.5px;
   color: var(--well-muted);
-  user-select: none;
 }
 
 .md__liste {
@@ -1250,7 +1263,15 @@ pre.well {
   height: calc(3 * 1.55 * 13px);
   padding: 0 16px;
   overflow: hidden;
-  /* Üstte solma: kesilen satır kesilmiş gibi değil, akıyor gibi görünsün. */
+}
+
+/* Üstte solma **yalnızca gerçekten taşarken**: kesilen satır kesilmiş gibi
+ * değil, akıyor gibi görünsün.
+ *
+ * ⚠️ Koşulsuz konunca, düşünce daha yeni başladığında — içerik kutuya
+ * sığarken — ilk satırı boş yere soldurup metni yarım gösteriyordu.
+ * `data-tasiyor`'u `Thinking.tsx` ölçerek koyuyor. */
+.dusunce__kuyu[data-tasiyor] {
   mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
 }
@@ -1712,6 +1733,7 @@ pre.well {
   overflow-y: auto;
   max-height: 168px;
   user-select: text;
+  -webkit-user-select: text;
   /* Yükseklik JS'te ölçülüyor; kaydırma çubuğu yeri hesabı bozmasın. */
   scrollbar-width: thin;
 }
@@ -2027,7 +2049,6 @@ pre.well {
   gap: 2px;
   max-height: 300px;
   overflow-y: auto;
-  user-select: text;
 }
 
 .audit__row {
@@ -2364,53 +2385,90 @@ button.btn-fld:active,
 /*
  * ── akan metnin ucu ──
  *
- * Token'lar bir anda sertçe var oluyordu. Maske metnin **son birkaç
- * karakterini** soluk bırakıyor; imleç ilerledikçe arkada kalanlar tam
- * opaklığa çıkıyor, yani okuma yönünde — soldan sağa — bir açığa çıkarma.
+ * Token'lar bir anda sertçe var oluyordu. Maske metnin **ucunu** soluk
+ * bırakıyor; imleç ilerledikçe arkada kalanlar tam opaklığa çıkıyor, yani
+ * okuma yönünde — soldan sağa — bir açığa çıkarma.
  *
  * **İki katman, birleştirme `add`** (başlangıç değeri, ek özellik gerekmiyor).
  * Toplama burada **birleşim** gibi çalışıyor:
- *   1. yatay — imlecin 3.5 em solundan itibaren opaklık 0.25'e iniyor
+ *   1. yatay — imlecin 9 em solundan itibaren opaklık sıfıra iner
  *   2. dikey — son satırın üstünde 1, altında 0
  * Toplandığında yalnızca "son satır VE imlecin yakını" soluk kalıyor;
  * önceki satırların hepsi tam opak. Tek katmanla bu bölge tarif edilemiyor:
  * yatay bir gradyan bütün satırların sağını soldururdu.
  *
- * ⚠️ Maske **balonun kendisine değil iç sarmalayıcıya** konuyor. `.bub`
- * üstünde olsaydı zemini de maskelerdi ve baloncukta saydam bir çentik
- * açılırdı — maske öğenin boyamasının tamamına uygulanıyor.
+ * ⚠️ **İlk sürüm yetersizdi** — kullanıcı "hâlâ sert" dedi. İki sebebi
+ * ölçüldü ve ikisi de burada düzeltildi:
  *
- * Renk yok, yalnızca opaklık: "gradyan yok" kanunu çiğnenmiyor.
- * Değişkenler yokken (`--akis-x` yazılmamışsa) maske hiçbir şeyi
- * soldurmuyor — `100%` yedeği bloğun sonuna düşüyor.
+ *   a) **Ucun opaklığı 0.25'ti**, yani harf görünmez değil %25 görünür
+ *      doğuyordu; "belirme" hissi baştan yarıya inmişti. Artık **0**.
+ *   b) **Maske her token'da ZIPLIYORDU.** `--akis-x` düz bir özel değişkendi
+ *      ve düz değişkenler geçiş yapamaz — her ölçümde bir anda yeni yere
+ *      atlıyordu. `@property` ile **tipli** tanımlanınca geçirilebilir
+ *      oluyor (WebKitGTK'da `CSS.registerProperty` ve `@property`
+ *      desteklendiği ölçüldü) ve maske token'lar arasında **kayıyor.**
+ *
+ * Rampa 3.5 em'den 9 em'e uzatıldı: harf tek bir token'da değil, birkaç
+ * kelime boyunca doluyor.
+ *
+ * ✅ Renk yok, yalnızca opaklık — "gradyan yok" kanunu çiğnenmiyor.
  */
+
+/* Başlangıç değerleri **çok büyük**: ilk ölçümden önce maske hiçbir şeyi
+ * soldurmasın. Sıfır olsaydı bloğun tamamı bir kare boyunca kaybolurdu. */
+@property --akis-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 99999px;
+}
+
+@property --akis-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 99999px;
+}
+
 .akis--canli {
   mask-image:
     linear-gradient(
       to right,
       #000 0,
-      #000 calc(var(--akis-x, 100%) - 3.5em),
-      rgb(0 0 0 / 0.25) var(--akis-x, 100%),
-      rgb(0 0 0 / 0.25) 100%
+      #000 calc(var(--akis-x) - 9em),
+      rgb(0 0 0 / 0) var(--akis-x),
+      rgb(0 0 0 / 0) 100%
     ),
-    linear-gradient(to bottom, #000 0, #000 var(--akis-y, 100%), rgb(0 0 0 / 0) var(--akis-y, 100%));
+    linear-gradient(to bottom, #000 0, #000 var(--akis-y), rgb(0 0 0 / 0) var(--akis-y));
   -webkit-mask-image:
     linear-gradient(
       to right,
       #000 0,
-      #000 calc(var(--akis-x, 100%) - 3.5em),
-      rgb(0 0 0 / 0.25) var(--akis-x, 100%),
-      rgb(0 0 0 / 0.25) 100%
+      #000 calc(var(--akis-x) - 9em),
+      rgb(0 0 0 / 0) var(--akis-x),
+      rgb(0 0 0 / 0) 100%
     ),
-    linear-gradient(to bottom, #000 0, #000 var(--akis-y, 100%), rgb(0 0 0 / 0) var(--akis-y, 100%));
+    linear-gradient(to bottom, #000 0, #000 var(--akis-y), rgb(0 0 0 / 0) var(--akis-y));
+  /* Doğrusal: imleç sabit hızla akan bir metni izliyor, yavaşlayıp
+   * hızlanması akışa yalan söylerdi. */
+  transition:
+    --akis-x var(--dur-base) linear,
+    --akis-y var(--dur-fast) linear;
+}
+
+/* Satır sarınca imleç sağdan sola atlıyor; o atlamayı geçirmek maskeyi
+ * satırın üstünde geri süpürürdü. `Thinking`/`akis.ts` o karede geçişi
+ * kapatıyor. */
+.akis--canli[data-satir-atladi] {
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .akis--canli {
     mask-image: none;
     -webkit-mask-image: none;
+    transition: none;
   }
 }
+
 
 /*
  * ── tema ve dil takası ──

@@ -33,6 +33,8 @@ export function useAkisMaskesi(
   canli: boolean,
 ): void {
   const bekleyen = useRef<number>(null);
+  /** Son ölçülen satır üstü — satır sarımını yakalamak için. */
+  const sonUst = useRef<number>(null);
 
   useLayoutEffect(() => {
     const el = kap.current;
@@ -41,6 +43,7 @@ export function useAkisMaskesi(
     if (!canli || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       el.style.removeProperty("--akis-x");
       el.style.removeProperty("--akis-y");
+      sonUst.current = null;
       return;
     }
 
@@ -49,6 +52,21 @@ export function useAkisMaskesi(
       bekleyen.current = null;
       const nokta = imlec(el);
       if (!nokta) return;
+
+      /*
+       * ⚠️ **Satır sarımında geçiş kapatılır.** İmleç satır sonundan yeni
+       * satırın başına atlıyor; `--akis-x`'i o atlamada geçirmek maskeyi
+       * satır boyunca **geriye** süpürürdü — yazılmış metin bir anda solup
+       * geri dolardı. O kare için `data-satir-atladi` konuyor, sonraki
+       * karede kalkıyor.
+       */
+      const satirDegisti = sonUst.current !== null && Math.abs(nokta.ust - sonUst.current) > 1;
+      sonUst.current = nokta.ust;
+      if (satirDegisti) {
+        el.dataset.satirAtladi = "1";
+        requestAnimationFrame(() => delete el.dataset.satirAtladi);
+      }
+
       el.style.setProperty("--akis-x", `${nokta.x}px`);
       el.style.setProperty("--akis-y", `${nokta.ust}px`);
     });

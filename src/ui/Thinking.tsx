@@ -55,10 +55,22 @@ export default function Thinking({ text, ms, live }: Props) {
     const olc = () => {
       if (acik) {
         ic.style.transform = "";
+        delete kap.dataset.tasiyor;
         return;
       }
-      const tasma = Math.max(0, ic.scrollHeight - kap.clientHeight);
-      ic.style.transform = `translateY(${-tasma}px)`;
+      const tasma = ic.scrollHeight - kap.clientHeight;
+      if (tasma > 0) {
+        // Taşıyor: son satırlar görünsün diye içerik yukarı kayıyor.
+        kap.dataset.tasiyor = "1";
+        ic.style.transform = `translateY(${-tasma}px)`;
+      } else {
+        // **Taşmıyorsa ortala.** Düşünce daha yeni başladığında bir-iki satır
+        // oluyor ve kutu üç satırlık; içerik yukarıya yapışınca altında boş
+        // bir şerit kalıyordu, kullanıcı bunu bildirdi. Artan yer ikiye
+        // bölünüyor.
+        delete kap.dataset.tasiyor;
+        ic.style.transform = `translateY(${-tasma / 2}px)`;
+      }
     };
 
     olc();
