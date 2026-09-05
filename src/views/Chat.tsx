@@ -427,7 +427,7 @@ function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
  * Sarmalayıcı `<div>` **balonun içinde**: maske `.bub`'a konsaydı zemini de
  * maskelerdi ve baloncukta saydam bir çentik açılırdı.
  */
-export function MetinBloku({ text, live }: { text: string; live: boolean }) {
+function MetinBloku({ text, live }: { text: string; live: boolean }) {
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (

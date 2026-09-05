@@ -63,6 +63,11 @@ input:focus {
    * tanımlamıyoruz — üç değer var, arası yok. */
   outline: 2px solid var(--text);
   outline-offset: 2px;
+  /* Halka bir karede belirmesin, **yerine otursun**. Geçiş kuralı durumun
+   * kendi bloğunda: odaklanmamış öğenin `outline-offset`'i 0, o yüzden
+   * `:focus-visible`'a girerken 0'dan 2 px'e açılıyor. Çıkışta geçiş yok —
+   * odağı bırakan öğede oyalanan bir halka nerede olduğunu yanlış söyler. */
+  transition: outline-offset var(--dur-fast) var(--ease-out);
 }
 
 /* ── temel parçalar ──────────────────────────────────────────────── */

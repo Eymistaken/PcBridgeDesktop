@@ -26,25 +26,16 @@ derse **başka bir şey sormadan** şunu yap:
 
    ⚠️ **Sıradaki aşama belli değil.** Kullanıcıya ne yapmak istediğini sor;
    uydurma.
-4. 🎬 **"Animasyonlarla ilgili kısmı hallet" dendiğinde:** `YAPILACAKLAR.md`'de
-   **"Devinim geçişi — arayüzün animasyon katmanı"** başlığını oku, iş orada
-   ayrıntısıyla ve ölçütüyle yazılı. Kullanıcının 2026-09-04 isteği.
+4. ✅ **Devinim katmanı 2026-09-05'te bitti (Aşama 12).** Kullanıcının
+   *"her tuş basışında, her şeyinde yumuşak profesyonel kaliteli
+   animasyonlar"* isteği karşılandı: devinim tokenları, `:active`, çıkış
+   devinimi, düzen devinimi, akış maskesi, tema ve dil takası. Ayrıntı ve
+   bütün ölçümler [ASAMALAR.md](ASAMALAR.md) Aşama 12'de.
 
-   ⚠️ **Uygulama animasyonsuz DEĞİL** — 30 geçiş, 4 keyframe ve bir
-   `prefers-reduced-motion` bloğu zaten var (sayıldı). Boşluk başka: çıkış
-   devinimi **sıfır**, `:active` **sıfır**, ve süreler tokensız — yedi ayrı
-   sayı elle yazılmış. Var olanı ikinci kez yazma.
+   ⛔ **Terminal kapsam dışı kaldı, tamamı** — kullanıcının kararı.
+   ⛔ **View Transition API** WebKitGTK'da **var** ama kullanılmadı;
+   gerekçesi Aşama 12'de.
 
-   Kullanıcı boşlukları **tek tek saydı** ve hepsi kodda doğrulanıp
-   "Kullanıcının saydığı somut boşluklar" başlığına (a)–(h) diye yazıldı.
-   ⚠️ **Token akışı** "CSS ekle" ile çözülmüyor: bugünkü mimari token başına
-   DOM düğümü vermiyor, blok bütün olarak yeniden çiziliyor. **Yol seçildi —
-   açığa çıkarma maskesi** (`mask-image`, opaklık).
-
-   ⛔ **Terminal kapsam dışı, tamamı.** Kullanıcının kararı: *"terminal
-   sonuçta animasyon olmaz."* Ne tuval, ne bölme kabuğu, ne ızgara.
-
-   Arayüz işi olduğu için **yasak kapsamında değil** (madde 5).
 5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
@@ -60,7 +51,7 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on bir aşama da bitti.**
+7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on iki aşama da bitti.**
    O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
    bitince oraya bir aşama olarak taşınır.
 8. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
@@ -191,6 +182,42 @@ Artboard'lar Google Fonts `<link>`'i kullanır çünkü onlar web sayfası.
 paketten gelir — açılışta ağa bağlanılmaz ve Tauri CSP'sinde
 `fonts.googleapis.com` deliği açılmaz. CSS aile adları paketin ilan ettiği
 adlardır: **`"Geist Sans"`** ve `"Geist Mono"` (`"Geist"` değil).
+
+### Devinim — Aşama 12'de kuruldu
+
+Süre ve easing **role göre** adlandırılır, sayıya göre değil; elle yazılmış
+süre kalmadı (`grep`'le sabitleniyor).
+
+```css
+--dur-tap: 70ms    /* basma */      --ease-out: cubic-bezier(0.22,0.61,0.36,1)
+--dur-fast: 120ms  /* hover·renk */ --ease-in:  cubic-bezier(0.55,0,1,0.45)
+--dur-base: 180ms  /* giriş·çıkış */--ease-inout: cubic-bezier(0.32,0.72,0,1)
+--dur-slow: 300ms  /* kayan·düzen */
+--dur-pulse: 1.6s  /* durum ritmi */
+```
+
+**Basma yüzey kademesidir**, ölçeklenme değil: `:active`'te öğe kendi hover
+yönünde bir kademe daha ilerler, hover tavandaysa bir kademe iner. Basma
+`--dur-tap` ile girer, bırakma `--dur-fast` ile döner — asimetri kasıtlı.
+⚠️ **İkincil metin taşıyan öğe `--surface-2`'ye çıkmaz** (orada
+`--text-muted` 4.07:1); onlar yukarı değil aşağı gider.
+
+**Çıkış devinimi kütüphanesiz.** `src/lib/cikis.ts` sökümü geciktiriyor
+(`useCikis` · `useCikisIcerik` · `useCikisListesi`), kök öğeye `data-cikis`
+konuyor, CSS çıkış karelerini oradan tetikliyor. Kareler **çiftler hâlinde**
+ve ad gidiş yönünü söylüyor: `girisYukari` ↔ `cikisAsagi`.
+
+**Düzen devinimi** `src/lib/flip.ts` (FLIP, yalnızca `.side__list`) ve
+`Thinking.tsx`'te JS ölçümlü yükseklik geçişi.
+
+**Akan metnin ucu maskeyle soluk** (`src/lib/akis.ts`): son metin düğümünün
+ucu bir `Range` ile ölçülüp iki CSS değişkeni yazılıyor, maske iki katman ve
+`add` ile birleşiyor. Maske **balonun içine** konur — `.bub` üstünde zemini
+de maskeler ve baloncukta saydam bir çentik açar.
+
+**Tema ve dil kısa ömürlü sınıfla geçer** (`.tema-gecis`, `.dil-gecis`,
+`App.tsx`). Kalıcı bir `*` kuralı yasak; 180 ms yaşayan bir kural değil.
+⛔ Terminal tema geçişinin dışında (`.pane *`, `.xterm *`).
 
 ### Yasak
 
@@ -862,6 +889,42 @@ Yol boyunca elenen katmanlar — hepsi temiz çıktı:
   etkilemiyor ama ESC ile başlayan her diziyi (ok tuşları, Alt bileşimleri,
   TUI'lerde ESC) yarım saniye geciktiriyor. Sunucu ayarı, oturuma özgü
   değil — **kullanıcının kendi tmux'u**, bu depodan değiştirilmedi.
+
+### Devinim — 2026-09-05'te ölçüldü (Aşama 12)
+
+- ⚠️ **Tarayıcı bölmesi gizliyken viewport 0x0.** `40vh` sıfır çıkıyor,
+  `scrollHeight` saçmalıyor ve **geçişler hiç ilerlemiyor** —
+  `getComputedStyle` geçiş boyunca hep **başlangıç** değerini döndürüyor,
+  yani doğru bir CSS kuralı "uygulanmadı" gibi görünüyor. Bu bir kez yarım
+  saat yanlış yere baktırdı. Düzen ve devinim ölçümü **WebKitGTK'da**
+  yapılır; bölme yalnızca göze bakmak için.
+- **WebKitGTK 4.1'de ne var:** `document.startViewTransition` **var** ·
+  çok katmanlı `mask-image` ve `mask-composite: add` var · `color-mix()` var ·
+  `transition-behavior: allow-discrete` var · `Range` ile imleç dikdörtgeni
+  var. **`interpolate-size: allow-keywords` ve `calc-size()` YOK** — yani
+  `height: auto` CSS ile geçirilemiyor, düşünce kutusu JS ölçümüyle.
+- **`prefers-reduced-motion` GTK'nın `gtk-enable-animations` ayarından
+  geliyor.** Ölçüm emülasyonla değil onu kapatarak yapılır.
+- **`mask-composite`'in başlangıç değeri `add`** — iki katmanı birleşim gibi
+  toplamak için ek bir özellik yazmaya gerek yok.
+- **Akış maskesinin ölçülebilir bedeli yok.** Gerçek koşum kaydından
+  çıkarılan 948 parçalık token akışı yeniden oynatıldı (model koşturulmadan):
+  maske açık ortanca **11 ms**, kapalı **12 ms**, p95 ikisinde de 16 ms.
+- **Tema geçişinin bedeli var ama küçük:** geçişli ortanca **18 ms**, ani
+  takas **16 ms** — 180 ms boyunca kare başına ~2 ms.
+- ⚠️ **Yeni kurulan bir öğe geçiş oynatmaz.** Kip anahtarının kayan parçası
+  bir yıl boyunca hiç kaymadı: kip değişince bütün sol sütun sökülüp yeniden
+  kuruluyordu ve yeni öğenin önceki `transform`'u olmadığı için geçişin
+  başlangıç ucu yoktu. Kabuk (başlık + anahtar) `Shell`'e taşındı; ölçüm
+  0 → 38 (40 ms) → 123 (120 ms) → 137 (450 ms), takas boyunca aynı DOM düğümü.
+- ⚠️ **Listeden düşen öğenin farkı `useEffect`'te alınmaz.** Etki boyamadan
+  sonra çalıştığı için satır bir kare listeden düşüyor, altındakiler o karede
+  yukarı atlıyor, sonra geri kayıyordu (ölçüldü: 283 → 233 → 279). Fark
+  **çizim sırasında** alınır — React'in "props değişince durumu ayarla"
+  deseni.
+- **`data-cikis` `undefined` ile silinir, `false` ile değil.** React
+  `data-*`'a `false` yazınca `data-cikis="false"` çıkıyor ve `[data-cikis]`
+  seçicisi ona da uyuyor.
 
 ### Kontrast tablosu — hesaplandı, tahmin değil
 

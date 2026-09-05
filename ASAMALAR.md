@@ -944,6 +944,110 @@ birim testleriyle sınandı, prompt canlı `screen_info` ile doğrulandı, ama
   masaüstü, tablo okundu ve prompt üretildi.
 - `npm run tauri dev` 90 saniye ayakta, hata yok.
 
+## Aşama 12 — Devinim katmanı ✅ BİTTİ
+
+*2026-09-05.* Kullanıcının isteği: *"uygulamanın her tuş basışında, her
+şeyinde yumuşak profesyonel kaliteli animasyonlar."*
+
+**Uygulama animasyonsuz değildi** — 30 `transition`, 4 `@keyframes` ve bir
+`prefers-reduced-motion` bloğu vardı ve tutarlı bir fikri de vardı: *"Hepsi
+GİRİŞ devinimi."* Sorun tam olarak buydu — her şey yumuşak geliyor, hiçbir
+şey yumuşak gitmiyordu, ve basma anında hiçbir geri bildirim yoktu.
+
+### Ölçüm önce: motorda neyin olduğu
+
+⚠️ **Tarayıcı bölmesinde ölçmek yarım saat yanlış yere baktırdı.** Bölme
+gizliyken viewport **0x0** oluyor: `40vh` sıfır çıkıyor, `scrollHeight`
+saçmalıyor ve **geçişler hiç ilerlemiyor** — `getComputedStyle` geçiş
+boyunca hep başlangıç değerini döndürüyor, yani "kural uygulanmadı" gibi
+görünüyor. Düzen ve devinim ölçümü **WebKitGTK'da** yapılır (CLAUDE.md
+"Nasıl ölçülür" §1); bölme yalnızca göze bakmak için.
+
+`WebKit2 4.1` / `Version/60.5 Safari/605.1.15`'te ölçüldü:
+
+| | |
+|---|---|
+| `document.startViewTransition` | **var** — ama kullanılmadı |
+| çok katmanlı `mask-image`, `mask-composite: add` | var |
+| `interpolate-size: allow-keywords`, `calc-size()` | **YOK** |
+| `color-mix()`, `transition-behavior: allow-discrete` | var |
+| `Range` ile imleç dikdörtgeni | var |
+
+`interpolate-size` olmaması `height: auto`'yu CSS ile geçirilemez yapıyor —
+düşünce kutusu bu yüzden JS ölçümüyle. View Transition API **var ama
+kullanılmadı**: bütün belgeyi anlık görüntülüyor, canlı token akışı ve xterm
+tuvali varken bedeli belirsiz.
+
+### Ne yapıldı
+
+1. **Tokenlar.** Sekiz elle yazılmış süre ve üç easing → beş süre + üç easing
+   tokenı, rol adlarıyla. 27 bildirimin hepsi göç etti. İki eğri korundu:
+   kullanıcının "iyi olanın örneği" dediği kayan parça ve BotForge girişi
+   aynı hissi taşıyor.
+2. **`:active`** — sıfırdan 55 kurala. Ölçeklenme değil yüzey kademesi.
+   İkincil metin taşıyan hiçbir öğe `--surface-2`'ye çıkmıyor (orada
+   `--text-muted` 4.07:1).
+3. **Çıkış devinimi** — `src/lib/cikis.ts`, üç kanca, kütüphanesiz.
+4. **Düzen** — düşünce kutusu yüksekliği, `src/lib/flip.ts`, kip sütunu,
+   dibe kayma.
+5. **Akış maskesi, tema, dil, durum renkleri.**
+
+### Ölçülen üç yanlış — üçü de YAPILACAKLAR.md'yi düzeltti
+
+- **Menülerin girişi de yoktu.** Spec "açılış var, kapanış yok" diyordu;
+  `.picker__pop`, `.permmenu__pop` ve `.ctxmenu__pop` hiçbir `animation`
+  taşımıyordu. Menüler **iki yönde de** bir karede takılıyordu.
+- **Kayan parça hiç kaymıyordu.** Spec onu "çalışıyor" sayıyordu. Kip
+  değişince bütün sol sütun — başlık ve anahtar dahil — sökülüp yeniden
+  kuruluyor; yeni kurulan bir öğenin önceki `transform`'u olmadığı için
+  geçişin başlangıç ucu yok, parça **ışınlanıyordu**. Kabuk `Shell`'e
+  taşındı; ölçüm: 0 → 38 (40 ms) → 123 (120 ms) → 137 (450 ms), takas
+  boyunca **aynı DOM düğümü**.
+- **Süre sayısı sekizdi, yedi değil** — `.ctxbar__dolu`'nun `0.7s`'i
+  sayılmamıştı.
+
+### Kendi kodumuzda ölçümle yakalanan bir hata
+
+`useCikisListesi` farkı önce `useEffect`'te alıyordu. Etki boyamadan
+**sonra** çalıştığı için silinen satır bir kare listeden düşüyor,
+altındakiler o karede yukarı atlıyor, sonra etki satırı geri koyunca FLIP
+onları aşağı kaydırıyordu. Ölçüm: silmeden 30 ms sonra alttaki satır 283 px
+yerine **233 px**'te, 150 ms sonra 279'a geri. Fark artık **çizim sırasında**
+alınıyor (React'in "props değişince durumu ayarla" deseni) ve ara kare yok.
+
+### Doğrulama
+
+- **Elle yazılmış süre kalmadı:**
+  `grep -nE "(transition|animation)[^;]*[0-9]+m?s" src/styles/*.css` yalnızca
+  `prefers-reduced-motion` bloğunun `0.01ms`'ini döndürüyor.
+- **`:active` 55 kural; `transform: scale(` sıfır** (tek eşleşme yasağı
+  anlatan yorumda).
+- **Akış maskesinin bedeli yok.** Gerçek koşum kaydından çıkarılan 948
+  parçalık token akışı (`local-1a068c69c57-b0789a`) WebKitGTK'da yeniden
+  oynatıldı — model koşturulmadı:
+  maske açık ortanca **11 ms**, kapalı **12 ms** (p95 ikisinde de 16).
+- **Tema geçişinin bedeli ölçüldü, gizlenmedi:** geçişli ortanca **18 ms**,
+  ani takas **16 ms** — 180 ms boyunca kare başına ~2 ms.
+- **Düşünce kutusu gerçekten geçiyor:** 60,4 → 360 px; t=30 ms'de 113,
+  t=150 ms'de 350. Aşama 10'un düzeltmesi bozulmadı.
+- **Silme dizisi:** 0–180 ms satır solar ve kimse kımıldamaz, 180 ms söküm,
+  180–480 ms kalanlar kayar (283 → 228).
+- **`prefers-reduced-motion` gerçek motorda** (`gtk-enable-animations`
+  `false`, emülasyon değil): giriş devinimleri `0.00001s`, kayan parça
+  `0.00001s`, menü gecikmeden sökülüyor, akış maskesi hiç kurulmuyor
+  (değişken yazılmıyor, `mask-image: none`), düşünce kutusu kaymadan
+  yerleşiyor.
+- **İki temada gözle**, WebKitGTK'nın kendi widget görüntüsüyle: kanun
+  ihlali yok.
+- `npx tsc --noEmit` temiz, `npm run build` geçiyor.
+
+### Kapsam dışı bırakılan
+
+⛔ **Terminal, tamamı.** YAPILACAKLAR.md adım 3 "kapanan terminal bölmesi"ni
+sayıyordu ama adım 6 ve CLAUDE.md terminali tamamen dışarıda bırakıyor
+(*"terminal sonuçta animasyon olmaz"*). Kullanıcının sonraki kararı
+uygulandı; `.pane`'in `girisSoluk` girişi olduğu gibi duruyor.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

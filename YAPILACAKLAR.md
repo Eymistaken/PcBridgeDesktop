@@ -70,11 +70,16 @@ verilmemiş işi taşır. Buradaki bir madde ölçülüp bitince ASAMALAR.md'ye 
 > edildi — silinmedi, geçmişte duruyorlar. **Geri getirmek tek komut:**
 > `git revert <revert commit'i>`.
 >
-> Aşama 12 diye bir şey **yok**; ASAMALAR.md'de on bir aşama var.
+> Eklentiler bir aşama **değil**; ASAMALAR.md'deki Aşama 12 devinim katmanı.
 >
 > ⚠️ **Ama ölçümler duruyor** (aşağıda, "Geri alındı — ama bunlar ölçüldü").
 > Bu depoda kural ölçmediğini yazmamak; ölçtüğünü de atmamak. İş yeniden
 > ele alınırsa bunlar yeniden ölçülmesin.
+
+> ✅ **Aşama 12 (*Devinim katmanı*) 2026-09-05'te bitti** ve ASAMALAR.md'ye
+> taşındı. Tokenlar, `:active`, çıkış devinimi, düzen devinimi, akış maskesi,
+> tema ve dil takası. Üç yerde spec yanlış çıktı ve düzeltildi — özeti
+> aşağıda, "✅ KAPANDI: devinim katmanı".
 
 Sıradaki iş: **karar verilmemiş.** Koordinat ölçümü (yasak kalkınca) ve
 aşağıdaki "Bitmemiş kalan uçlar" dışında bekleyen bir taahhüt yok.
@@ -327,6 +332,53 @@ yaşattı).
   koşum yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
 
 ---
+
+# ✅ KAPANDI: devinim katmanı (Aşama 12, 2026-09-05)
+
+Kullanıcının *"her tuş basışında, her şeyinde yumuşak profesyonel kaliteli
+animasyonlar"* isteği **bitti**. Ayrıntı ve bütün ölçümler
+[ASAMALAR.md](ASAMALAR.md), **Aşama 12**. Burada yalnızca sonradan lazım
+olacaklar duruyor.
+
+## Bu spec üç yerde yanlıştı — kodda ölçüldü
+
+Yeniden okuyacak biri bunlara aldanmasın:
+
+1. **Menülerin girişi de yoktu.** Spec "açılış `girisAsagi`/`girisSoluk` ile
+   geliyor, kapanış yok" diyordu. `.picker__pop`, `.permmenu__pop` ve
+   `.ctxmenu__pop` hiçbir `animation` taşımıyordu — **iki yönde de** bir
+   karede takılıyorlardı.
+2. **Kayan parça hiç kaymıyordu.** Spec onu "çalışıyor, iyi olanın örneği"
+   sayıyordu. Kip değişince bütün sol sütun (başlık ve anahtar dahil)
+   sökülüp yeniden kuruluyordu; yeni kurulan öğenin önceki `transform`'u
+   olmadığı için parça ışınlanıyordu. Kabuk `Shell`'e taşındı.
+3. **Elle yazılmış süre sekizdi, yedi değil** — `.ctxbar__dolu`'nun `0.7s`'i
+   sayılmamıştı.
+
+## Ölçüm yöntemine dair — bir daha aynı tuzağa düşülmesin
+
+⚠️ **Tarayıcı bölmesi gizliyken viewport 0x0.** `40vh` sıfır çıkıyor,
+`scrollHeight` saçmalıyor ve **geçişler hiç ilerlemiyor** — `getComputedStyle`
+geçiş boyunca hep başlangıç değerini döndürüyor, yani doğru bir CSS kuralı
+"uygulanmadı" gibi görünüyor. Bu bir kez yarım saat yanlış yere baktırdı.
+Düzen ve devinim ölçümü **WebKitGTK'da** yapılır; bölme yalnızca göze bakmak
+için. Koşucu iskeleti CLAUDE.md "Nasıl ölçülür" §1'de.
+
+## Kapsam dışı kalanlar
+
+⛔ **Terminal, tamamı.** Kullanıcının kararı korundu.
+
+⛔ **View Transition API.** WebKitGTK 4.1'de **var** (varsayıldı değil,
+ölçüldü) ama kullanılmadı: bütün belgeyi anlık görüntülüyor ve canlı token
+akışı ile xterm tuvali varken bedeli belirsiz. Bir gün denenirse ölçümü
+buradan başlasın.
+
+## Açık kalan tek uç
+
+Devinim katmanı **gerçek bir koşumda** görülmedi — akış maskesi diskteki
+kayıttan yeniden oynatılarak ölçüldü, canlı modelle değil. Yerel model yasağı
+kalkınca bir koşum sırasında maskeye ve dibe kaymaya gözle bakmak iyi olur;
+ölçümler zaten yapıldı, bu yalnızca bir teyit.
 
 # Eklentiler (MCP kayıt defteri) — ⛔ ERTELENDİ
 
