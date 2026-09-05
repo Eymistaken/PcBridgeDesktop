@@ -2054,6 +2054,143 @@ pre.well {
   white-space: nowrap;
 }
 
+/* ── basma geri bildirimi ────────────────────────────────────────── */
+
+/*
+ * Kullanıcının en açık isteği buydu — "her tuş basışında" — ve karşılığı
+ * hiç yoktu: basmadan önce `:active` sayısı **sıfırdı**, yalnızca hover
+ * vardı. Tıklamak ekranda hiçbir iz bırakmıyordu.
+ *
+ * **Ölçeklenme değil yüzey kademesi.** `transform: scale()` bu arayüzün dili
+ * değil ve kanunda açıkça yasak. Basma, öğenin **kendi hover yönünde bir
+ * kademe daha** ilerler; hover zaten `--surface`'a çıkmışsa basma
+ * `--field`'a **iner**. Merdiven: `--field` → `--surface` → `--surface-2`.
+ *
+ * ⚠️ **`--text-muted` taşıyan hiçbir öğe `--surface-2`'ye çıkmaz** — orada
+ * 4.07:1 ile AA'nın altında (CLAUDE.md kontrast tablosu). `.row` ikincil
+ * satır taşıyor; o yüzden **seçili** satırın basması yukarı değil aşağı,
+ * `--field`'a gidiyor. Aynı sebeple `.permmenu__anahtar` ve
+ * `.permmenu__filtre` basılırken ikincil metinlerini `--text`'e yükseltiyor,
+ * tıpkı hover'da yaptıkları gibi.
+ *
+ * **Asimetri kasıtlı:** basma `--dur-tap` (70 ms) ile girer, bırakma
+ * `--dur-fast` (120 ms) ile döner. Süre yalnızca `:active` kuralında
+ * eziliyor; bırakınca taban kuralın süresi geri geliyor. "Tuş gerçekten
+ * bastı" hissi bu farktan geliyor.
+ *
+ * Bu blok dosyanın **sonunda**: `:active` ile `:hover` çoğu yerde eşit
+ * özgüllükte ve kararı kaynak sırası veriyor.
+ */
+
+/* Basma zemini olan ama hiç geçişi olmayan öğeler. */
+.row,
+.btn-quiet,
+.side__conn__ana,
+button.btn-fld {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+/* Hover'ı `--field`'da ya da saydamda duran öğeler: basma `--surface`'a
+ * çıkıyor. Hepsinin metni basılırken `--text` — muted orada 5.12:1. */
+.row:active,
+.picker__dugme--chip:active:not(:disabled),
+.permmenu__dugme:active:not(:disabled),
+.seg > button:active,
+.modesw > button:active {
+  background: var(--surface);
+}
+
+/* Hover'ı `--surface`; basma bir kademe daha yukarı. Dördünün de basma
+ * anındaki metni `--text` — `--surface-2` bu yüzden serbest (9.86:1). */
+.ib:active,
+button.btn-fld:active,
+.toolset__arac:active {
+  background: var(--surface-2);
+}
+
+/*
+ * ⚠️ **İkincil metin taşıyanlar yukarı çıkamaz.** `--text-muted`
+ * `--surface-2` üstünde 4.07:1 — AA'nın altında (CLAUDE.md kontrast
+ * tablosu). Bunlar hover'larından **aşağı** iniyor; fark hover ile basma
+ * arasında olduğu için geri bildirim yine net.
+ *
+ * `.ctxoneri` ve `.dbadge--on` metnini `--run`'dan alıyor: aydınlık temada
+ * `--run` `--surface-2` üstünde 4.05:1, o da altında. Aynı kapıdan
+ * geçiyorlar.
+ */
+.side__conn__ana:active,
+.btn-quiet:active,
+.picker__dugme:active:not(:disabled),
+.picker__sec:active,
+.permmenu__sec:active,
+.permmenu__anahtar:active,
+.permmenu__filtre:active,
+.ctxoneri:active,
+.dbadge:active:not(:disabled),
+.dusunce__baslik:active,
+.row[aria-selected="true"]:active {
+  background: var(--field);
+}
+
+.permmenu__anahtar:active .permmenu__ipucu,
+.permmenu__filtre:active .permmenu__sayac {
+  color: var(--text);
+}
+
+/* Zaten `--surface-2`'de duranlar: yukarısı yok, basma **dip** yapıyor. */
+.permmenu__sec[aria-checked="true"]:active,
+.toolset__arac[aria-pressed="true"]:active,
+.seg > button[aria-pressed="true"]:active,
+.toolset__hepsi:active,
+.ek__sil:active {
+  background: var(--surface);
+}
+
+/* Dolgu taşıyan birincil eylem: yüzey kademesi yok, dolgunun kendisi
+ * koyulaşıyor. Hover 0.86, basma 0.72 — aynı merdivenin devamı. */
+.btn-primary:active:not(:disabled),
+.composer__send:active:not(:disabled) {
+  opacity: 0.72;
+}
+
+/* Anahtarın rayı. Kapalıyken `--surface-2`'den `--line`'a iner, açıkken
+ * `--text` dolgusu bir tık zemine karışır — ikisi de renk katmıyor. */
+.tgl:active:not(:disabled) {
+  background: var(--line);
+}
+
+.tgl[data-on]:active:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 86%, var(--bg));
+}
+
+/* Basma **hızlı** girer; bırakınca taban kuralın `--dur-fast`'ı geri gelir. */
+.ib:active,
+.row:active,
+.side__conn__ana:active,
+.btn-quiet:active,
+button.btn-fld:active,
+.picker__sec:active,
+.picker__dugme:active,
+.permmenu__sec:active,
+.permmenu__dugme:active,
+.permmenu__anahtar:active,
+.permmenu__filtre:active,
+.ctxoneri:active,
+.dbadge:active,
+.seg > button:active,
+.modesw > button:active,
+.toolset__arac:active,
+.toolset__hepsi:active,
+.dusunce__baslik:active,
+.ek__sil:active,
+.btn-primary:active,
+.composer__send:active,
+.tgl:active {
+  transition-duration: var(--dur-tap);
+}
+
 /* ── devinim ─────────────────────────────────────────────────────── */
 
 /* Hepsi GİRİŞ devinimi. Hover'da zıplama ya da ölçeklenme yok — yasak
