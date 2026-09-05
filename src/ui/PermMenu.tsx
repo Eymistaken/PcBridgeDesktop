@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { IconBolt, IconCheck, IconShield } from "./Icon";
 import { mcpTools } from "../lib/ipc";
+import { useCikis } from "../lib/cikis";
 import { t } from "../lib/i18n";
 import { PERMISSIONS, TOOL_GROUPS, type Permission, type ToolGroup } from "../lib/types";
 
@@ -63,6 +64,8 @@ export default function PermMenu({
   const [acik, setAcik] = useState(false);
   const [sayilar, setSayilar] = useState<Record<ToolGroup, number>>();
   const kok = useRef<HTMLDivElement>(null);
+  // Menü kapanırken bir karede yok olmasın.
+  const { render: menuVar, cikiyor } = useCikis(acik);
 
   // Dışarı tıklama ve Esc kapatır.
   useEffect(() => {
@@ -104,8 +107,13 @@ export default function PermMenu({
 
   return (
     <div className="permmenu" ref={kok}>
-      {acik && (
-        <div className="permmenu__pop" role="menu" aria-label={t("perm.menu", { name: botName })}>
+      {menuVar && (
+        <div
+          className="permmenu__pop"
+          data-cikis={cikiyor || undefined}
+          role="menu"
+          aria-label={t("perm.menu", { name: botName })}
+        >
           {PERMISSIONS.map((k) => (
             <button
               key={k}

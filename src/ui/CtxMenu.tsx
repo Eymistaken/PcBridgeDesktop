@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { t } from "../lib/i18n";
+import { useCikis } from "../lib/cikis";
 import type { Dokum, RunCtx } from "../lib/types";
 
 interface Props {
@@ -52,6 +53,8 @@ export default function CtxMenu({
 }: Props) {
   const [acik, setAcik] = useState(false);
   const kok = useRef<HTMLDivElement>(null);
+  // Menü kapanırken bir karede yok olmasın.
+  const { render: menuVar, cikiyor } = useCikis(acik);
 
   useEffect(() => {
     if (!acik) return;
@@ -74,8 +77,13 @@ export default function CtxMenu({
 
   return (
     <div className="permmenu" ref={kok}>
-      {acik && (
-        <div className="permmenu__pop ctxmenu__pop" role="menu" aria-label={t("ctx.menu")}>
+      {menuVar && (
+        <div
+          className="permmenu__pop ctxmenu__pop"
+          data-cikis={cikiyor || undefined}
+          role="menu"
+          aria-label={t("ctx.menu")}
+        >
           <Kaynak baseUrl={baseUrl} agent={agent} />
           <Hiz tps={tps} ctx={ctx} />
 

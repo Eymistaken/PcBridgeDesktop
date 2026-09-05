@@ -2193,8 +2193,11 @@ button.btn-fld:active,
 
 /* ── devinim ─────────────────────────────────────────────────────── */
 
-/* Hepsi GİRİŞ devinimi. Hover'da zıplama ya da ölçeklenme yok — yasak
- * olan o; bir şeyin ilk belirişini yumuşatmak arayüzü okunur yapıyor. */
+/* Hover'da zıplama ya da ölçeklenme yok — yasak olan o; bir şeyin belirişini
+ * ve gidişini yumuşatmak arayüzü okunur yapıyor.
+ *
+ * Kareler **çiftler hâlinde**: adı gidiş yönünü söylüyor, o yüzden bir
+ * girişin aynası ters addaki çıkıştır — `girisYukari` ↔ `cikisAsagi`. */
 
 @keyframes girisYukari {
   from {
@@ -2211,6 +2214,29 @@ button.btn-fld:active,
 
 @keyframes girisAsagi {
   from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Çıkışlar. `--ease-in` ile oynarlar: giren yumuşak durur, çıkan hızlanarak
+ * gider — simetrik eğri kullanmak çıkışı "geri geliyor" gibi gösteriyordu. */
+
+@keyframes cikisSoluk {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cikisAsagi {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes cikisYukari {
+  to {
     opacity: 0;
     transform: translateY(-6px);
   }
@@ -2257,6 +2283,60 @@ button.btn-fld:active,
 /* Sistem panelindeki kartlar sırayla belirsin — hepsi aynı anda değil. */
 .main__body .card {
   animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
+/*
+ * Açılır yüzeyler. ⚠️ Bunların **girişi de yoktu** — YAPILACAKLAR.md
+ * "açılış girisAsagi/girisSoluk ile geliyor, kapanış yok" diyordu ama kodda
+ * ölçüldü: `.picker__pop`, `.permmenu__pop` ve `.ctxmenu__pop` hiçbir
+ * `animation` taşımıyordu. Menüler iki yönde de bir karede takılıyordu.
+ *
+ * Yön açılma yönünü izliyor: aşağı açılan menü yukarıdan iner, yukarı açılan
+ * (besteci altındakiler — aşağısı pencerenin dışı) aşağıdan çıkar.
+ */
+.picker__pop {
+  animation: girisAsagi var(--dur-base) var(--ease-out) both;
+}
+
+.picker__pop--up,
+.permmenu__pop,
+.ctxmenu__pop {
+  animation: girisYukari var(--dur-base) var(--ease-out) both;
+}
+
+/*
+ * ── çıkış ──
+ *
+ * `data-cikis` niteliğini `useCikis` (src/lib/cikis.ts) koyuyor: öğe
+ * sökülmeden önce devinim süresi kadar ekranda tutuluyor.
+ *
+ * Her satır kendi girişinin **aynası**. `--ease-in` çıkanı hızlandırıyor;
+ * giriş eğrisini geri oynatmak "geri geliyor" gibi görünüyordu.
+ */
+.scrim[data-cikis] {
+  animation: cikisSoluk var(--dur-base) var(--ease-in) both;
+}
+
+.scrim[data-cikis] > .forge,
+.scrim[data-cikis] > .card,
+.picker__pop[data-cikis],
+.ek[data-cikis] {
+  animation: cikisAsagi var(--dur-base) var(--ease-in) both;
+}
+
+.jobstrip[data-cikis],
+.permask[data-cikis],
+.row[data-cikis],
+.picker__pop--up[data-cikis],
+.permmenu__pop[data-cikis],
+.ctxmenu__pop[data-cikis] {
+  animation: cikisYukari var(--dur-base) var(--ease-in) both;
+}
+
+/* Giden öğe tıklanamaz: kapanış sırasında yakalanan tık, kapanmakta olan
+ * menünün satırını seçiyordu. */
+[data-cikis] {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

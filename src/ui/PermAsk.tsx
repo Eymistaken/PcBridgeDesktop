@@ -5,6 +5,8 @@ interface Props {
   istek: PendingPermission;
   botName: string;
   onAnswer: (allow: boolean) => void;
+  /** Kapanış devinimi sürerken `true` — `useCikis` söküme kadar bunu verir. */
+  cikiyor?: boolean;
 }
 
 /**
@@ -23,10 +25,10 @@ interface Props {
  * Onay **birincil eylem** ama renkli değil: `--text` dolgu, `--bg` metin.
  * Renk yalnızca kimlikten ve durumdan gelir; bir onay düğmesi ikisi de değil.
  */
-export default function PermAsk({ istek, botName, onAnswer }: Props) {
+export default function PermAsk({ istek, botName, onAnswer, cikiyor }: Props) {
   const tur = istek.kind === "tur";
   return (
-    <div className="permask">
+    <div className="permask" data-cikis={cikiyor || undefined}>
       <div className="permask__box">
         <div className="permask__ust">
           <span style={{ fontSize: 13.5, fontWeight: 500 }}>

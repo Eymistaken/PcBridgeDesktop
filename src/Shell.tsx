@@ -11,6 +11,7 @@ import Terminals from "./views/Terminals";
 import { IconRefresh } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
 import { botDraft } from "./lib/types";
+import { useCikisIcerik } from "./lib/cikis";
 import {
   answerPermission,
   botCtx,
@@ -120,6 +121,12 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
 
   const [forge, setForge] = useState<{ bot?: Bot }>();
   const [silinecek, setSilinecek] = useState<Bot>();
+
+  // Örtü katmanları kapanırken bir karede yok olmasın. İçerik de devinim
+  // boyunca korunuyor: `silinecek` `undefined` olur olmaz kartta gösterilecek
+  // ad kalmıyordu.
+  const { icerik: forgeIcerik, render: forgeVar, cikiyor: forgeCikiyor } = useCikisIcerik(forge);
+  const { icerik: silIcerik, render: silVar, cikiyor: silCikiyor } = useCikisIcerik(silinecek);
 
   const [mode, setModeState] = useState<Mode>(okuMode);
 
@@ -737,11 +744,12 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         )}
       </div>
 
-      {forge && (
+      {forgeVar && forgeIcerik && (
         <BotForge
           agents={snap.agents}
           defaultWorkdir={snap.defaultWorkdir}
-          bot={forge.bot}
+          bot={forgeIcerik.bot}
+          cikiyor={forgeCikiyor}
           onCancel={() => setForge(undefined)}
           onDone={(bot) => {
             setForge(undefined);
@@ -751,10 +759,16 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
         />
       )}
 
-      {silinecek && (
-        <div className="scrim" role="dialog" aria-modal="true" aria-label={t("del.title")}>
+      {silVar && silIcerik && (
+        <div
+          className="scrim"
+          data-cikis={silCikiyor || undefined}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("del.title")}
+        >
           <div className="card" style={{ width: 420, background: "var(--bg)" }}>
-            <span style={{ fontSize: 16, fontWeight: 600 }}>{t("del.ask", { name: silinecek.name })}</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>{t("del.ask", { name: silIcerik.name })}</span>
             <span className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
               {t("del.blurb")}
             </span>
@@ -762,7 +776,7 @@ export default function Shell({ snap, onSnap, theme, onTheme, lang, onLang, onAu
               <button type="button" className="btn-quiet" onClick={() => setSilinecek(undefined)}>
                 {t("del.cancel")}
               </button>
-              <button type="button" className="btn-primary" onClick={() => void sil(silinecek)}>
+              <button type="button" className="btn-primary" onClick={() => void sil(silIcerik)}>
                 {t("del.confirm")}
               </button>
             </div>

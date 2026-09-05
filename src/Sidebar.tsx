@@ -5,6 +5,7 @@ import ConnStrip from "./ui/ConnStrip";
 import ModeSwitch from "./ui/ModeSwitch";
 import { IconPencil, IconPlus, IconSearch, IconTrash } from "./ui/Icon";
 import { locale, t } from "./lib/i18n";
+import { useCikisListesi } from "./lib/cikis";
 import type { Bot, BotSummary, ConnSnapshot, DesktopState, Mode } from "./lib/types";
 
 interface Props {
@@ -55,20 +56,28 @@ export default function Sidebar({
 }: Props) {
   const [query, setQuery] = useState("");
 
+  // Silinen bot bir karede yok olmasın. **Süzülmemiş** listeye uygulanıyor:
+  // filtreyle düşen satırın beklemesi, arama kutusuna yazarken her tuşta
+  // takılan bir liste demek olurdu.
+  const kalanlar = useCikisListesi(bots, (b) => b.id);
+
   const filtered = useMemo(() => {
     const lc = locale();
     const q = query.trim().toLocaleLowerCase(lc);
     const liste = q
-      ? bots.filter(
-          (b) =>
+      ? kalanlar.filter(
+          ({ oge: b }) =>
             b.name.toLocaleLowerCase(lc).includes(q) ||
             b.agent.toLocaleLowerCase(lc).includes(q) ||
             b.workdir.toLocaleLowerCase(lc).includes(q),
         )
-      : [...bots];
+      : [...kalanlar];
     // En son hareket eden üstte — artboard'daki sıra.
-    return liste.sort((a, b) => (summaries[b.id]?.at ?? b.updatedAt) - (summaries[a.id]?.at ?? a.updatedAt));
-  }, [bots, query, summaries]);
+    return liste.sort(
+      (a, b) =>
+        (summaries[b.oge.id]?.at ?? b.oge.updatedAt) - (summaries[a.oge.id]?.at ?? a.oge.updatedAt),
+    );
+  }, [kalanlar, query, summaries]);
 
   return (
     <div className="side">
@@ -112,13 +121,14 @@ export default function Sidebar({
           </div>
         )}
 
-        {filtered.map((b) => {
+        {filtered.map(({ oge: b, cikiyor }) => {
           const s = summaries[b.id];
           const secili = b.id === selectedId;
           return (
             <div
               key={b.id}
               className="row"
+              data-cikis={cikiyor || undefined}
               role="option"
               tabIndex={0}
               aria-selected={secili}

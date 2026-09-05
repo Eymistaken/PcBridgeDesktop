@@ -23,6 +23,8 @@ interface Props {
   bot?: Bot;
   onDone: (bot: Bot) => void;
   onCancel: () => void;
+  /** Kapanış devinimi sürerken `true` — `useCikis` söküme kadar bunu verir. */
+  cikiyor?: boolean;
 }
 
 const BOS: Omit<BotDraft, "avatar" | "agent"> = {
@@ -52,6 +54,7 @@ export default function BotForge({
   bot,
   onDone,
   onCancel,
+  cikiyor,
 }: Props) {
   const ilkAjan = bot?.agent ?? agents.find((a) => a.available)?.id ?? agents[0]?.id ?? "";
   const [draft, setDraft] = useState<BotDraft>({
@@ -221,7 +224,13 @@ export default function BotForge({
       }, ${draft.workdir || "…"}, wait_seconds=0)`;
 
   return (
-    <div className="scrim" role="dialog" aria-modal="true" aria-label={bot ? t("forge.edit") : t("forge.new")}>
+    <div
+      className="scrim"
+      data-cikis={cikiyor || undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-label={bot ? t("forge.edit") : t("forge.new")}
+    >
       <div className="forge">
         <div className="forge__head">
           <span style={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.015em" }}>

@@ -5,6 +5,7 @@ import Avatar from "../ui/Avatar";
 import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import Markdown from "../ui/Markdown";
 import PermAsk from "../ui/PermAsk";
+import { useCikis, useCikisIcerik, useCikisListesi } from "../lib/cikis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
@@ -82,6 +83,15 @@ export default function Chat({
   const [ekler, setEkler] = useState<string[]>([]);
   const dip = useRef<HTMLDivElement>(null);
   const alan = useRef<HTMLTextAreaElement>(null);
+
+  // Besteci üstündeki üç şerit de kapanırken bir karede yok oluyordu.
+  // İzin sorusu ve koşum şeridi **içeriğini de** korumak zorunda: yanıt
+  // verilir verilmez `pending` düşüyor ve kart boşalırdı.
+  const { icerik: kosum, render: kosumVar, cikiyor: kosumCikiyor } = useCikisIcerik(running);
+  const { icerik: izin, render: izinVar, cikiyor: izinCikiyor } = useCikisIcerik(pending);
+  const { render: ozetVar, cikiyor: ozetCikiyor } = useCikis(compacting);
+  // Kaldırılan ek çipi de solarak gitsin.
+  const ekListesi = useCikisListesi(ekler, (yol) => yol);
 
   // Yeni içerik gelince dibe kay.
   useEffect(() => {
@@ -182,25 +192,25 @@ export default function Chat({
         <div ref={dip} />
       </div>
 
-      {running && (
-        <div className="jobstrip">
+      {kosumVar && kosum && (
+        <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
           <div className="jobstrip__box">
             <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
             <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {running.label}
+              {kosum.label}
             </span>
             <span className="mono muted" style={{ fontSize: 12, flex: "none" }}>
-              {running.jobId}
+              {kosum.jobId}
             </span>
             <div style={{ flexGrow: 1 }} />
-            <Elapsed startedAt={running.startedAt} />
+            <Elapsed startedAt={kosum.startedAt} />
             <button
               type="button"
               className="ib"
               title={t("chat.stop")}
               aria-label={t("chat.stop")}
               style={{ width: 30, height: 30, background: "var(--surface)" }}
-              onClick={() => onCancel(running.jobId)}
+              onClick={() => onCancel(kosum.jobId)}
             >
               <IconStop />
             </button>
@@ -208,8 +218,8 @@ export default function Chat({
         </div>
       )}
 
-      {compacting && (
-        <div className="jobstrip">
+      {ozetVar && (
+        <div className="jobstrip" data-cikis={ozetCikiyor || undefined}>
           <div className="jobstrip__box">
             <span className="dot dot--pulse" style={{ background: "var(--run)" }} />
             <span style={{ fontSize: 13.5, fontWeight: 500 }}>{t("ctx.compacting")}</span>
@@ -217,19 +227,20 @@ export default function Chat({
         </div>
       )}
 
-      {pending && (
+      {izinVar && izin && (
         <PermAsk
-          istek={pending}
+          istek={izin}
+          cikiyor={izinCikiyor}
           botName={bot.name}
-          onAnswer={(allow) => onAnswer(pending.runId, allow)}
+          onAnswer={(allow) => onAnswer(izin.runId, allow)}
         />
       )}
 
       <div className="composer">
         {ekler.length > 0 && (
           <div className="ekler">
-            {ekler.map((yol) => (
-              <span key={yol} className="ek" title={yol}>
+            {ekListesi.map(({ oge: yol, cikiyor }) => (
+              <span key={yol} className="ek" data-cikis={cikiyor || undefined} title={yol}>
                 <IconAttach size={13} color="var(--text-muted)" />
                 <span className="mono ek__ad">{dosyaAdi(yol)}</span>
                 <button

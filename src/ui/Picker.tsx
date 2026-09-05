@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { IconCheck } from "./Icon";
+import { useCikis } from "../lib/cikis";
 
 export interface Secenek {
   value: string;
@@ -56,6 +57,8 @@ export default function Picker({
 }: Props) {
   const [acik, setAcik] = useState(false);
   const kok = useRef<HTMLDivElement>(null);
+  // Liste kapanırken bir karede yok olmasın; söküm devinim kadar gecikiyor.
+  const { render: listeVar, cikiyor } = useCikis(acik);
 
   useEffect(() => {
     if (!acik) return;
@@ -95,9 +98,10 @@ export default function Picker({
         <IconChevron acik={acik} />
       </button>
 
-      {acik && (
+      {listeVar && (
         <div
           className={up ? "picker__pop picker__pop--up" : "picker__pop"}
+          data-cikis={cikiyor || undefined}
           role="listbox"
           aria-label={ariaLabel}
         >
