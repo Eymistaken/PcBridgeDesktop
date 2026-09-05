@@ -2356,6 +2356,118 @@ button.btn-fld:active,
   pointer-events: none;
 }
 
+/*
+ * ── akan metnin ucu ──
+ *
+ * Token'lar bir anda sertçe var oluyordu. Maske metnin **son birkaç
+ * karakterini** soluk bırakıyor; imleç ilerledikçe arkada kalanlar tam
+ * opaklığa çıkıyor, yani okuma yönünde — soldan sağa — bir açığa çıkarma.
+ *
+ * **İki katman, birleştirme `add`** (başlangıç değeri, ek özellik gerekmiyor).
+ * Toplama burada **birleşim** gibi çalışıyor:
+ *   1. yatay — imlecin 3.5 em solundan itibaren opaklık 0.25'e iniyor
+ *   2. dikey — son satırın üstünde 1, altında 0
+ * Toplandığında yalnızca "son satır VE imlecin yakını" soluk kalıyor;
+ * önceki satırların hepsi tam opak. Tek katmanla bu bölge tarif edilemiyor:
+ * yatay bir gradyan bütün satırların sağını soldururdu.
+ *
+ * ⚠️ Maske **balonun kendisine değil iç sarmalayıcıya** konuyor. `.bub`
+ * üstünde olsaydı zemini de maskelerdi ve baloncukta saydam bir çentik
+ * açılırdı — maske öğenin boyamasının tamamına uygulanıyor.
+ *
+ * Renk yok, yalnızca opaklık: "gradyan yok" kanunu çiğnenmiyor.
+ * Değişkenler yokken (`--akis-x` yazılmamışsa) maske hiçbir şeyi
+ * soldurmuyor — `100%` yedeği bloğun sonuna düşüyor.
+ */
+.akis--canli {
+  mask-image:
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(var(--akis-x, 100%) - 3.5em),
+      rgb(0 0 0 / 0.25) var(--akis-x, 100%),
+      rgb(0 0 0 / 0.25) 100%
+    ),
+    linear-gradient(to bottom, #000 0, #000 var(--akis-y, 100%), rgb(0 0 0 / 0) var(--akis-y, 100%));
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(var(--akis-x, 100%) - 3.5em),
+      rgb(0 0 0 / 0.25) var(--akis-x, 100%),
+      rgb(0 0 0 / 0.25) 100%
+    ),
+    linear-gradient(to bottom, #000 0, #000 var(--akis-y, 100%), rgb(0 0 0 / 0) var(--akis-y, 100%));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .akis--canli {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}
+
+/*
+ * ── tema ve dil takası ──
+ *
+ * **Tema.** `applyTheme` yalnızca `<html data-theme>` niteliğini değiştiriyor
+ * ve `tokens.css`'teki değişkenler anında takas oluyordu — bütün uygulama bir
+ * karede zıplıyordu. CSS değişkenlerinin kendisi geçmiyor; geçen şey onları
+ * **tüketen** özellikler.
+ *
+ * Kural **kısa ömürlü bir sınıfın içinde**: `App` tema değişirken `<html>`'e
+ * `.tema-gecis` koyuyor ve `--dur-base` sonra kaldırıyor. Kalıcı bir
+ * `* { transition: background-color … }` hem bir başarım tuzağı hem de her
+ * hover'ı ağırlaştırırdı — yasak olan oydu; 180 ms yaşayan bir kural o iki
+ * bedelin ikisini de taşımıyor.
+ *
+ * ⛔ **Terminal dışarıda.** xterm binlerce span çiziyor; onları renk
+ * geçirmeye zorlamak hem pahalı hem de terminal bu işin kapsamı dışında.
+ */
+.tema-gecis *,
+.tema-gecis *::before,
+.tema-gecis *::after {
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    fill var(--dur-base) var(--ease-out),
+    stroke var(--dur-base) var(--ease-out) !important;
+}
+
+.tema-gecis .pane *,
+.tema-gecis .xterm * {
+  transition: none !important;
+}
+
+/*
+ * **Dil.** `setActiveLang` + yeniden çizim; metin bir karede değişiyordu.
+ * Tema kadar göze batmıyor ama aynı ailedendir ve aynı usulle çözülüyor:
+ * kısa ömürlü bir sınıf.
+ *
+ * ⚠️ Ayrı bir kare adı **gerekiyor**: `.main` ve `.side__list` zaten
+ * `girisSoluk` taşıyor ve aynı adı yeniden atamak devinimi baştan
+ * başlatmıyor. `key` ile yeniden kurmak da olmazdı — bestecideki yarım
+ * kalan metni ve ekleri silerdi.
+ */
+@keyframes takasSoluk {
+  from {
+    opacity: 0;
+  }
+}
+
+.dil-gecis .main,
+.dil-gecis .side__search,
+.dil-gecis .side__list,
+.dil-gecis .side__conn {
+  animation: takasSoluk var(--dur-base) var(--ease-out) both;
+}
+
+/* Durum rengi atlamasın: nokta `--run` → `--ok` → `--fail` arasında geçiyor. */
+.dot {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

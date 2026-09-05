@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Onboarding from "./Onboarding";
 import Shell from "./Shell";
 import { connect, endpoint as fetchEndpoint, hasToken } from "./lib/ipc";
 import { applyTheme, readTheme } from "./lib/theme";
+import { devinimSuresi } from "./lib/cikis";
 import { readLang, setActiveLang, t, writeLang, type Lang } from "./lib/i18n";
 import type { ConnError, ConnSnapshot, Theme } from "./lib/types";
 
@@ -42,9 +43,55 @@ export default function App() {
    * (ölçüldü) — düğme seçili görünüyor ama ekran değişmiyor. Buradaki etki
    * her render'da doğruyu geri koyuyor, yani ayrışma kendini onarıyor.
    */
+  /**
+   * Tema **yumuşak** takas olsun.
+   *
+   * `applyTheme` yalnızca niteliği değiştiriyor ve tokenlar anında yer
+   * değiştiriyordu — bütün uygulama bir karede zıplıyordu. `<html>`'e kısa
+   * ömürlü bir sınıf konuyor; geçişi yalnızca o sınıf varken açan kural
+   * `app.css`'te.
+   *
+   * **İlk çizimde konmuyor:** açılışta kaydedilmiş temayı uygulamak bir
+   * "geçiş" değil, başlangıç durumu — uygulama açılırken soluklanmamalı.
+   */
+  const ilkTema = useRef(true);
   useEffect(() => {
+    if (ilkTema.current) {
+      ilkTema.current = false;
+      applyTheme(theme);
+      return;
+    }
+    const kok = document.documentElement;
+    kok.classList.add("tema-gecis");
     applyTheme(theme);
+    const zamanlayici = window.setTimeout(
+      () => kok.classList.remove("tema-gecis"),
+      devinimSuresi() + 40,
+    );
+    return () => {
+      window.clearTimeout(zamanlayici);
+      kok.classList.remove("tema-gecis");
+    };
   }, [theme]);
+
+  /** Dil değişince içerik soluklanarak takas olsun — aynı usul, ayrı sınıf. */
+  const ilkDil = useRef(true);
+  useEffect(() => {
+    if (ilkDil.current) {
+      ilkDil.current = false;
+      return;
+    }
+    const kok = document.documentElement;
+    kok.classList.add("dil-gecis");
+    const zamanlayici = window.setTimeout(
+      () => kok.classList.remove("dil-gecis"),
+      devinimSuresi() + 40,
+    );
+    return () => {
+      window.clearTimeout(zamanlayici);
+      kok.classList.remove("dil-gecis");
+    };
+  }, [lang]);
 
   const start = useCallback(async () => {
     try {

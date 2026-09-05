@@ -42,7 +42,7 @@ export function useCikis(acik: boolean, sure?: number): { render: boolean; cikiy
     const zamanlayici = window.setTimeout(() => {
       setCikiyor(false);
       setRender(false);
-    }, sure ?? cikisSuresi());
+    }, sure ?? devinimSuresi());
     return () => window.clearTimeout(zamanlayici);
   }, [acik, render, sure]);
 
@@ -114,7 +114,7 @@ export function useCikisListesi<T>(
 
   useEffect(() => {
     if (gidenler.length === 0) return;
-    const zamanlayici = window.setTimeout(() => setGidenler([]), sure ?? cikisSuresi());
+    const zamanlayici = window.setTimeout(() => setGidenler([]), sure ?? devinimSuresi());
     return () => window.clearTimeout(zamanlayici);
   }, [gidenler, sure]);
 
@@ -140,7 +140,7 @@ let onbellek: number | null = null;
  * bakılmasa öğe görünmez hâlde 180 ms boyunca ekranda durur ve kapanma
  * gecikmeli hissedilirdi. Bu bir erişilebilirlik gereği, tercih değil.
  */
-function cikisSuresi(): number {
+export function devinimSuresi(): number {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
   if (onbellek !== null) return onbellek;
   const ham = getComputedStyle(document.documentElement).getPropertyValue("--dur-base").trim();

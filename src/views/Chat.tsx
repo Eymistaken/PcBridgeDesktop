@@ -6,6 +6,7 @@ import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import Markdown from "../ui/Markdown";
 import PermAsk from "../ui/PermAsk";
 import { useCikis, useCikisIcerik, useCikisListesi } from "../lib/cikis";
+import { useAkisMaskesi } from "../lib/akis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
@@ -418,17 +419,31 @@ function TurnView({ turn, live }: { turn: Turn; live: boolean }) {
   );
 }
 
-function BlockView({ block, live }: { block: Block; live: boolean }) {
-  if (block.t === "text") {
-    // Ajanın metni markdown olarak çiziliyor: model kalın yazmaya, liste ve
-    // tablo kurmaya çalışıyor ve ham `**` ekranda duruyordu.
-    return (
-      <div style={{ display: "flex" }}>
-        <div className="bub" style={{ background: "var(--surface)" }}>
-          <Markdown text={block.text} />
+/**
+ * Ajanın metni. Markdown olarak çiziliyor: model kalın yazmaya, liste ve
+ * tablo kurmaya çalışıyor ve ham `**` ekranda duruyordu.
+ *
+ * Akış sürerken metnin ucu maskeyle soluk kalıyor — `useAkisMaskesi`.
+ * Sarmalayıcı `<div>` **balonun içinde**: maske `.bub`'a konsaydı zemini de
+ * maskelerdi ve baloncukta saydam bir çentik açılırdı.
+ */
+export function MetinBloku({ text, live }: { text: string; live: boolean }) {
+  const kap = useRef<HTMLDivElement>(null);
+  useAkisMaskesi(kap, text, live);
+  return (
+    <div style={{ display: "flex" }}>
+      <div className="bub" style={{ background: "var(--surface)" }}>
+        <div ref={kap} className={live ? "akis--canli" : undefined}>
+          <Markdown text={text} />
         </div>
       </div>
-    );
+    </div>
+  );
+}
+
+function BlockView({ block, live }: { block: Block; live: boolean }) {
+  if (block.t === "text") {
+    return <MetinBloku text={block.text} live={live} />;
   }
 
   if (block.t === "thinking") {
