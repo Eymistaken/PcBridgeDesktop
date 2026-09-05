@@ -26,13 +26,24 @@ derse **başka bir şey sormadan** şunu yap:
 
    ⚠️ **Sıradaki aşama belli değil.** Kullanıcıya ne yapmak istediğini sor;
    uydurma.
-4. ✅ **Devinim katmanı 2026-09-05'te bitti (Aşama 12).** Kullanıcının
-   *"her tuş basışında, her şeyinde yumuşak profesyonel kaliteli
-   animasyonlar"* isteği karşılandı: devinim tokenları, `:active`, çıkış
-   devinimi, düzen devinimi, akış maskesi, tema ve dil takası. Ayrıntı ve
-   bütün ölçümler [ASAMALAR.md](ASAMALAR.md) Aşama 12'de.
+4. ✅ **Aşama 13–19 2026-09-05'te bitti.** Kullanıcının "arayüz kırılgan,
+   animasyonlar kötü, bot sistemi hoşuma gitmedi, terminal sistemi kötü"
+   listesi kapandı. Ayrıntı ve bütün ölçümler
+   [ASAMALAR.md](ASAMALAR.md)'de; özetle:
 
-   ⛔ **Terminal kapsam dışı kaldı, tamamı** — kullanıcının kararı.
+   - **Session katmanı:** bir bot artık bir sohbet değil, bir **asistan**.
+     `Bot.sessions`, her session'ın **kendi bağlamı**. Bota tıklamak yeni
+     session açıyor; session ilk mesajla doğuyor.
+   - **Floating besteci:** arkasındaki `--bg` şeridi kalktı, sohbet
+     bestecinin altından akıyor, kenar nötr maskeyle soluyor.
+   - **Kip geçişindeki kasma ölçülerek kapandı:** en uzun kare 91 → 17 ms,
+     33 ms'yi aşan kare 5/338 → **0/530**.
+   - **Terminal bölme ağacı:** sınırsız bölme, sürüklenebilir ayraçlar,
+     gri başlıktan tutup takas.
+   - **Ayarlar ve BotForge** bölümlendi/sekmelendi.
+
+   ⛔ **Terminal İÇİ devinim hâlâ kapsam dışı** — kullanıcının kararı.
+   Devinen şey bölme *çerçevesi*; `.pane *` / `.xterm *` dokunulmuyor.
    ⛔ **View Transition API** WebKitGTK'da **var** ama kullanılmadı;
    gerekçesi Aşama 12'de.
 
@@ -51,9 +62,9 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on iki aşama da bitti.**
-   O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş
-   bitince oraya bir aşama olarak taşınır.
+7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on dokuz aşama da
+   bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
+   yeni iş bitince oraya bir aşama olarak taşınır.
 8. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
@@ -71,6 +82,17 @@ gerçek terminal ızgarası.
   token'ı isteme, okumaya çalışma.
 - **Bot, uygulamanın kendi JSON'unda yaşar** (`~/.config/pcbridge-desktop/bots.json`).
   `[agents.*]` bloğu yazma yeteneği bilinçli olarak yok.
+- **Bir bot bir sohbet değil, bir asistan.** Yapılandırma (model, araç
+  filtresi, izin kipi, çalışma dizini) **botta**, işler **`Session`'larda**.
+  Bağlamın sınırı session'dır: `agent::gecmis_in` yalnızca bir session'ın
+  `jobs`'ını okuyor ve iki session birbirinin geçmişini hiç görmez. Botun
+  ayarları session'a **kopyalanmaz** — aynı işi yapan iki denetim bu depoda
+  bir kez ölü kaldı.
+  `Bot.jobs` ve `Bot.session_id` artık **göç alanı**: okunur, yazılmaz, ilk
+  kayıtta diskten düşer. Yeni kod onlara asla yazmaz.
+- **Olay yükleri `sessionId` taşır.** Aynı botun iki session'ı paralel
+  koşabiliyor; yalnızca `botId`'ye bakan bir süzgeç açık ekrana ötekinin
+  token'larını yazar.
 - **Botun `backend` alanı koşumu kimin yürüttüğünü söyler**
   (`pcbridge-agent` | `yerel-model`). Ama **yönlendirme buna bakmaz**, koşum
   kimliğinin önekine bakar: `local-…` bizim (`runs.rs`), `%Y%m%d-%H%M%S-…`
@@ -109,6 +131,14 @@ gerçek terminal ızgarası.
   monitörü zaten yazıyordu, `screen_capture` dönüşüm formülünü zaten veriyordu,
   model her tıklamadan sonra görüntü zaten alıyordu — üçü de dinlenmedi.
   Kaldıraç ya kararı modelden almak ya da eylemi engellemek.
+- **Terminal bölme sayısında sınır YOK.** Dörtlü sınır bir ön yüz
+  sözleşmesiydi (`slice(0, 4)`) ve beşinci oturumu **sessizce yutuyordu**;
+  Rust'ta hiç olmadı (`pty.rs` sınırsız `HashMap`). Düzen bir ağaç
+  (`src/lib/agac.ts`), `panes: string[]` değil.
+- **Yükseklik geçişi tek yerde:** `src/lib/yukseklik.ts`. WebKitGTK'da
+  `calc-size()` yok, `height: auto` CSS'ten geçirilemiyor. Düşünce kutusu,
+  besteci, katlanır session listesi ve BotForge sekmeleri aynı yardımcıyı
+  kullanıyor — dört kopya er geç ayrışırdı.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Nötr Kabuk"

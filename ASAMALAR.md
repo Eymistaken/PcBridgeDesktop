@@ -1048,6 +1048,141 @@ sayıyordu ama adım 6 ve CLAUDE.md terminali tamamen dışarıda bırakıyor
 (*"terminal sonuçta animasyon olmaz"*). Kullanıcının sonraki kararı
 uygulandı; `.pane`'in `girisSoluk` girişi olduğu gibi duruyor.
 
+## Aşama 13 — Yenileme tuvali ✅ BİTTİ
+
+Kod yazmadan önce yeniden tasarlanan yedi ekran, `design/tuval/` altında.
+Palet ve ölçüler `tokens.css`'ten birebir; değişen renk değil **bilgi
+mimarisi.** Tuval: https://claude.ai/code/artifact/b3bdd8a8-4040-49f5-8723-fdefab2829f3
+
+Kullanıcının kararı: **besteci Seçenek B** — tek/iki satırda stadyum, üçüncü
+satırda 20px karta dönüşüp düğmeler kendi sırasına iniyor.
+
+Tarayıcıda ölçülerek düzeltilen iki şey: kenar çubuğu artboard'u 486 px
+kırpıyordu; `.modesw>span` seçicisi kayan parçayı da yakalayıp
+`position:absolute`'u eziyordu (parça ızgara hücresi oluyor, ikinci etiket
+alt satıra düşüyordu).
+
+## Aşama 14 — Session katmanı ✅ BİTTİ
+
+**Bir bot bir sohbet değil.** Bot bir asistan: yapılandırması kendisinde,
+işleri `Session`'larda. Her session'ın kendi koşum listesi ve **kendi
+bağlamı** var; ikisi birbirinin geçmişini hiç görmez.
+
+- `bots::Session { id, title, jobs, session_id, created_at, updated_at }`
+- `Bot.jobs` ve `Bot.session_id` **göç alanı** oldu — okunur, yazılmaz,
+  `skip_serializing_if` ile ilk kayıtta diskten düşer. Göç `read_store`'da,
+  tek yerde; ilk göç eden yazmadan önce `bots.json.oncesi` bırakılıyor.
+- `gecmis_in` / `ozetleme_gerek_in` / `ozetle_in` artık `&Session` alıyor.
+  Denetim noktası mantığı aynı; değişen tek şey taradığı liste.
+- `kos` session'ı **diskten taze** okuyor: `record_job` az önce bu koşumu
+  eklemişti, `baslat`'ta klonlanan `bot` onu görmüyordu.
+- Olay yükleri `sessionId` taşıyor. Aynı botun iki session'ı paralel
+  koşabiliyor; yalnızca `botId`'ye bakan süzgeç açık ekrana ötekinin
+  token'larını yazardı.
+- `send_message` `sessionId` almazsa session'ı **açıp** kimliğini dönüyor —
+  "yeni session" ayrı bir eylem değil, ilk mesajla doğuyor.
+
+**Ölçüldü:** gerçek `bots.json` (4 bot, 13 koşum) üstünde uçtan uca göç —
+yedek yazıldı, koşum kaybı yok, ikinci okuma idempotent, yedek ezilmiyor.
+Üç göç testi ve session yalıtımı testi **dişli**: eski davranış geri konunca
+kırmızıya dönüyorlar.
+
+## Aşama 15 — Session arayüzü ✅ BİTTİ
+
+Bota tıklamak son sohbete dönmüyor, **yeni bir session** açıyor.
+
+- `views/SessionHome.tsx` — avatar, ad, besteci; altında son session kartları,
+  arama ve "daha fazla göster"
+- `Sidebar` — bot satırının altında katlanır session listesi (ilk dört + "N
+  session daha"), arama session başlıklarını da kapsıyor
+- `ui/Composer.tsx` — besteci `Chat`'ten çıkarıldı, iki yerde kullanılıyor
+- `lib/yukseklik.ts` — yükseklik geçişi tek yerde (üç yerde gerekiyordu)
+
+**Ölçülerek bulunan iki hata:** `transition: border-radius, padding` konunca
+`[data-cok]` kuralı **uygulanmıyor gibi görünüyordu** (bu ölçüm sonradan
+yanlış çıktı, bkz. Aşama 16); ve `yukseklikAyarla` ölçüyü döndürmüyordu —
+yükseklik geçiş hâlindeyken `scrollHeight` ara değer veriyor ve "çok satır
+mı" kararı bir kare geriden alınıyordu.
+
+## Aşama 16 — Floating besteci, oturan düşünce kutusu ✅ BİTTİ
+
+- **Ölü alan bitti.** Koşum şeridi, izin kartı ve besteci tek bir yüzen
+  `.altlik`'te; sohbet arkalarından akıyor, alt kenarı nötr maskeyle soluyor.
+  Ayrılan boşluk altlığın **ölçülen** yüksekliği kadar (`--besteci-h`).
+- **Düşünce kutusu oturuyor.** Kapalı hâl `height: calc(3*1.55*13px)` idi —
+  kesirli (60,45px) ve koşulsuz; bir satırlık düşünce kutunun ortasında asılı
+  kalıyordu. Artık `max-height: 60px`, kutu içeriğe kadar küçülüyor. Açık
+  hâlin `min-height`'ı kalktı. Metin açılırken beliriyor.
+- **Akışta bütün sohbet yeniden ayrıştırılmıyor:** `Markdown` ve `TurnView`
+  memoize; `.bub`'un giriş devinimi `[data-yeni]`ye daraltıldı.
+
+**Ölçülerek bulunan iki hata:** `scrollIntoView` işaretçiyi kabın kenarına
+hizalayıp besteci için ayrılan dolguyu görünürün dışında bırakıyordu (son
+mesaj bestecinin arkasında); ve besteci büyüyünce sohbet dibe geri
+çekilmiyordu (dört satırda son baloncuk 136 px arkada).
+
+⚠️ **Ölçüm tuzağı, ikinci kez:** tarayıcı bölmesi gizliyken devinim saati
+donuyor. Aşama 15'te bestecinin geçiş kuralı bu yüzden yanlış tanılanıp
+kaldırılmıştı; asıl motorda geçişin oynadığı görüldü (9999px → 1049px → 20px)
+ve kural geri kondu. `scripts/olc-webkit.py` eklendi.
+
+## Aşama 17 — Kip geçişindeki kasma ✅ BİTTİ
+
+**Sebep:** `.main` `key` ile zorla yeniden kuruluyordu; terminale her
+geçişte dört `Term` sıfırdan doğuyordu — hepsi kayan parçanın 300 ms'lik
+geçişiyle aynı pencerede.
+
+**Çözüm:** iki kip de bağlı kalıyor, görünmeyen olan `.katman`'da bekliyor.
+`display: none` **kullanılmıyor** (gizli kapta viewport 0x0, `fit()` bozulur).
+Terminal ağacı ilk geçişte tembel kuruluyor.
+
+| | önce | sonra |
+|---|---|---|
+| ortanca kare | 16 ms | **11 ms** |
+| en uzun kare | **91 ms** | **17 ms** |
+| 33 ms'yi aşan | **5 / 338** | **0 / 530** |
+
+Yol boyunca: `lib/yukseklik.ts` **hareket azaltmayı onurlandırmıyordu**
+(geçişler satır içi `style.transition` ile kuruluyor ve CSS'in `@media`
+bloğuyla yarışıyor).
+
+## Aşama 18 — Terminal bölme ağacı ✅ BİTTİ
+
+`panes: string[]` yerine gerçek bir ağaç (`lib/agac.ts`): böl · kapat
+(kardeş ebeveynin yerine geçer) · takas · oran yaz. Hazır düzenler artık
+**ağaç üreticisi**; seçtikten sonra her ayraç yine sürüklenebiliyor.
+
+⚠️ **Dörtlü sınır kalktı.** Rust'ta hiçbir sınır yoktu; sınır tamamen ön yüz
+sözleşmesiydi ve beşinci oturumu **sessizce yutuyordu**.
+
+⚠️ **`pty://data` tek dinleyiciye indi** (`lib/ptybus.ts`). Rust yayın
+gönderiyor ve her `Term` kendi `listen`'ını kurup kendi olmayanı atıyordu —
+serbest bölme sayısında O(n²).
+
+Sürükleme HTML5 DnD kullanmıyor: `pointer` olaylarıyla hayalet, hedef
+vurgusu ve iptal denetim altında. Ayraç 14 px tutma alanı, 2 px çizgi.
+
+**Ölçüldü:** "sağa böl" → 5 bölme · ayraç sürükleme ilk bölme 338 → 448 px ·
+takas `claude` ↔ `build` · kapatma 5 → 4 · eski `["a","b","c"]` üç yapraklı
+ağaca göçtü · 12 bölmelik düzen kuruluyor.
+
+## Aşama 19 — Sistem ayarları ve BotForge ✅ BİTTİ
+
+Palet, tipografi ve üç köşe değeri değişmedi — değişen **bilgi mimarisi.**
+
+- **Sistem ayarları:** sol bölüm listesi + sağ panel. Bölüm gövdeleri
+  599 · 153 · 257 · 317 · 193 · 308 px; eskiden toplamı 1827 px'lik tek
+  sütundu.
+- **BotForge:** dört sekme. Sekmeler farklı yükseklikte (242 ↔ 635 px) ve
+  örtü zıplıyordu; yükseklik `gecirYukseklik` ile geçiyor. Taslak sekme
+  değişiminde korunuyor.
+- **`ui/Seg.tsx`** — segmentli seçim kayan parçalı. Parçanın yeri
+  **ölçülüyor**: seçenekler farklı genişlikte.
+
+⚠️ **Dil artık ilk boyamadan ÖNCE ayarlanıyor.** `index.html` `lang="tr"`
+ile açılıyor ve `App`'in etkisi boyamadan sonra çalışıyordu; arayüz
+İngilizceyken o bir karede başlıklar "DESKTOP PERMİSSİON" diye çıkıyordu.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.
