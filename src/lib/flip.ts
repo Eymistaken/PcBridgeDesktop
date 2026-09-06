@@ -24,21 +24,25 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 export function useFlip(kap: RefObject<HTMLElement | null>): void {
   const onceki = useRef(new Map<string, number>());
 
-  // Bağımlılık listesi **yok**: sıra pek çok sebeple değişebiliyor (filtre,
-  // silme, özet güncellemesi). Her çizimden sonra bakmak, hangi durumun
-  // sırayı bozduğunu listelemeye çalışmaktan güvenilir.
+  // Inspect the ordered keys on each render. A size change already moves
+  // neighboring rows through layout; applying FLIP as well makes them bounce.
   useLayoutEffect(() => {
     const kok = kap.current;
     if (!kok) return;
     const azalt = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const yeni = new Map<string, number>();
+    const children = Array.from(kok.querySelectorAll<HTMLElement>("[data-flip]"));
+    const oldKeys = [...onceki.current.keys()];
+    const keys = children.map((child) => child.dataset.flip).filter(Boolean);
+    const orderChanged = keys.length !== oldKeys.length ||
+      keys.some((key, index) => key !== oldKeys[index]);
 
-    for (const cocuk of Array.from(kok.querySelectorAll<HTMLElement>("[data-flip]"))) {
+    for (const cocuk of children) {
       const anahtar = cocuk.dataset.flip;
       if (!anahtar) continue;
       const ust = cocuk.offsetTop;
       yeni.set(anahtar, ust);
-      if (azalt) continue;
+      if (azalt || !orderChanged) continue;
 
       const eski = onceki.current.get(anahtar);
       if (eski === undefined || eski === ust) continue;
@@ -53,5 +57,16 @@ export function useFlip(kap: RefObject<HTMLElement | null>): void {
     }
 
     onceki.current = yeni;
+
+    // Keep the baseline current throughout session height transitions and
+    // resizes, so the next actual reorder starts from the settled positions.
+    const observer = new ResizeObserver(() => {
+      onceki.current = new Map(children.flatMap((child) =>
+        child.dataset.flip ? [[child.dataset.flip, child.offsetTop] as const] : [],
+      ));
+    });
+    observer.observe(kok);
+    for (const child of children) observer.observe(child);
+    return () => observer.disconnect();
   });
 }

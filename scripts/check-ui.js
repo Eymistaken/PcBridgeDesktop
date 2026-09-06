@@ -65,6 +65,32 @@ await test('session collapse: native pointer and keyboard', async () => {
   assert(selected===1,'Bot row no longer opens a new session');
   return {selectionCallbacks:selected,collapsedHeight:0};
 });
+await test('session expansion moves the next bot without bouncing', async () => {
+  const second = {...bot, id:'second', name:'Second'};
+  const props = {bots:[bot,second],summaries:{},selectedId:bot.id,sessions:[{id:'one',title:'Existing session',running:false}],selectedSession:'one',snap:{endpoint:'http://localhost',agents:[],toolCount:0},desktop:{unlocked:false},waiting:[],onSelect:()=>{},onSelectSession:()=>{},onOpenSystem:()=>{},onToggleDesktop:()=>{},onEdit:()=>{},onDelete:()=>{},onDeleteSession:()=>{}};
+  await render(h(Sidebar, props));
+  const positions=[];
+  for (let cycle=0; cycle<4; cycle++) {
+    const row=host.querySelector('[data-flip="second"]');
+    const frames=[];
+    let sampling=true;
+    const sample=()=>{frames.push(row.getBoundingClientRect().y);if(sampling)requestAnimationFrame(sample);};
+    requestAnimationFrame(sample);
+    await click(host.querySelector('[aria-controls="sessions-test"]'));
+    // Normal summary renders must not restart or add a second animation.
+    for(let tick=0;tick<3;tick++){root.render(h(Sidebar,{...props,summaries:{test:{at:1,line:String(tick)}}}));await wait(35);}
+    await wait(650);sampling=false;
+    const direction=cycle%2===0?-1:1;
+    const reversals=frames.slice(1).filter((y,i)=>(y-frames[i])*direction < -1).length;
+    positions.push({cycle,reversals,start:frames[0],end:frames.at(-1)});
+  }
+  assert(positions.every(p=>p.reversals===0),JSON.stringify(positions));
+  // A genuine order change still animates the surviving rows.
+  root.render(h(Sidebar,{...props,bots:[second,bot],summaries:{}}));await wait(80);
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches) assert([...host.querySelectorAll('[data-flip]')].some(el=>el.getAnimations().length>0),'Reordering lost its animation');
+  await wait(650);
+  return positions;
+});
 await test('empty terminal centered at multiple widths', async () => {
   const offsets=[];
   for(const width of [700,1000,1350]) {

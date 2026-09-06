@@ -1234,6 +1234,22 @@ Run with the Vite development server active:
 cargo test --manifest-path src-tauri/Cargo.toml --lib close_preserves_tmux_sessions -- --ignored --nocapture
 ```
 
+## Aşama 21 — Prevent neighboring bots from bouncing during session collapse
+
+Verified on 2026-09-06 in WebKitGTK. The earlier collapse test contained only
+one bot and did not observe the following row. The new regression uses two
+bots, four collapse/expand operations, and summary updates during motion.
+
+The session height transition already moves neighboring rows. FLIP was also
+applying a translation from its previous render's position, adding a second
+motion and reversing the row's direction. FLIP now runs only when ordered
+item keys change. A ResizeObserver keeps its position baseline current during
+height changes so a subsequent real reorder starts from the correct place.
+
+Before the fix, each of four movements reversed direction once. Afterward,
+all four had **0 reversals**. Actual bot reordering still animates. The seven
+UI regression scenarios and the production build passed. No model was run.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.
