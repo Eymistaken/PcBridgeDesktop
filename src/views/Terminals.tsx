@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useCallback, useMemo, useRef, useState } from "react";
 
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
@@ -26,7 +26,7 @@ interface Props {
   view: TerminalsView;
   /** Bölme ağacı — `null` ise hiç bölme yok. */
   agac: Dugum | null;
-  onAgac: (a: Dugum | null) => void;
+  onAgac: Dispatch<SetStateAction<Dugum | null>>;
   onReload: () => void;
 }
 
@@ -67,7 +67,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
       if (!agac) return;
       // Bölmeyi kapatmak oturumu **ÖLDÜRMEZ**.
       await ptyClose(session).catch(() => {});
-      onAgac(kapat(agac, bolmeId));
+      onAgac((current) => current ? kapat(current, bolmeId) : null);
       onReload();
     },
     [agac, onAgac, onReload],
@@ -80,7 +80,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
    */
   const tutmaBasla = useCallback(
     (e: React.PointerEvent, bolmeId: string, ad: string) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || (e.target as Element).closest("button")) return;
       const hedefEl = e.currentTarget as HTMLElement;
       hedefEl.setPointerCapture(e.pointerId);
       let basladi = false;
@@ -201,7 +201,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
 
       <div className="agac" ref={kok}>
         {agac === null ? (
-          <div className="chat__bos">
+          <div className="chat__bos agac__bos">
             <span style={{ fontSize: 14, fontWeight: 500 }}>
               {t("panes.empty")}
             </span>

@@ -40,7 +40,7 @@ const SEKMELER: Sekme[] = ["kimlik", "motor", "araclar", "calisma"];
 
 const BOS: Omit<BotDraft, "avatar" | "agent"> = {
   name: "",
-  backend: "pcbridge-agent",
+  backend: "yerel-model",
   model: null,
   effort: null,
   workdir: "",
@@ -94,6 +94,11 @@ export default function BotForge({
   const [yerelModeller, setYerelModeller] = useState<ModelInfo[]>([]);
   const [araclar, setAraclar] = useState<McpTool[]>([]);
   const [aracHata, setAracHata] = useState<string>();
+  const [modelError, setModelError] = useState<string>();
+  const [toolsLoading, setToolsLoading] = useState(true);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [toolsAttempt, setToolsAttempt] = useState(0);
+  const [modelsAttempt, setModelsAttempt] = useState(0);
   /// Varsayılan araç kümesi bir kez uygulanır; kullanıcı hepsini bilerek
   /// kapatırsa geri gelmemeli.
   const varsayilanKonuldu = useRef(false);
@@ -130,35 +135,43 @@ export default function BotForge({
   const model = agent?.models.find((m) => m.id === draft.model) ?? null;
   const efforts = model?.efforts ?? [];
 
-  // Yerel arka uç seçilince model listesi ve araçlar gerekiyor. Sunucu
-  // kapalıysa liste boş kalır ve form bunu açıkça söyler — sessizce
-  // boş bir açılır menü göstermez.
+  // These requests are independent: an offline model server must not hide
+  // tools returned successfully by pcbridge.
   useEffect(() => {
     if (!yerel) return;
-    let iptal = false;
-    void (async () => {
-      try {
-        const [m, a] = await Promise.all([modelModels(), mcpTools()]);
-        if (iptal) return;
-        setYerelModeller(m);
-        setAraclar(a);
-        setAracHata(undefined);
+    let cancelled = false;
+    setModelsLoading(true);
+    setModelError(undefined);
+    void modelModels().then((models) => {
+      if (!cancelled) setYerelModeller(models);
+    }).catch((e) => {
+      if (!cancelled) setModelError(detailText(e));
+    }).finally(() => {
+      if (!cancelled) setModelsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [yerel, modelsAttempt]);
 
-        // Yeni bir botta okuma araçları açık başlar; yazma ve masaüstü
-        // kapalı. Bir bota yazma aracı vermek ayrı ve bilinçli bir eylem.
-        if (!bot && !varsayilanKonuldu.current) {
-          varsayilanKonuldu.current = true;
-          const okuma = a.filter((x) => x.group === "read").map((x) => x.name);
-          setDraft((d) => (d.tools.length === 0 ? { ...d, tools: okuma } : d));
-        }
-      } catch (e) {
-        if (!iptal) setAracHata(detailText(e));
+  useEffect(() => {
+    if (!yerel) return;
+    let cancelled = false;
+    setToolsLoading(true);
+    setAracHata(undefined);
+    void mcpTools().then((tools) => {
+      if (cancelled) return;
+      setAraclar(tools);
+      if (!bot && tools.length > 0 && !varsayilanKonuldu.current) {
+        varsayilanKonuldu.current = true;
+        const read = tools.filter((tool) => tool.group === "read").map((tool) => tool.name);
+        setDraft((current) => current.tools.length === 0 ? { ...current, tools: read } : current);
       }
-    })();
-    return () => {
-      iptal = true;
-    };
-  }, [yerel]);
+    }).catch((e) => {
+      if (!cancelled) setAracHata(detailText(e));
+    }).finally(() => {
+      if (!cancelled) setToolsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [yerel, toolsAttempt]);
 
   // Ajan değişince o ajanda olmayan model/effort taşınmamalı.
   // Yerel yolda ajan ağacı geçersiz: kaskad hiç çalışmamalı, yoksa
@@ -426,9 +439,12 @@ export default function BotForge({
                     onChange={modelSec}
                   />
                   <span className="muted" style={{ fontSize: 11.5 }}>
-                    {aracHata ??
+                    {modelsLoading ? t("forge.modelsLoading") : modelError ??
                       t("forge.modelsFrom", { n: yerelModeller.length })}
                   </span>
+                  {!modelsLoading && (modelError || yerelModeller.length === 0) && (
+                    <button type="button" className="btn-quiet" onClick={() => setModelsAttempt((n) => n + 1)}>{t("forge.retry")}</button>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 16 }}>
@@ -566,9 +582,14 @@ export default function BotForge({
               {yerel && (
                 <div className="grp">
                   <span className="lbl">{t("forge.tools")}</span>
+                  {toolsLoading && <span className="muted" role="status">{t("forge.toolsLoading")}</span>}
+                  {aracHata && <span className="muted" role="alert">{aracHata}</span>}
+                  {!toolsLoading && (aracHata || araclar.length === 0) && (
+                    <button type="button" className="btn-quiet" onClick={() => setToolsAttempt((n) => n + 1)}>{t("forge.retry")}</button>
+                  )}
                   {araclar.length === 0 ? (
                     <span className="muted" style={{ fontSize: 12.5 }}>
-                      {t("forge.toolsUnavailable")}
+                      {!toolsLoading && !aracHata ? t("forge.toolsUnavailable") : null}
                     </span>
                   ) : (
                     <div className="toolset">
@@ -640,78 +661,81 @@ export default function BotForge({
                   )}
                 </div>
               )}
-              <div className="grp">
-                <span className="lbl">{t("forge.permission")}</span>
-                <Seg
-                  esit
-                  value={draft.permission}
-                  ariaLabel={t("forge.permission")}
-                  options={PERMISSIONS.map((k) => ({
-                    value: k,
-                    label: t(`perm.${k}`),
-                  }))}
-                  onChange={(k) => setDraft({ ...draft, permission: k })}
-                />
-                <span
-                  className="muted"
-                  style={{ fontSize: 11.5, lineHeight: 1.5 }}
-                >
-                  {t(`perm.${draft.permission}.hint`)}
-                </span>
-                {bosSerbest.length > 0 && (
-                  <div className="permgap">
-                    <span className="permgap__metin">
-                      {t("forge.permGap", {
-                        groups: bosSerbest
-                          .map((g) => t(`forge.toolGroup.${g}`))
-                          .join(", "),
-                      })}
-                    </span>
+              {!yerel && <p className="muted">{t("forge.agentPermissions")}</p>}
+              {yerel && (
+                <div className="grp">
+                  <span className="lbl">{t("forge.permission")}</span>
+                  <Seg
+                    esit
+                    value={draft.permission}
+                    ariaLabel={t("forge.permission")}
+                    options={PERMISSIONS.map((k) => ({
+                      value: k,
+                      label: t(`perm.${k}`),
+                    }))}
+                    onChange={(k) => setDraft({ ...draft, permission: k })}
+                  />
+                  <span
+                    className="muted"
+                    style={{ fontSize: 11.5, lineHeight: 1.5 }}
+                  >
+                    {t(`perm.${draft.permission}.hint`)}
+                  </span>
+                  {bosSerbest.length > 0 && (
+                    <div className="permgap">
+                      <span className="permgap__metin">
+                        {t("forge.permGap", {
+                          groups: bosSerbest
+                            .map((g) => t(`forge.toolGroup.${g}`))
+                            .join(", "),
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        className="toolset__hepsi"
+                        onClick={() =>
+                          bosSerbest.forEach((g) => grupDegistir(g, true))
+                        }
+                      >
+                        {t("forge.toolGroup.all")}
+                      </button>
+                    </div>
+                  )}
+
+                  {/*
+                   * Kip ile aynı grupta: ikisi de "bu bot ne yapabilir" sorusunun
+                   * parçası. **Yalnızca masaüstü aracı seçilmiş botta** görünüyor —
+                   * masaüstüne erişemeyen bir botta hiçbir şey yapmaz ve okunmayan
+                   * bir anahtar bu depoda bir kez kullanıcıya izin verdiğini
+                   * sandırdı.
+                   */}
+                  {gruplar.desktop.some((x) => draft.tools.includes(x.name)) && (
                     <button
                       type="button"
-                      className="toolset__hepsi"
+                      role="switch"
+                      aria-checked={draft.forceWhenBusy}
+                      className="permmenu__anahtar"
+                      style={{ marginTop: 6 }}
                       onClick={() =>
-                        bosSerbest.forEach((g) => grupDegistir(g, true))
+                        setDraft({
+                          ...draft,
+                          forceWhenBusy: !draft.forceWhenBusy,
+                        })
                       }
                     >
-                      {t("forge.toolGroup.all")}
-                    </button>
-                  </div>
-                )}
-
-                {/*
-                 * Kip ile aynı grupta: ikisi de "bu bot ne yapabilir" sorusunun
-                 * parçası. **Yalnızca masaüstü aracı seçilmiş botta** görünüyor —
-                 * masaüstüne erişemeyen bir botta hiçbir şey yapmaz ve okunmayan
-                 * bir anahtar bu depoda bir kez kullanıcıya izin verdiğini
-                 * sandırdı.
-                 */}
-                {gruplar.desktop.some((x) => draft.tools.includes(x.name)) && (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={draft.forceWhenBusy}
-                    className="permmenu__anahtar"
-                    style={{ marginTop: 6 }}
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        forceWhenBusy: !draft.forceWhenBusy,
-                      })
-                    }
-                  >
-                    <span className="permmenu__metin">
-                      <span className="permmenu__ad">{t("forge.force")}</span>
-                      <span className="permmenu__ipucu">
-                        {t("forge.forceHint")}
+                      <span className="permmenu__metin">
+                        <span className="permmenu__ad">{t("forge.force")}</span>
+                        <span className="permmenu__ipucu">
+                          {t("forge.forceHint")}
+                        </span>
                       </span>
-                    </span>
-                    <span className="anahtar" aria-hidden="true">
-                      <span className="anahtar__top" />
-                    </span>
-                  </button>
-                )}
-              </div>
+                      <span className="anahtar" aria-hidden="true">
+                        <span className="anahtar__top" />
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 

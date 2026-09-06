@@ -56,22 +56,34 @@ export function gecirYukseklik(
   iz: YukseklikIzi,
   el: HTMLElement | null,
   sure: string = "var(--dur-slow)",
+  hedef?: number,
 ): (() => void) | undefined {
   const bas = iz.current;
   iz.current = null;
-  if (!el || bas === null || azaltilmis()) return;
+  if (!el || bas === null) return;
+  if (azaltilmis()) {
+    if (hedef !== undefined) el.style.height = `${hedef}px`;
+    return;
+  }
 
-  const son = el.getBoundingClientRect().height;
+  const son = hedef ?? el.getBoundingClientRect().height;
+  const finalHeight = hedef === undefined ? el.style.height : `${hedef}px`;
   // Bir pikselden küçük fark bir devinim değil; boşuna geçiş kurmayalım.
-  if (Math.abs(son - bas) < 1) return;
+  if (Math.abs(son - bas) < 1) {
+    if (hedef !== undefined) el.style.height = finalHeight;
+    return;
+  }
+
+  el.style.transition = "none";
 
   el.style.height = `${bas}px`;
   void el.offsetHeight; // yeniden akış: iki uç ayrı karelerde olmalı
   el.style.transition = `height ${sure} var(--ease-inout)`;
   el.style.height = `${son}px`;
 
-  const bitir = () => {
-    el.style.height = "";
+  const bitir = (event?: TransitionEvent) => {
+    if (event && (event.target !== el || event.propertyName !== "height")) return;
+    el.style.height = finalHeight;
     el.style.transition = "";
     el.removeEventListener("transitionend", bitir);
     window.clearTimeout(guvenlik);

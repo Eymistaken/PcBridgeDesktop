@@ -1422,6 +1422,7 @@ pre.well {
  * için akış sırasında sohbet düzeni oynamıyor.
  */
 .dusunce {
+  width: 74%;
   max-width: 74%;
   min-width: 0;
   padding-bottom: 11px;
@@ -1457,24 +1458,10 @@ pre.well {
   transition: transform var(--dur-fast) var(--ease-out);
 }
 
-/* Kapalı: tam üç satır. `line-height` 1.55 ve punto 13 → 3 × 20.15px.
- * Sabit yükseklik, çünkü akarken düzen oynamamalı.
- *
- * **Dikey dolgu yok.** Kaydırma miktarı `scrollHeight - clientHeight` ile
- * hesaplanıyor ve `clientHeight` dolguyu da sayıyor; alt dolgu buradayken
- * metin görünür alanın tamamen dışına itiliyordu. Alt boşluk kartın kendisinde
- * (`.dusunce`), açık hâlde de doğru yerde duruyor. */
-/*
- * Kapalı: **en fazla** üç satır — ama içerik kısaysa kutu ona oturuyor.
- *
- * ⚠️ Eskiden `height: calc(3 * 1.55 * 13px)` idi: hem kesirli (60,45px) hem
- * de koşulsuz. Bir satırlık düşünce 60px'lik kutunun ortasında asılı
- * kalıyordu ve kullanıcı bunu "tam oturaklı değil" diye bildirdi. Artık
- * `max-height`: kutu içeriğe kadar küçülüyor, tavan yine üç satır ve
- * **tam sayı** (3 × 20 = 60).
- */
+/* Height is measured by Thinking: content height capped at 60px when
+ * collapsed, 40vh when expanded. CSS must not clamp the intermediate frames
+ * of a closing transition. Padding stays horizontal for tail positioning. */
 .dusunce__kuyu {
-  max-height: 60px;
   padding: 0 16px;
   overflow: hidden;
 }
@@ -1490,22 +1477,8 @@ pre.well {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
 }
 
-/* Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor.
- *
- * **`min-height` kapalı hâlin ölçüsüyle aynı.** Kapalı kutu sabit üç satır;
- * `height: auto` tek başınayken üç satırdan kısa bir düşünceyi açmak kutuyu
- * **daraltıyordu** — kullanıcı "genişletince daralıyor" diye bildirdi. */
-/*
- * Açık: kendi kutusunda kaydırılıyor, sohbeti ele geçirmiyor.
- *
- * ⚠️ **`min-height` KALKTI.** Kapalı hâl sabit üç satırken, üç satırdan kısa
- * bir düşünceyi açmak kutuyu daraltıyordu ve `min-height` o yüzden
- * konmuştu. Kapalı hâl artık içeriğe oturduğu için daralma diye bir şey yok;
- * `min-height` tutulsaydı bu kez kısa düşünce **açılırken** 60px'e
- * genişleyip yine boşluk bırakırdı.
- */
+/* Expanded thoughts scroll inside their measured viewport. */
 .dusunce__kuyu--acik {
-  max-height: 40vh;
   overflow-y: auto;
   mask-image: none;
   -webkit-mask-image: none;
@@ -2204,6 +2177,14 @@ pre.well {
   padding: 0 24px 24px;
   min-height: 0;
   min-width: 0;
+}
+
+.agac__bos {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  justify-content: center;
+  margin: 0;
 }
 
 .dal {
@@ -3412,3 +3393,6 @@ button.btn-fld:active,
 .sysgov > *:nth-child(n + 3) {
   animation-delay: 60ms;
 }
+
+.session-panel { overflow: hidden; }
+.session-panel--collapsed { height: 0; }

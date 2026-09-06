@@ -81,6 +81,12 @@ export function toolVerb(tool: string): string {
 }
 
 const en: Record<string, string> = {
+  "side.toggleSessions": "Expand or collapse sessions for {name}",
+  "forge.modelsLoading": "Loading models…",
+  "forge.toolsLoading": "Loading tools…",
+  "forge.retry": "Try again",
+  "forge.agentPermissions": "This engine runs an external agent. Tool filters and permission settings here apply only to the local model engine. Select Local model in the Engine tab to manage them.",
+
   // ── açılış ──
   "boot.keyring": "Reading the keyring…",
 
@@ -505,6 +511,12 @@ const en: Record<string, string> = {
 };
 
 const tr: Record<string, string> = {
+  "side.toggleSessions": "{name} session listesini aç veya daralt",
+  "forge.modelsLoading": "Modeller yükleniyor…",
+  "forge.toolsLoading": "Araçlar yükleniyor…",
+  "forge.retry": "Yeniden dene",
+  "forge.agentPermissions": "Bu motor harici bir ajan çalıştırır. Buradaki araç filtresi ve izin ayarları yalnızca yerel model motorunda uygulanır. Yönetmek için Motor sekmesinden Yerel model seç.",
+
   "boot.keyring": "Anahtarlık okunuyor…",
 
   "welcome.blurb":

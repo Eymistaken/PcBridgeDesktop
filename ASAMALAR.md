@@ -1183,6 +1183,57 @@ Palet, tipografi ve üç köşe değeri değişmedi — değişen **bilgi mimari
 ile açılıyor ve `App`'in etkisi boyamadan sonra çalışıyordu; arayüz
 İngilizceyken o bir karede başlıklar "DESKTOP PERMİSSİON" diye çıkıyordu.
 
+## Aşama 20 — Session, thought streaming, bot tools, and terminal controls
+
+Verified on 2026-09-06 with WebKitGTK 4.1. No local model was started.
+
+- The session chevron is an independent button. Collapsing preserves the
+  selected conversation; Enter and Space toggle the list without selecting
+  a new session. Collapsed content is inert. Bot-row selection still starts
+  a new session.
+- The terminal empty state fills its own content area. Horizontal and vertical
+  center offsets were **0 px** at widths of 700, 1000, and 1350 px.
+- Thought streaming has one height observer and a stable width. A 130-part
+  stream at 22 ms intervals produced **111 height reversals before the fix,
+  0 afterward**. The baseline replay produced 110 (frame timing varies).
+  Width variation after the fix was **0 px**. Closing has intermediate
+  animation frames; reduced motion skips the transition.
+- New bot forms default to the local model engine. Existing bot engines and
+  tool choices are preserved. Model and tool requests have independent
+  loading, error, and retry states. An offline model server no longer hides
+  the tool list. External agents show an explanation instead of ineffective
+  permission controls.
+- Header buttons no longer start pointer capture. Native GDK input verified
+  closing one pane, splitting eight into nine, swapping by dragging, two
+  overlapping closes, closing all panes, and reopening. Functional tree
+  updates prevent delayed closes from restoring removed panes.
+
+**Regression evidence:** all six checks in `scripts/check-ui.py` failed with
+pre-fix sources and passed with the fixes. They also passed in all four
+light/dark and normal/reduced-motion combinations. Input passes through GDK
+and is trusted by WebKit; IPC is mocked, so these UI checks cannot run bots.
+Actual widget snapshots of the tool form and thought box were inspected.
+
+**Real terminal check:** the ignored `pty::tests::close_preserves_tmux_sessions`
+test invokes the real Rust close implementation with 1 and 8 uniquely named
+sessions. All sessions survived closure, had no attached client afterward,
+and could be attached again. The test removes only its own sessions.
+
+**Validation:** `npm run build` and both dictionaries (379 keys) passed;
+`cargo test --lib` passed 138 tests, with 7 explicitly ignored integration
+checks. The targeted real terminal test passed separately. Vite still reports
+its existing bundle-size advisory.
+
+Run with the Vite development server active:
+
+```sh
+/usr/bin/python3 scripts/check-ui.py
+/usr/bin/python3 scripts/check-ui.py --light
+/usr/bin/python3 scripts/check-ui.py --reduced
+/usr/bin/python3 scripts/check-ui.py --light --reduced
+cargo test --manifest-path src-tauri/Cargo.toml --lib close_preserves_tmux_sessions -- --ignored --nocapture
+```
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

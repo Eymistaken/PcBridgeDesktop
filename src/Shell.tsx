@@ -207,17 +207,16 @@ export default function Shell({
   useEffect(() => {
     if (mode === "terminals") setTerminalAcildi(true);
   }, [mode]);
-  const [agac, setAgacState] = useState<Dugum | null>(okuAgac);
+  const [agac, setAgac] = useState<Dugum | null>(okuAgac);
 
-  const setAgac = useCallback((a: Dugum | null) => {
-    setAgacState(a);
+  useEffect(() => {
     try {
-      if (a) localStorage.setItem(PANE_KEY, JSON.stringify(a));
+      if (agac) localStorage.setItem(PANE_KEY, JSON.stringify(agac));
       else localStorage.removeItem(PANE_KEY);
     } catch {
-      // Kalıcılık kaybolur ama uygulama çalışmaya devam eder.
+      // Persistence is optional; the in-memory layout remains usable.
     }
-  }, []);
+  }, [agac]);
 
   /** Açık bölmelerin oturum adları — kenar çubuğu bunu okuyor. */
   const panes = useMemo(() => oturumlar(agac), [agac]);

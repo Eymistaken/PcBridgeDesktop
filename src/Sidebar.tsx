@@ -76,6 +76,13 @@ export default function Sidebar({
   waiting,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const sessionPanel = useRef<HTMLDivElement>(null);
+  const sessionHeight = useRef<number | null>(null);
+  useLayoutEffect(
+    () => gecirYukseklik(sessionHeight, sessionPanel.current, "var(--dur-base)"),
+    [collapsed, selectedId],
+  );
 
   // Silinen bot bir karede yok olmasın. **Süzülmemiş** listeye uygulanıyor:
   // filtreyle düşen satırın beklemesi, arama kutusuna yazarken her tuşta
@@ -156,7 +163,7 @@ export default function Sidebar({
                 aria-selected={secili}
                 onClick={() => onSelect(b.id)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
+                  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
                     e.preventDefault();
                     onSelect(b.id);
                   }
@@ -241,20 +248,48 @@ export default function Sidebar({
                       </button>
                     </>
                   )}
-                  <IconChevron acik={secili} />
+                  <button
+                    type="button"
+                    className="ib"
+                    style={{ width: 30, height: 30 }}
+                    aria-label={t("side.toggleSessions", { name: b.name })}
+                    aria-expanded={secili && !collapsed.has(b.id)}
+                    aria-controls={secili ? `sessions-${b.id}` : undefined}
+                    disabled={!secili}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      olcOnce(sessionHeight, sessionPanel.current);
+                      setCollapsed((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(b.id)) next.delete(b.id);
+                        else next.add(b.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    <IconChevron acik={secili && !collapsed.has(b.id)} />
+                  </button>
                 </div>
               </div>
 
               {/* Session listesi — yalnızca açık botta. Bot satırı **yeni**
                * session açıyor; buradaki satırlar var olanı açıyor. */}
               {secili && (
-                <SessionListesi
-                  sessions={sessions}
-                  selected={selectedSession}
-                  onSelect={onSelectSession}
-                  onDelete={onDeleteSession}
-                  onNew={() => onSelect(b.id)}
-                />
+                <div
+                  id={`sessions-${b.id}`}
+                  ref={sessionPanel}
+                  inert={collapsed.has(b.id)}
+                  aria-hidden={collapsed.has(b.id)}
+                  className={collapsed.has(b.id) ? "session-panel session-panel--collapsed" : "session-panel"}
+                >
+                  <SessionListesi
+                    sessions={sessions}
+                    selected={selectedSession}
+                    onSelect={onSelectSession}
+                    onDelete={onDeleteSession}
+                    onNew={() => onSelect(b.id)}
+                  />
+                </div>
               )}
             </div>
           );
@@ -329,7 +364,7 @@ function SessionListesi({
             aria-selected={o.id === selected}
             onClick={() => onSelect(o.id)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
+              if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
                 e.preventDefault();
                 onSelect(o.id);
               }

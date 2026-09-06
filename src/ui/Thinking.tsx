@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
-import { gecirYukseklik, olcOnce, type YukseklikIzi } from "../lib/yukseklik";
+import { gecirYukseklik, type YukseklikIzi } from "../lib/yukseklik";
 import { t } from "../lib/i18n";
 
 interface Props {
@@ -41,104 +41,62 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
   // kalıyor ve kutuyu açmak onu **daraltıyordu**.
   const metin = text.trim();
 
-  // Kapalı kutuda son satırları göster: içeriği yukarı kaydır. `translateY`
-  // üstünde geçiş var, o yüzden yeni token gelince satırlar zıplamıyor akıyor.
-  //
-  // **Ölçüm düzene bağlı, tek seferlik değil.** Bir kez ölçmek yetmiyordu:
-  // ilk `useLayoutEffect`'te kap henüz sıfır genişlikteydi, `overflow-wrap`
-  // yüzünden her karakter ayrı satıra düşüyordu ve `scrollHeight` 7130px
-  // çıkıyordu — metin görünür alanın çok yukarısına itiliyor, kutu boş
-  // görünüyordu. `ResizeObserver` genişlik oturunca ve yazı tipi yüklenince
-  // yeniden ölçüyor.
+  // One observer owns height and scrolling. Token renders do not cancel an
+  // in-flight transition; only a different natural target retargets it.
+  const mode = useRef(acik);
+  mode.current = acik;
+  const streaming = useRef(live);
+  streaming.current = live;
+  const measure = useRef<() => void>(() => {});
+  const iz = useRef<number | null>(null) as YukseklikIzi;
+  const hasText = metin.length > 0;
   useLayoutEffect(() => {
     const kap = kaydirilan.current;
     const ic = govde.current;
     if (!kap || !ic) return;
-
-    const olc = () => {
-      if (acik) {
-        ic.style.transform = "";
-        delete kap.dataset.tasiyor;
-        return;
+    let target: number | undefined;
+    let cleanup: (() => void) | undefined;
+    const update = () => {
+      const contentHeight = ic.getBoundingClientRect().height;
+      const next = Math.min(contentHeight, mode.current ? window.innerHeight * 0.4 : 60);
+      if (next !== target) {
+        // Capture the presented height before finishing the previous transition.
+        const start = kap.getBoundingClientRect().height;
+        cleanup?.();
+        if (target === undefined) {
+          kap.style.height = `${next}px`;
+        } else {
+          iz.current = start;
+          cleanup = gecirYukseklik(iz, kap, "var(--dur-base)", next);
+        }
+        target = next;
       }
-      const tasma = ic.scrollHeight - kap.clientHeight;
-      if (tasma > 0) {
-        // Taşıyor: son satırlar görünsün diye içerik yukarı kayıyor.
-        kap.dataset.tasiyor = "1";
-        ic.style.transform = `translateY(${-tasma}px)`;
-      } else {
-        // **Taşmıyorsa hiçbir şey yapma.**
-        //
-        // ⚠️ Eskiden kutu her zaman tam üç satırdı ve kısa bir düşünce
-        // ortalanıyordu — kullanıcı bunu "tam oturaklı değil" diye bildirdi:
-        // bir satırlık düşünce 60px'lik bir kutunun ortasında asılı
-        // kalıyordu. Kutu artık **içeriğe kadar küçülüyor** (CSS'te sabit
-        // yükseklik yerine `max-height`), o yüzden ortalayacak boşluk yok.
-        delete kap.dataset.tasiyor;
+      const overflow = Math.max(0, contentHeight - next);
+      if (mode.current) {
         ic.style.transform = "";
+        delete kap.dataset.tasiyor;
+        if (streaming.current) kap.scrollTop = kap.scrollHeight;
+      } else {
+        kap.scrollTop = 0;
+        if (overflow > 0.5) kap.dataset.tasiyor = "1";
+        else delete kap.dataset.tasiyor;
+        ic.style.transform = overflow > 0.5 ? `translateY(${-overflow}px)` : "";
       }
     };
-
-    olc();
-    const gozcu = new ResizeObserver(olc);
-    gozcu.observe(ic);
-    gozcu.observe(kap);
-    return () => gozcu.disconnect();
-  }, [metin, acik]);
-
-  // Açıkken dibe yapış — akış sürerken okunan yer sonu olmalı.
-  useEffect(() => {
-    const kap = kaydirilan.current;
-    if (!kap || !acik || !live) return;
-    kap.scrollTop = kap.scrollHeight;
-  }, [metin, acik, live]);
-
-  /**
-   * Açılıp kapanma yükseklik geçişi taşısın — kutu bir karede açılıyordu.
-   *
-   * ⚠️ **CSS ile yapılamıyor:** kapalı hâl sabit yükseklikte, açık hâl
-   * `height: auto`. WebKitGTK 4.1'de `interpolate-size: allow-keywords` ve
-   * `calc-size()` **desteklenmiyor** (gerçek motorda ölçüldü), yani `auto`
-   * bir geçişin ucu olamıyor. O yüzden iki uç JS'te ölçülüp arası
-   * geçiriliyor.
-   *
-   * **Bitince satır içi yükseklik siliniyor.** Kalsaydı akış sürerken açık
-   * kutu büyümeyi bırakırdı — `auto` geri gelmeli.
-   *
-   * ⚠️ Aşama 10'un düzeltmesi burada bozulmuyor: kapalı hâlin sabit
-   * yüksekliğine ve açık hâlin aynı ölçüdeki `min-height`'ına dokunulmadı;
-   * bu kod yalnızca ikisinin **arasını** dolduruyor.
-   */
-  const iz = useRef<number | null>(null) as YukseklikIzi;
-  useLayoutEffect(() => gecirYukseklik(iz, kaydirilan.current), [acik]);
-
-  /**
-   * Akıştaki büyüme de yumuşak.
-   *
-   * Kapalı kutu artık içeriğe oturuyor, yani düşünce bir satırdan üçe
-   * çıkarken yükseklik iki kez zıplıyordu. `max-height` geçişi bunu
-   * çözmüyor (tavan sabit, değişen şey içerik), o yüzden açılma/kapanmayla
-   * **aynı yardımcı** kullanılıyor.
-   *
-   * Ölçü **çizimden önce** alınıyor: `useLayoutEffect` boyamadan önce
-   * çalışıyor ama React DOM'u zaten güncelledi, o yüzden bir önceki
-   * yüksekliği ref'te taşımak gerekiyor.
-   */
-  const akisIz = useRef<number | null>(null) as YukseklikIzi;
-  const sonMetin = useRef(metin);
-  useLayoutEffect(() => {
-    const kap = kaydirilan.current;
-    if (!kap) return;
-    if (acik || sonMetin.current === metin) {
-      sonMetin.current = metin;
-      akisIz.current = kap.getBoundingClientRect().height;
-      return;
-    }
-    sonMetin.current = metin;
-    const temizle = gecirYukseklik(akisIz, kap, "var(--dur-base)");
-    akisIz.current = kap.getBoundingClientRect().height;
-    return temizle;
-  }, [metin, acik]);
+    measure.current = update;
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(ic);
+    observer.observe(kap);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      cleanup?.();
+      measure.current = () => {};
+    };
+  }, [hasText]);
+  useLayoutEffect(() => measure.current(), [acik, live]);
 
   // **Boş düşünce hiç çizilmez.** `toBlocks` artık metinsiz olaydan blok
   // üretmiyor, ama diskteki eski `events.jsonl` kayıtları o olayları hâlâ
@@ -154,9 +112,6 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
           className="dusunce__baslik"
           aria-expanded={acik}
           onClick={() => {
-            // Eski yükseklik **sınıf değişmeden** okunuyor: düzen etkisi
-            // çalıştığında kutu zaten yeni ölçüsünde oluyor.
-            olcOnce(iz, kaydirilan.current);
             setAcik((a) => !a);
           }}
         >

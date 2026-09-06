@@ -361,6 +361,112 @@ pub fn attached_counts() -> HashMap<String, u32> {
 mod tests {
     use super::*;
 
+    /// Exercise the real close path without a model, token, or Tauri window.
+    #[tokio::test]
+    #[ignore = "creates and removes uniquely named tmux test sessions"]
+    async fn close_preserves_tmux_sessions() {
+        struct SessionGuard(Vec<String>);
+        impl Drop for SessionGuard {
+            fn drop(&mut self) {
+                for name in &self.0 {
+                    let _ = std::process::Command::new("tmux")
+                        .args(["kill-session", "-t", &format!("={name}")])
+                        .output();
+                }
+            }
+        }
+        fn tmux(args: &[&str]) -> std::process::Output {
+            std::process::Command::new("tmux")
+                .args(args)
+                .output()
+                .unwrap()
+        }
+        async fn attach(ptys: &Ptys, name: &str) -> Box<dyn portable_pty::Child + Send + Sync> {
+            let pair = NativePtySystem::default()
+                .openpty(PtySize {
+                    rows: 24,
+                    cols: 80,
+                    pixel_width: 0,
+                    pixel_height: 0,
+                })
+                .unwrap();
+            let mut command = CommandBuilder::new("tmux");
+            command.args(["attach-session", "-t", &format!("={name}")]);
+            command.env("TERM", "xterm-256color");
+            let child = pair.slave.spawn_command(command).unwrap();
+            drop(pair.slave);
+            let writer = pair.master.take_writer().unwrap();
+            ptys.inner.lock().await.insert(
+                name.to_owned(),
+                Pane {
+                    writer,
+                    master: pair.master,
+                    pid: child.process_id(),
+                    dur: Arc::new(AtomicBool::new(false)),
+                },
+            );
+            for _ in 0..40 {
+                let result = tmux(&[
+                    "display-message",
+                    "-p",
+                    "-t",
+                    &format!("{name}:"),
+                    "#{session_attached}",
+                ]);
+                if String::from_utf8_lossy(&result.stdout).trim() == "1" {
+                    return child;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            }
+            panic!("test client did not attach");
+        }
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut guard = SessionGuard(Vec::new());
+        for count in [1, 8] {
+            let ptys = Ptys::default();
+            let mut children = Vec::new();
+            for index in 0..count {
+                let name = format!(
+                    "pcbridge-close-{}-{stamp}-{count}-{index}",
+                    std::process::id()
+                );
+                assert!(tmux(&["new-session", "-d", "-s", &name, "-c", "/tmp"])
+                    .status
+                    .success());
+                guard.0.push(name.clone());
+                children.push((name.clone(), attach(&ptys, &name).await));
+            }
+            assert_eq!(ptys.acik_olanlar().await.len(), count);
+            for (name, child) in &mut children {
+                ptys.close(name).await;
+                child.wait().unwrap();
+                assert!(tmux(&["has-session", "-t", &format!("={name}")])
+                    .status
+                    .success());
+                let attached = tmux(&[
+                    "display-message",
+                    "-p",
+                    "-t",
+                    &format!("{name}:"),
+                    "#{session_attached}",
+                ]);
+                assert_eq!(String::from_utf8_lossy(&attached.stdout).trim(), "0");
+            }
+            assert!(ptys.acik_olanlar().await.is_empty());
+            let name = &children[0].0;
+            let mut reopened = attach(&ptys, name).await;
+            ptys.close(name).await;
+            reopened.wait().unwrap();
+            assert!(tmux(&["has-session", "-t", &format!("={name}")])
+                .status
+                .success());
+            println!("{count} panes closed; tmux sessions survived and reopened");
+        }
+    }
+
     #[test]
     fn gercek_tablo_ayristirilir() {
         // pcbridge'in 2026-09-02'de döndürdüğü çıktı.
