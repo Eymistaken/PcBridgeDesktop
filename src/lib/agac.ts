@@ -175,6 +175,22 @@ export type Duzen = "izgara" | "sutunlar" | "satirlar" | "ana";
  * Hazır düzenler **ağaç üreticisi**: seçildikten sonra kullanıcı yine
  * herhangi bir ayracı sürükleyebiliyor, bölebiliyor, takas edebiliyor.
  */
+/**
+ * Ağacın **kimliksiz** kanonik biçimi.
+ *
+ * Düğüm `id`'leri her kurulumda yeniden üretiliyor, o yüzden iki ağacı
+ * doğrudan karşılaştırmak hep "farklı" der. Bu biçim yalnızca yapıyı, yönü,
+ * oranı ve oturum adlarını taşıyor.
+ *
+ * Oran da içeride: bir ayracı sürükleyen kullanıcı hazır düzenden çıkmış
+ * olur ve arayüz "serbest" der. İstenen tam olarak bu.
+ */
+export function bicim(d: Dugum | null): string {
+  if (!d) return "";
+  if (d.t === "bolme") return `#${d.session}`;
+  return `(${d.yon}:${d.oran.toFixed(3)} ${bicim(d.a)} ${bicim(d.b)})`;
+}
+
 export function duzenKur(sessions: string[], duzen: Duzen): Dugum | null {
   const s = sessions.filter(Boolean);
   if (s.length === 0) return null;

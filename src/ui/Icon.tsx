@@ -76,59 +76,8 @@ export function IconCross({
   });
 }
 
-export function IconTerminal({
-  size = 18,
-  color = "var(--text-muted)",
-  strokeWidth = 1.6,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <rect x="2.5" y="3.5" width="15" height="13" rx="2.5" />
-      <path d="M6 8l2.5 2L6 12" />
-      <path d="M11 12.5h3" />
-    </>,
-    {
-      stroke: color,
-      strokeWidth,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-  );
-}
 
-export function IconRefresh({
-  size = 17,
-  color = "var(--text-muted)",
-  strokeWidth = 1.7,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <path d="M16.2 8.4A6.4 6.4 0 1 0 16.5 12" />
-      <path d="M16.5 4v4.5H12" />
-    </>,
-    {
-      stroke: color,
-      strokeWidth,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-  );
-}
 
-export function IconSend({
-  size = 17,
-  color = "var(--bg)",
-  strokeWidth = 2,
-}: IconProps) {
-  return svg(size, <path d="M10 15.5V4.5M5.5 9L10 4.5 14.5 9" />, {
-    stroke: color,
-    strokeWidth,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-  });
-}
 
 export function IconStop({ size = 11, color = "var(--fail)" }: IconProps) {
   return svg(size, <rect x="5" y="5" width="10" height="10" rx="2" />, {
@@ -182,23 +131,6 @@ export function IconTrash({
   );
 }
 
-/** Dışa aktar — kutudan yukarı çıkan ok. 20px ızgarada. */
-export function IconExport({
-  size = 17,
-  color = "var(--text-muted)",
-  strokeWidth = 1.7,
-}: IconProps) {
-  return svg(
-    size,
-    <path d="M10 3.5v9M6.8 6.7 10 3.5l3.2 3.2M4.5 12.5v3a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3" />,
-    {
-      stroke: color,
-      strokeWidth,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-  );
-}
 
 /**
  * Katlanır liste oku. **Tek çizim, döndürülüyor:** kapalı için ayrı bir
@@ -233,26 +165,6 @@ export function IconClose({
   });
 }
 
-/** Kenar çubuğundaki oturum kutucuğu — daire değil köşeli. */
-export function IconPrompt({
-  size = 16,
-  color = "var(--text)",
-  strokeWidth = 1.8,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <path d="M4 6l4 4-4 4" />
-      <path d="M10.5 14.5h5.5" />
-    </>,
-    {
-      stroke: color,
-      strokeWidth,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-  );
-}
 
 export function IconBot({
   size = 18,
@@ -276,35 +188,6 @@ export function IconBot({
   );
 }
 
-/**
- * Döşeme düzeni ikonları.
- *
- * ⚠️ Eski `IconLayout` **bölme sayısını** çiziyordu (1/2/3/4) — bölme sayısı
- * artık serbest ve düğmeler bir *düzen* seçiyor, sayı değil. Çerçeve + bölen
- * çizgiler; dolu yüzey seçili düzeni değil, düzenin kendisini anlatıyor.
- */
-export function IconDuzen({
-  duzen,
-}: {
-  duzen: "izgara" | "sutunlar" | "satirlar" | "ana";
-}) {
-  const cizgi =
-    duzen === "izgara"
-      ? "M10 3.5v13M3.5 10h13"
-      : duzen === "sutunlar"
-        ? "M7.7 3.5v13M12.3 3.5v13"
-        : duzen === "satirlar"
-          ? "M3.5 7.7h13M3.5 12.3h13"
-          : "M9 3.5v13M9 10h7.5";
-  return svg(
-    16,
-    <>
-      <rect x="3.5" y="3.5" width="13" height="13" rx="2.4" />
-      <path d={cizgi} />
-    </>,
-    { stroke: "var(--text-muted)", strokeWidth: 1.5 },
-  );
-}
 
 export function IconAttach({
   size = 17,

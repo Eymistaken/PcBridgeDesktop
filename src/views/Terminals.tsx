@@ -2,12 +2,13 @@ import { type Dispatch, type SetStateAction, useCallback, useMemo, useRef, useSt
 
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
-import { IconClose, IconDuzen } from "../ui/Icon";
+import { IconClose } from "../ui/Icon";
 import { ptyClose } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import {
   bol,
   bolmeSayisi,
+  bicim,
   duzenKur,
   ekle,
   kapat,
@@ -156,18 +157,17 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
 
   const sayi = bolmeSayisi(agac);
 
+  // Şu anki ağaç hazır düzenlerden birine mi uyuyor? Karşılaştırma
+  // `bicim` ile, düğüm kimlikleri dışarıda bırakılarak.
+  const suAn = bicim(agac);
+  const etkinDuzen = DUZENLER.find((d) => bicim(duzenKur(acik, d)) === suAn);
+  const serbest = etkinDuzen === undefined;
+
   return (
     <>
       <div className="main__head">
-        <span
-          style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}
-        >
-          {t("panes.nOpen", { n: sayi })}
-        </span>
-        <span className="mono muted" style={{ fontSize: 12 }}>
-          {t("panes.hint")}
-        </span>
-        <div style={{ flexGrow: 1 }} />
+        <span className="main__head__ad">{t("panes.nOpen", { n: sayi })}</span>
+        <span className="main__head__kunye">{t("panes.hint")}</span>
         {bosta.length > 0 && (
           <Picker
             chip
@@ -183,17 +183,29 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
             }}
           />
         )}
+        {/*
+         * Düzen sırası — ikon değil kelime, tasarımdaki gibi.
+         *
+         * "SERBEST" bir düğme değil **durum**: ağaç hazır düzenlerin
+         * hiçbirine uymuyorsa (kullanıcı bölmüş, takas etmiş ya da bir ayracı
+         * sürüklemiş) o yanıyor. Basılacak bir şey yok, çünkü zaten oradasın.
+         * Eskiden bu satırdaki `aria-pressed` CSS kuralı yazılmıştı ama hiçbir
+         * düğme onu taşımıyordu — kural ölüydü, şimdi çalışıyor.
+         */}
         <div className="layout" role="group" aria-label={t("panes.layout")}>
+          <button type="button" aria-pressed={serbest} disabled>
+            {t("panes.serbest")}
+          </button>
           {DUZENLER.map((d) => (
             <button
               key={d}
               type="button"
-              aria-label={t(`panes.${d}`)}
+              aria-pressed={etkinDuzen === d}
               title={t(`panes.${d}`)}
               disabled={sayi < 2}
               onClick={() => onAgac(duzenKur(acik, d))}
             >
-              <IconDuzen duzen={d} />
+              {t(`panes.${d}`)}
             </button>
           ))}
         </div>
@@ -202,10 +214,8 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
       <div className="agac" ref={kok}>
         {agac === null ? (
           <div className="chat__bos agac__bos">
-            <span style={{ fontSize: 14, fontWeight: 500 }}>
-              {t("panes.empty")}
-            </span>
-            <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+            <span className="h">{t("panes.empty")}</span>
+            <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)", maxWidth: 420 }}>
               {t("panes.emptyHint")}
             </span>
           </div>
@@ -310,19 +320,13 @@ function Bolme({
           className="dot"
           style={{ background: calisiyor ? "var(--run)" : "var(--ok)" }}
         />
-        <span className="mono" style={{ fontSize: 12.5, fontWeight: 500 }}>
-          {dugum.session}
-        </span>
-        {oturum?.command && (
-          <span className="mono muted" style={{ fontSize: 12 }}>
-            {oturum.command}
-          </span>
-        )}
-        <div style={{ flexGrow: 1 }} />
+        <span style={{ fontWeight: 500, flex: "none" }}>{dugum.session}</span>
+        {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
+         * Kuyunun içindeyiz: renk `--well-muted`, `--text-muted` burada
+         * aydınlık temada 2.63:1 verirdi. */}
+        <span className="phead__alt">{oturum?.command ?? ""}</span>
         {oturum?.attached && (
-          <span className="muted" style={{ fontSize: 11.5 }}>
-            {t("term.alsoOnPc")}
-          </span>
+          <span className="phead__uzak">{t("term.alsoOnPc")}</span>
         )}
         <button
           type="button"

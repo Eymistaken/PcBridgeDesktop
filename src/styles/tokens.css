@@ -50,6 +50,11 @@
   --well-text: #e9e9ea; /* 16.43:1 */
   --well-muted: #9b9ea2; /* 7.41:1 */
   --well-sel: #33383a; /* terminal seçim zemini — üstünde --well-text 9.79 */
+  /* Kuyunun İÇİNDEKİ cetvel. `--line` tema tokenı ve aydınlıkta açık
+   * (#dcd7ce); koyu bir kuyunun üstünde parlak bir çerçeve gibi duruyordu.
+   * Kuyu iki temada da koyu olduğuna göre çizgisi de öyle kalmalı —
+   * `--well-text` / `--well-muted` ile aynı gerekçe. */
+  --well-line: #2a2d2f;
 
   /* ── metin — DÖRT seviye ─────────────────────────────────────────────── */
   /* Eski palette iki seviye vardı ve "üçüncüsü yok" bir kuraldı; sebebi o

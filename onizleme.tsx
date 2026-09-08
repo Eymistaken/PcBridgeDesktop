@@ -16,6 +16,9 @@ import "./src/styles/app.css";
 import Sidebar from "./src/Sidebar";
 import Chat from "./src/views/Chat";
 import SessionHome from "./src/views/SessionHome";
+import TerminalSidebar from "./src/TerminalSidebar";
+import Terminals from "./src/views/Terminals";
+import { duzenKur } from "./src/lib/agac";
 import Composer from "./src/ui/Composer";
 import PermMenu from "./src/ui/PermMenu";
 import ModeSwitch from "./src/ui/ModeSwitch";
@@ -98,6 +101,21 @@ const izin: PendingPermission = {
   args: '{"action":"type","text":"pcbridge-desktop"}',
 } as never;
 
+
+const tview = {
+  sessions: [
+    { name: "claude", command: "claude", workdir: "/home/eymistaken/app", attached: false },
+    { name: "agy", command: "agy", workdir: "/home/eymistaken/app", attached: true },
+    { name: "htop", command: "htop", workdir: "/home/eymistaken", attached: false },
+    { name: "logs", command: "journalctl", workdir: "/home/eymistaken", attached: false },
+    { name: "build", command: "cargo", workdir: "/home/eymistaken/app", attached: false },
+    { name: "backup", command: "rsync", workdir: "/home/eymistaken", attached: false },
+  ],
+  raw: null,
+} as never;
+const acikBolmeler = ["claude", "agy", "htop", "logs", "build"];
+const agacOrnek = duzenKur(acikBolmeler, "ana");
+
 const bos = () => {};
 
 function Kolon({ baslik, cocuk }: { baslik: string; cocuk: React.ReactNode }) {
@@ -136,10 +154,30 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <div className="shell" style={{ height: "100vh" }}>
       <div className="side">
         <div className="side__head"><span className="side__title">pcbridge</span></div>
-        <Yan desktop={acik} />
+        {new URLSearchParams(location.search).get("ekran") === "term" ? (
+          <>
+            <ModeSwitch mode="terminals" onMode={bos} />
+            <div className="side__govde">
+              <div className="katman" data-yon="sag" data-etkin>
+                <TerminalSidebar
+                  view={tview} panes={acikBolmeler} desktop={acik} newSignal={0}
+                  onOpen={bos} onNew={bos} onKill={bos} onOpenSystem={bos}
+                  onToggleDesktop={bos}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <Yan desktop={acik} />
+        )}
       </div>
       <div className="main">
-        {new URLSearchParams(location.search).get("ekran") === "home" ? (
+        {new URLSearchParams(location.search).get("ekran") === "term" ? (
+          <Terminals
+            agac={agacOrnek} view={tview} onAgac={bos} onOpen={bos}
+            onClose={bos} onReload={bos}
+          />
+        ) : new URLSearchParams(location.search).get("ekran") === "home" ? (
           <>
             <div className="main__head">
               <span className="av" style={{ width: 11, height: 11, background: "oklch(var(--av-l) var(--av-c) 250)" }} />
