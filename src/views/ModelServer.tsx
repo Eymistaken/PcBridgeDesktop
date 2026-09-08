@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { detailText, modelConfig, modelModels, saveModelConfig } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import Oluk from "../ui/Oluk";
 import type { ModelInfo } from "../lib/types";
 
 type Durum =
@@ -69,11 +70,9 @@ export default function ModelServer() {
   }
 
   return (
-    <div className="card">
-      <span className="h">{t("sys.modelServer")}</span>
-      <span className="muted" style={{ fontSize: 12.5 }}>
-        {t("sys.modelServerWhat")}
-      </span>
+    <Oluk et={t("sys.secModel")}>
+      <div className="sysblok">
+      <span className="sysnot">{t("sys.modelServerWhat")}</span>
 
       <div className="grp">
         <label className="lbl" htmlFor="model-adres">
@@ -160,6 +159,7 @@ export default function ModelServer() {
           {durum.s === "deniyor" && <span className="muted">{t("sys.modelTrying")}</span>}
         </div>
       )}
-    </div>
+      </div>
+    </Oluk>
   );
 }

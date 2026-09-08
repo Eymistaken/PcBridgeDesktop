@@ -166,27 +166,6 @@ export function IconClose({
 }
 
 
-export function IconBot({
-  size = 18,
-  color = "var(--text-muted)",
-  strokeWidth = 1.7,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <rect x="3" y="6" width="14" height="10" rx="3" />
-      <path d="M10 3v3" />
-      <circle cx="7.5" cy="11" r="1.1" fill={color} stroke="none" />
-      <circle cx="12.5" cy="11" r="1.1" fill={color} stroke="none" />
-    </>,
-    {
-      stroke: color,
-      strokeWidth,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-  );
-}
 
 
 export function IconAttach({
@@ -231,74 +210,9 @@ export function IconLock({
 }
 
 /** Ekran görüntüsü. */
-/** Sistem panelinin bölüm ikonları — 20px ızgarada, tek çizgi ağırlığı. */
-export function IconGlobe({
-  size = 16,
-  color = "currentColor",
-  strokeWidth = 1.6,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <circle cx="10" cy="10" r="6.5" />
-      <path d="M3.5 10h13M10 3.5c3.5 3.6 3.5 9.4 0 13-3.5-3.6-3.5-9.4 0-13" />
-    </>,
-    { stroke: color, strokeWidth },
-  );
-}
 
-export function IconChip({
-  size = 16,
-  color = "currentColor",
-  strokeWidth = 1.6,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <rect x="3.5" y="4.5" width="13" height="5" rx="1.6" />
-      <rect x="3.5" y="11" width="13" height="5" rx="1.6" />
-      <path d="M6.3 7h.01M6.3 13.5h.01" strokeWidth="2" strokeLinecap="round" />
-    </>,
-    { stroke: color, strokeWidth },
-  );
-}
 
-export function IconSun({
-  size = 16,
-  color = "currentColor",
-  strokeWidth = 1.6,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <circle cx="10" cy="10" r="4" />
-      <path
-        d="M10 2.6v2M10 15.4v2M2.6 10h2M15.4 10h2M4.8 4.8l1.4 1.4M13.8 13.8l1.4 1.4M15.2 4.8l-1.4 1.4M6.2 13.8l-1.4 1.4"
-        strokeLinecap="round"
-      />
-    </>,
-    { stroke: color, strokeWidth },
-  );
-}
 
-export function IconKeyboard({
-  size = 16,
-  color = "currentColor",
-  strokeWidth = 1.6,
-}: IconProps) {
-  return svg(
-    size,
-    <>
-      <rect x="2.8" y="5.5" width="14.4" height="9" rx="2" />
-      <path
-        d="M6 8.4h.01M9 8.4h.01M12 8.4h.01M6.6 11.6h6.8"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </>,
-    { stroke: color, strokeWidth },
-  );
-}
 
 export function IconScreen({
   size = 16,

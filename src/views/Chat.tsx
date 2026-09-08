@@ -10,6 +10,7 @@ import { useAkisMaskesi } from "../lib/akis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
+import Oluk from "../ui/Oluk";
 import { IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
@@ -435,35 +436,6 @@ function durduruldu(turn: Turn): boolean {
 }
 
 /**
- * Bir döküm kıtası: solda rol/bölüm etiketi, sağda içerik.
- *
- * Tasarımın imzası bu ızgara. Baloncuk yok — rol zeminden değil oluktaki
- * etiketten okunuyor, o yüzden kullanıcının ve botun metni aynı sütunda
- * hizalı duruyor ve okuma satırı bir yerden ötekine zıplamıyor.
- */
-function Kita({
-  et,
-  ton,
-  yeni,
-  children,
-}: {
-  et: string;
-  /** Etiketin rengi durumdan geliyorsa — `SORUYOR` bekliyor demektir. */
-  ton?: string;
-  yeni?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="oluk" data-yeni={yeni || undefined}>
-      <span className="oluk__et" style={ton ? { color: ton } : undefined}>
-        {et}
-      </span>
-      <div className="oluk__ic">{children}</div>
-    </div>
-  );
-}
-
-/**
  * ⚠️ **`memo`** — `Markdown`'la aynı gerekçe. Akıştaki her parça `turns`
  * dizisini yeniliyor ama **yalnızca bir turun** nesnesi değişiyor; ötekiler
  * kimliklerini koruyor. Memo olmadan hepsi yeniden çiziliyordu.
@@ -491,7 +463,7 @@ function TurnViewIc({
         // Saat kendi satırında değil, rolün yanında: tasarım "YOU · 17:51"
         // diyor. Eskiden ortalanmış ayrı bir `.ts` satırıydı ve her tur
         // arasına boş bir bant koyuyordu.
-        <Kita
+        <Oluk
           et={
             turn.meta.startedAt
               ? `${t("chat.gYou")} · ${saat(turn.meta.startedAt)}`
@@ -500,7 +472,7 @@ function TurnViewIc({
           yeni={yeni}
         >
           <div className="kita kita--sen">{turn.prompt}</div>
-        </Kita>
+        </Oluk>
       )}
 
       {blocks.map((b, i) => (
@@ -514,19 +486,19 @@ function TurnViewIc({
       ))}
 
       {kesildi ? (
-        <Kita et={t("chat.gError")} yeni={yeni}>
+        <Oluk et={t("chat.gError")} yeni={yeni}>
           <span className="ts" data-yeni={y}>
             {t("chat.stopped")}
           </span>
-        </Kita>
+        </Oluk>
       ) : (
         bitis &&
         !bitis.ok && (
-          <Kita et={t("chat.gError")} ton="var(--fail)" yeni={yeni}>
+          <Oluk et={t("chat.gError")} ton="var(--fail)" yeni={yeni}>
             <div className="kita kita--hata">
               {bitis.error ?? t("chat.failed")}
             </div>
-          </Kita>
+          </Oluk>
         )
       )}
     </>
@@ -553,13 +525,13 @@ function MetinBloku({
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (
-    <Kita et={t("chat.gReply")} yeni={yeni}>
+    <Oluk et={t("chat.gReply")} yeni={yeni}>
       <div className="kita">
         <div ref={kap} className={live ? "akis--canli" : undefined}>
           <Markdown text={text} />
         </div>
       </div>
-    </Kita>
+    </Oluk>
   );
 }
 
@@ -582,9 +554,9 @@ function BlockView({
 
   if (block.t === "raw") {
     return (
-      <Kita et={t("chat.gRaw")} yeni={yeni}>
+      <Oluk et={t("chat.gRaw")} yeni={yeni}>
         <pre className="mono well">{block.text}</pre>
-      </Kita>
+      </Oluk>
     );
   }
 
@@ -594,7 +566,7 @@ function BlockView({
     // İki durum da metin değil **kod** taşır ve `err.*` sözlüğünden çözülür.
     const basarisiz = block.text.startsWith("#");
     return (
-      <Kita et={t("chat.gSummary")} yeni={yeni}>
+      <Oluk et={t("chat.gSummary")} yeni={yeni}>
         <div className="kita kita--ozet">
           {block.dropped > 0 && (
             <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
@@ -608,13 +580,13 @@ function BlockView({
             </div>
           )}
         </div>
-      </Kita>
+      </Oluk>
     );
   }
 
   // Araç satırları — cetvelli bir tablo: ad · ayrıntı · durum.
   return (
-    <Kita et={t("chat.gTools")} yeni={yeni}>
+    <Oluk et={t("chat.gTools")} yeni={yeni}>
       <div className="dokum">
         {block.rows.map((r, i) => (
           <div key={r.id + i} className="dokum__row">
@@ -644,7 +616,7 @@ function BlockView({
           </div>
         ))}
       </div>
-    </Kita>
+    </Oluk>
   );
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { sayac } from "../ui/ConnStrip";
 import Seg from "../ui/Seg";
-import { IconLock, IconScreen } from "../ui/Icon";
+import Oluk from "../ui/Oluk";
 import {
   auditTail,
   desktopLock,
@@ -56,118 +56,103 @@ export default function Desktop({ state, onState }: Props) {
 
   return (
     <>
-      <div className="card">
-        <span className="h">{t("desk.title")}</span>
-
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-          <button
-            type="button"
-            className="tgl"
-            data-on={state.unlocked ? "1" : undefined}
-            role="switch"
-            aria-checked={state.unlocked}
-            aria-label={t("desk.control")}
-            disabled={mesgul}
-            onClick={() => void cevir()}
-          >
-            <span />
-          </button>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 3,
-              flexGrow: 1,
-            }}
-          >
-            <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-              {state.unlocked ? t("desk.on") : t("desk.off")}
-            </span>
-            <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-              {t("desk.blurb")}
-            </span>
-          </div>
-          {state.unlocked && (
-            <span className="geri" title={t("desk.leaseLeft")}>
-              <IconLock size={15} color="var(--run)" open />
-              {sayac(state.remaining)}
-            </span>
-          )}
-        </div>
-
-        {state.unlocked ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              fontSize: 12.5,
-            }}
-          >
-            {state.hardRemaining > state.remaining && (
-              <span className="muted">
-                {t("desk.leaseNote", { hard: sayac(state.hardRemaining) })}
+      <Oluk et={t("desk.title")}>
+        <div className="izin">
+          <div className="izin__ust">
+            <div className="izin__ne">
+              <span className="izin__durum">
+                {state.unlocked ? t("desk.on") : t("desk.off")}
               </span>
-            )}
-            {state.reason && (
-              <span className="muted">
-                {t("desk.reason", { reason: state.reason })}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className="grp">
-              <span className="lbl">{t("desk.duration")}</span>
-              <Seg
-                value={String(dakika)}
-                ariaLabel={t("desk.durationLabel")}
-                options={SURELER.map((d) => ({
-                  value: String(d),
-                  label: t("desk.minutes", { n: d }),
-                }))}
-                onChange={(v) => setDakika(Number(v))}
-              />
+              <p className="sysnot">{t("desk.blurb")}</p>
             </div>
-            <div className="grp">
-              <span className="lbl">{t("desk.reasonLabel")}</span>
-              <div className="fld">
-                <input
-                  value={gerekce}
-                  placeholder={t("desk.reasonPlaceholder")}
-                  aria-label={t("desk.reasonAria")}
-                  style={{ flexGrow: 1, fontSize: 13.5 }}
-                  onChange={(e) => setGerekce(e.target.value)}
-                />
+            <button
+              type="button"
+              className="tgl"
+              data-on={state.unlocked ? "1" : undefined}
+              role="switch"
+              aria-checked={state.unlocked}
+              aria-label={t("desk.control")}
+              disabled={mesgul}
+              onClick={() => void cevir()}
+            >
+              <span />
+            </button>
+          </div>
+
+          {/*
+            **İki sayı, bir tane değil.** `until` kayan kira: her masaüstü
+            eyleminden sonra ileri itiliyor, eylem gelmezse düşüyor.
+            `hard_until` sert tavan. "60 dakika açtım ama rozet 1:29 diyor"
+            sorusu bundan; ikisi de yazılı.
+
+            ⚠️ Tasarımda burada ayrıca bir "LOCK NOW" düğmesi var; konmadı.
+            Anahtar zaten kilitliyor ve bu depoda aynı işi yapan iki denetim
+            bir kez ölü kaldı.
+          */}
+          {state.unlocked ? (
+            <div className="izin__sayilar">
+              <div className="sayi">
+                <span className="sayi__et">{t("desk.leaseLeft")}</span>
+                <span className="sayi__deger sayi__deger--run">
+                  {sayac(state.remaining)}
+                </span>
+              </div>
+              {state.hardRemaining > state.remaining && (
+                <div className="sayi">
+                  <span className="sayi__et">{t("desk.hardCeiling")}</span>
+                  <span className="sayi__deger">
+                    {sayac(state.hardRemaining)}
+                  </span>
+                </div>
+              )}
+              <div className="izin__aciklama">
+                <span className="sysnot">{t("desk.leaseHow")}</span>
+                {state.reason && (
+                  <span className="mono izin__gerekce">
+                    {t("desk.reason", { reason: state.reason })}
+                  </span>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="izin__sayilar izin__sayilar--kapali">
+              <div className="grp">
+                <span className="lbl">{t("desk.duration")}</span>
+                <Seg
+                  value={String(dakika)}
+                  ariaLabel={t("desk.durationLabel")}
+                  options={SURELER.map((d) => ({
+                    value: String(d),
+                    label: t("desk.minutes", { n: d }),
+                  }))}
+                  onChange={(v) => setDakika(Number(v))}
+                />
+              </div>
+              <div className="grp">
+                <span className="lbl">{t("desk.reasonLabel")}</span>
+                <div className="fld">
+                  <input
+                    value={gerekce}
+                    placeholder={t("desk.reasonPlaceholder")}
+                    aria-label={t("desk.reasonAria")}
+                    style={{ flexGrow: 1, fontSize: 13.5 }}
+                    onChange={(e) => setGerekce(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-        {!state.unlocked && state.hardRemaining > 0 && (
-          <span className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
-            {t("desk.expired", { hard: sayac(state.hardRemaining) })}
-          </span>
-        )}
-
-        {!state.known && (
-          <span className="muted" style={{ fontSize: 12 }}>
-            {t("desk.unknown")}
-          </span>
-        )}
-        {yanit && (
-          <span className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-            {yanit}
-          </span>
-        )}
-        {hata && (
-          <span
-            style={{ fontSize: 12.5, color: "var(--fail)", lineHeight: 1.5 }}
-          >
-            {hata}
-          </span>
-        )}
-      </div>
+          {!state.unlocked && state.hardRemaining > 0 && (
+            <span className="sysnot">
+              {t("desk.expired", { hard: sayac(state.hardRemaining) })}
+            </span>
+          )}
+          {!state.known && <span className="sysnot">{t("desk.unknown")}</span>}
+          {yanit && <span className="sysnot">{yanit}</span>}
+          {hata && <span className="izin__hata">{hata}</span>}
+        </div>
+      </Oluk>
 
       <Ekran unlocked={state.unlocked} />
       <Durum />
@@ -201,29 +186,21 @@ function Ekran({ unlocked }: { unlocked: boolean }) {
   }
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="h" style={{ flexGrow: 1 }}>
-          {t("desk.screen")}
-        </span>
-        <button
-          type="button"
-          className="btn-quiet"
-          disabled={mesgul || !unlocked}
-          onClick={() => void al()}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <IconScreen size={15} color="currentColor" />
-            {mesgul ? t("desk.capturing") : t("desk.capture")}
+    <Oluk et={t("desk.screen")}>
+      <div className="sysblok">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="sysnot" style={{ flexGrow: 1 }}>
+            {unlocked ? t("desk.captureHint") : t("desk.captureGated")}
           </span>
-        </button>
-      </div>
-
-      {!unlocked && (
-        <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-          {t("desk.captureGated")}
-        </span>
-      )}
+          <button
+            type="button"
+            className="btn-fld"
+            disabled={mesgul || !unlocked}
+            onClick={() => void al()}
+          >
+            {mesgul ? t("desk.capturing") : t("desk.capture")}
+          </button>
+        </div>
 
       {shots && shots.shots.length > 0 && (
         <div className="shots">
@@ -232,15 +209,14 @@ function Ekran({ unlocked }: { unlocked: boolean }) {
           ))}
         </div>
       )}
-      {shots && shots.shots.length === 0 && shots.note && (
-        <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-          {shots.note}
-        </span>
-      )}
-      {hata && (
-        <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>
-      )}
-    </div>
+        {shots && shots.shots.length === 0 && shots.note && (
+          <div className="ekranyer">
+            <span className="mono">{shots.note}</span>
+          </div>
+        )}
+        {hata && <span className="izin__hata">{hata}</span>}
+      </div>
+    </Oluk>
   );
 }
 
@@ -261,18 +237,13 @@ function Durum() {
   }, []);
 
   return (
-    <div className="card">
-      <span className="h">{t("desk.computer")}</span>
-      {hata && (
-        <span style={{ fontSize: 12.5, color: "var(--fail)" }}>{hata}</span>
-      )}
+    <Oluk et={t("desk.computer")}>
+      {hata && <span className="izin__hata">{hata}</span>}
       {metin === undefined && !hata && (
-        <span className="muted" style={{ fontSize: 12.5 }}>
-          {t("desk.reading")}
-        </span>
+        <span className="sysnot">{t("desk.reading")}</span>
       )}
       {metin !== undefined && <Ozet metin={metin} />}
-    </div>
+    </Oluk>
   );
 }
 
@@ -344,29 +315,19 @@ function Ozet({ metin }: { metin: string }) {
     );
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      {parcalar}
-    </div>
-  );
+  return <div className="facts">{parcalar}</div>;
 }
 
 function Satir({ k, v }: { k: string; v: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-      <span
-        className="muted"
-        style={{ fontSize: 12.5, width: 130, flex: "none" }}
-      >
+    <div className="facts__row">
+      <span className="facts__ad">
         {k}
       </span>
       {/* Sunucu bazen boş değer gönderiyor (ölçüldü: `bellek` bir kez boş
           geldi). Çıplak boş satır "arayüz bozuk" gibi duruyor; tire
           "sunucu söylemedi" diyor. */}
-      <span
-        className="mono"
-        style={{ fontSize: 12.5, minWidth: 0, overflowWrap: "anywhere" }}
-      >
+      <span className="mono facts__deger" style={{ fontSize: 12.5 }}>
         {v.trim() || "—"}
       </span>
     </div>
@@ -394,17 +355,10 @@ function Denetim() {
   }, []);
 
   return (
-    <div className="card">
-      <span className="h">{t("desk.audit")}</span>
-      {rows === undefined && (
-        <span className="muted" style={{ fontSize: 12.5 }}>
-          {t("desk.reading")}
-        </span>
-      )}
+    <Oluk et={t("desk.audit")}>
+      {rows === undefined && <span className="sysnot">{t("desk.reading")}</span>}
       {rows?.length === 0 && (
-        <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-          {t("desk.auditEmpty")}
-        </span>
+        <span className="sysnot">{t("desk.auditEmpty")}</span>
       )}
       {rows && rows.length > 0 && (
         <div className="audit">
@@ -423,11 +377,14 @@ function Denetim() {
               >
                 {r.event}
               </span>
-              <span className="mono muted audit__d">{r.detail}</span>
+              <span className="mono audit__d">{r.detail}</span>
             </div>
           ))}
         </div>
       )}
-    </div>
+      {rows && rows.length > 0 && (
+        <span className="sysnot audit__not">{t("desk.auditNote")}</span>
+      )}
+    </Oluk>
   );
 }

@@ -238,6 +238,10 @@ const en: Record<string, string> = {
   "chat.sendShort": "Send",
   "chat.attachShort": "Attach",
   "panes.serbest": "FREE",
+  "desk.hardCeiling": "HARD CEILING",
+  "desk.leaseHow": "Every desktop action pushes the lease back. Otherwise it decays and locks itself.",
+  "desk.captureHint": "Nothing is written to disk; only the last call is held in memory.",
+  "desk.auditNote": "Typed text is not recorded, only the character count — which is why the log can be shown as it is.",
   "term.closeKeeps": "closing a pane keeps the session",
   "chat.gPrompt": "PROMPT",
   "home.headline": "A session is one job's worth of memory.",
@@ -478,7 +482,7 @@ const en: Record<string, string> = {
   "desk.off": "Desktop control is locked",
   "desk.blurb":
     "While it is on, agents can use a virtual keyboard and mouse. It closes itself when the time runs out, and everything is refused while the screen is locked.",
-  "desk.leaseLeft": "Time left on the sliding lease",
+  "desk.leaseLeft": "IDLE LEASE",
   "desk.leaseNote": "The sliding lease decays after the last action · hard ceiling {hard}",
   "desk.reason": "Reason: {reason}",
   "desk.duration": "Duration",
@@ -499,7 +503,7 @@ const en: Record<string, string> = {
   "desk.screenN": "Screen {n}",
   "desk.computer": "Computer",
   "desk.reading": "reading…",
-  "desk.audit": "Audit log — pcbridge",
+  "desk.audit": "AUDIT LOG",
   "desk.auditEmpty": "No entries found. pcbridge may be writing audit.log somewhere else.",
 
   // ── silme onayı ──
@@ -693,6 +697,10 @@ const tr: Record<string, string> = {
   "chat.sendShort": "Gönder",
   "chat.attachShort": "Ekle",
   "panes.serbest": "SERBEST",
+  "desk.hardCeiling": "SERT TAVAN",
+  "desk.leaseHow": "Her masaüstü eylemi kirayı ileri itiyor. Eylem gelmezse düşüyor ve kendiliğinden kilitleniyor.",
+  "desk.captureHint": "Diske hiçbir şey yazılmıyor; yalnızca son çağrının görüntüsü bellekte tutuluyor.",
+  "desk.auditNote": "Yazılan metin kaydedilmiyor, yalnızca karakter sayısı — kayıt bu yüzden olduğu gibi gösterilebiliyor.",
   "term.closeKeeps": "bölmeyi kapatmak oturumu öldürmez",
   "chat.gPrompt": "İSTEM",
   "home.headline": "Bir session, bir işlik hafıza.",
@@ -929,7 +937,7 @@ const tr: Record<string, string> = {
   "desk.off": "Masaüstü kontrolü kilitli",
   "desk.blurb":
     "Açıkken ajanlar sanal klavye ve fare kullanabilir. Süre dolunca kendiliğinden kapanır; ekran kilitliyken her şey reddedilir.",
-  "desk.leaseLeft": "Kayan kiranın kalanı",
+  "desk.leaseLeft": "KAYAN KİRA",
   "desk.leaseNote": "Kayan kira son eylemden sonra düşüyor · sert tavan {hard}",
   "desk.reason": "Gerekçe: {reason}",
   "desk.duration": "Süre",
@@ -950,7 +958,7 @@ const tr: Record<string, string> = {
   "desk.screenN": "Ekran {n}",
   "desk.computer": "Bilgisayar",
   "desk.reading": "okunuyor…",
-  "desk.audit": "Denetim kaydı — pcbridge",
+  "desk.audit": "DENETİM KAYDI",
   "desk.auditEmpty": "Kayıt bulunamadı. pcbridge audit.log'u başka bir yere yazıyor olabilir.",
 
   "del.title": "Botu sil",

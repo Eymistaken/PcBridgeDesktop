@@ -3,16 +3,8 @@ import { useState } from "react";
 import Desktop from "./Desktop";
 import ModelServer from "./ModelServer";
 import Seg from "../ui/Seg";
-import {
-  IconBot,
-  IconCheck,
-  IconChip,
-  IconCross,
-  IconGlobe,
-  IconKeyboard,
-  IconLock,
-  IconSun,
-} from "../ui/Icon";
+import Oluk from "../ui/Oluk";
+import { IconCheck, IconCross } from "../ui/Icon";
 import { LANGS, t, type Lang } from "../lib/i18n";
 import type { Agent, ConnSnapshot, DesktopState, Theme } from "../lib/types";
 
@@ -58,21 +50,16 @@ export default function Connection({
 }: Props) {
   const [bolum, setBolum] = useState<Bolum>("masaustu");
 
-  const bolumler: { id: Bolum; ad: string; ikon: React.ReactNode }[] = [
-    {
-      id: "masaustu",
-      ad: t("sys.secDesktop"),
-      ikon: <IconLock open={desktop.unlocked} size={16} color="currentColor" />,
-    },
-    { id: "baglanti", ad: t("sys.secConnection"), ikon: <IconGlobe /> },
-    { id: "model", ad: t("sys.secModel"), ikon: <IconChip /> },
-    {
-      id: "ajanlar",
-      ad: t("sys.secAgents"),
-      ikon: <IconBot size={16} color="currentColor" />,
-    },
-    { id: "gorunum", ad: t("sys.secAppearance"), ikon: <IconSun /> },
-    { id: "kisayollar", ad: t("sys.secShortcuts"), ikon: <IconKeyboard /> },
+  // ⚠️ Bölüm satırlarının ikonları KALKTI: tasarımda düz metin ve altı
+  // çizili seçim var. İkonlar sadece çizilmemekle kalmayıp veriden de
+  // düşürüldü — okunmayan bir alan bu depoda bir kez bir yıl yaşadı.
+  const bolumler: { id: Bolum; ad: string }[] = [
+    { id: "masaustu", ad: t("sys.secDesktop") },
+    { id: "baglanti", ad: t("sys.secConnection") },
+    { id: "model", ad: t("sys.secModel") },
+    { id: "ajanlar", ad: t("sys.secAgents") },
+    { id: "gorunum", ad: t("sys.secAppearance") },
+    { id: "kisayollar", ad: t("sys.secShortcuts") },
   ];
 
   return (
@@ -86,7 +73,6 @@ export default function Connection({
             aria-selected={bolum === b.id}
             onClick={() => setBolum(b.id)}
           >
-            {b.ikon}
             {b.ad}
           </button>
         ))}
@@ -100,8 +86,7 @@ export default function Connection({
           <Desktop state={desktop} onState={onDesktop} />
         )}
         {bolum === "baglanti" && (
-          <div className="card">
-            <span className="h">{t("sys.server")}</span>
+          <Oluk et={t("sys.server")}>
             <Facts
               rows={[
                 [
@@ -127,14 +112,11 @@ export default function Connection({
                 ],
               ]}
             />
-          </div>
+          </Oluk>
         )}
         {bolum === "model" && <ModelServer />}
         {bolum === "ajanlar" && (
-          <div className="card">
-            <span className="h">
-              {t("sys.agents", { n: snap.agents.length })}
-            </span>
+          <Oluk et={t("sys.secAgents")}>
             {snap.agents.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={{ fontSize: 13.5 }}>
@@ -161,12 +143,10 @@ export default function Connection({
             ) : (
               snap.agents.map((a) => <AgentBlock key={a.id} agent={a} />)
             )}
-          </div>
+          </Oluk>
         )}
         {bolum === "gorunum" && (
-          <div className="card">
-            <span className="h">{t("sys.appearance")}</span>
-
+          <Oluk et={t("sys.secAppearance")}>
             <div className="grp">
               <span className="lbl">{t("sys.theme")}</span>
               <Seg
@@ -195,12 +175,11 @@ export default function Connection({
                 onChange={onLang}
               />
             </div>
-          </div>
+          </Oluk>
         )}
         {bolum === "kisayollar" && (
-          <div className="card">
-            <span className="h">{t("sys.shortcuts")}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Oluk et={t("sys.secShortcuts")}>
+            <div className="kisayollar">
               {(
                 [
                   ["Ctrl 1", t("mode.bots")],
@@ -212,42 +191,28 @@ export default function Connection({
                   ["Esc", t("sys.scClose")],
                 ] as const
               ).map(([tus, ne]) => (
-                <div
-                  key={tus}
-                  style={{ display: "flex", alignItems: "center", gap: 14 }}
-                >
+                <div key={tus} className="kisayol">
                   <span className="kbd">{tus}</span>
-                  <span style={{ fontSize: 13 }}>{ne}</span>
+                  <span>{ne}</span>
                 </div>
               ))}
             </div>
-            <span className="muted" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-              {t("sys.scHint")}
-            </span>
-          </div>
+            <span className="sysnot">{t("sys.scHint")}</span>
+          </Oluk>
         )}
       </div>
     </div>
   );
 }
 
+/** Ad–değer satırları; her satırın altında cetvel. */
 function Facts({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="facts">
       {rows.map(([k, v]) => (
-        <div
-          key={k}
-          style={{ display: "flex", alignItems: "baseline", gap: 14 }}
-        >
-          <span
-            className="muted"
-            style={{ fontSize: 12.5, width: 130, flex: "none" }}
-          >
-            {k}
-          </span>
-          <span style={{ fontSize: 13, minWidth: 0, overflowWrap: "anywhere" }}>
-            {v}
-          </span>
+        <div key={k} className="facts__row">
+          <span className="facts__ad">{k}</span>
+          <span className="facts__deger">{v}</span>
         </div>
       ))}
     </div>
@@ -256,24 +221,13 @@ function Facts({ rows }: { rows: [string, React.ReactNode][] }) {
 
 function AgentBlock({ agent }: { agent: Agent }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        padding: "13px 15px",
-        borderRadius: "var(--r-sm)",
-        background: "var(--surface)",
-      }}
-    >
+    <div className="ajan">
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
         {agent.available ? <IconCheck /> : <IconCross />}
-        <span className="mono" style={{ fontSize: 13.5, fontWeight: 500 }}>
+        <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>
           {agent.id}
         </span>
-        <span className="muted" style={{ fontSize: 12.5 }}>
-          {agent.description}
-        </span>
+        <span className="sysnot">{agent.description}</span>
       </div>
 
       {agent.path && (

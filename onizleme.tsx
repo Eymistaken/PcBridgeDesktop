@@ -17,6 +17,7 @@ import Sidebar from "./src/Sidebar";
 import Chat from "./src/views/Chat";
 import SessionHome from "./src/views/SessionHome";
 import TerminalSidebar from "./src/TerminalSidebar";
+import Connection from "./src/views/Connection";
 import Terminals from "./src/views/Terminals";
 import { duzenKur } from "./src/lib/agac";
 import Composer from "./src/ui/Composer";
@@ -26,9 +27,24 @@ import type { Turn, JobEvent, PendingPermission } from "./src/lib/types";
 import { setActiveLang } from "./src/lib/i18n";
 import type { Bot, BotSummary, ConnSnapshot, DesktopState, SessionSummary } from "./src/lib/types";
 
-// PermMenu/Composer gibi bileşenler IPC'ye uzanıyor; önizlemede taklit yeter.
+// Bileşenler IPC'ye uzanıyor; önizlemede komut başına sahte yanıt.
+const sahteIpc: Record<string, unknown> = {
+  system_status:
+    "host: ZorinOS\nyuk: 0.42 0.51 0.63\nbellek: 9.2G / 32G\ndisk: 412G / 931G",
+  audit_tail: [
+    { ts: "2026-09-08 17:52:14", event: "screen_capture", detail: "monitör 2 · ölçek 0", denied: false, error: false },
+    { ts: "2026-09-08 17:52:19", event: "mouse", detail: "tıklama (2028, 102) · monitör 2 (HDMI-1)", denied: false, error: false },
+    { ts: "2026-09-08 17:52:21", event: "keyboard", detail: "type · chars: 23", denied: false, error: false },
+    { ts: "2026-09-08 17:52:26", event: "keyboard", detail: "key delete — odak masaüstündeydi", denied: true, error: false },
+  ],
+  screen_capture: { shots: [], note: "son yakalama · 2 monitör · 3840×1080 · 17:52:14" },
+  model_config: { baseUrl: "http://127.0.0.1:1234/v1", hasKey: false },
+  model_models: [],
+  mcp_tools: [],
+  desktop_state: { unlocked: true, remaining: 84, hardRemaining: 2887, reason: "Chrome'da kanal araması", grantedAt: 0, known: true },
+};
 (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
-  invoke: () => Promise.resolve(null),
+  invoke: (cmd: string) => Promise.resolve(sahteIpc[cmd] ?? null),
   transformCallback: (f: unknown) => f,
 };
 
@@ -149,12 +165,78 @@ function Yan(p: Partial<React.ComponentProps<typeof Sidebar>>) {
   );
 }
 
+const ekran = new URLSearchParams(location.search).get("ekran") ?? "chat";
+
+const ajanlar = [
+  { id: "claude", description: "Claude Code CLI", available: true, path: "/usr/local/bin/claude", models: [{ id: "sonnet", efforts: ["low", "medium", "high"] }, { id: "opus", efforts: [] }] },
+  { id: "agy", description: "Antigravity CLI", available: true, path: "/home/eymistaken/.local/bin/agy", models: [{ id: "ornith-1.5-35b-a3b", efforts: [] }] },
+] as never;
+
+function Ana() {
+  if (ekran === "term") {
+    return (
+      <Terminals agac={agacOrnek} view={tview} onAgac={bos} onOpen={bos} onClose={bos} onReload={bos} />
+    );
+  }
+  if (ekran === "sys") {
+    return (
+      <>
+        <div className="main__head">
+          <span className="main__head__ad">Sistem</span>
+          <span className="main__head__kunye">33 araç · 2 ajan</span>
+          <button className="btn-quiet">Tazele</button>
+        </div>
+        <div className="main__body">
+          <Connection
+            snap={{ ...snap, agents: ajanlar }}
+            theme="dark" onTheme={bos} lang="tr" onLang={bos}
+            desktop={acik} onDesktop={bos}
+          />
+        </div>
+      </>
+    );
+  }
+  if (ekran === "home") {
+    return (
+      <>
+        <div className="main__head">
+          <span className="av" style={{ width: 11, height: 11, background: "oklch(var(--av-l) var(--av-c) 250)" }} />
+          <span className="main__head__ad">Desktop Bot</span>
+          <span className="main__head__kunye">ornith-1.5-35b-a3b · 11 araç · ~/Masaüstü/app</span>
+          <button className="btn-quiet">Düzenle</button>
+        </div>
+        <SessionHome
+          sessions={sessions} onOpen={bos} onDelete={bos}
+          composer={
+            <Composer
+              botName="Desktop Bot" workdir="/home/eymistaken" busy={false}
+              resetKey="x" onSend={bos}
+              foot={<><PermMenu value="sor" botName="Desktop Bot" tools={bots[0].tools} force={false} onChange={bos} onForce={bos} onEditTools={bos} /><div style={{ flexGrow: 1 }} /></>}
+            />
+          }
+        />
+      </>
+    );
+  }
+  return (
+    <Chat
+      bot={bots[0]} turns={turlar}
+      running={{ jobId: "j1", startedAt: simdi, label: "Chrome'da kanal araması" }}
+      busy sessionId="o1" sessionCount={7}
+      onSend={bos} onCancel={bos} pending={izin} onAnswer={bos}
+      onPermission={bos} onForce={bos} ctx={null} tps={null}
+      baseUrl="http://127.0.0.1:1234/v1" compacting={false} onCompact={bos}
+      efforts={[]} onEffort={bos} onEditBot={bos} onExport={bos}
+    />
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <div className="shell" style={{ height: "100vh" }}>
       <div className="side">
         <div className="side__head"><span className="side__title">pcbridge</span></div>
-        {new URLSearchParams(location.search).get("ekran") === "term" ? (
+        {ekran === "term" ? (
           <>
             <ModeSwitch mode="terminals" onMode={bos} />
             <div className="side__govde">
@@ -168,45 +250,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             </div>
           </>
         ) : (
-          <Yan desktop={acik} />
+          <Yan desktop={acik} selectedId={ekran === "sys" ? undefined : "b1"} />
         )}
       </div>
       <div className="main">
-        {new URLSearchParams(location.search).get("ekran") === "term" ? (
-          <Terminals
-            agac={agacOrnek} view={tview} onAgac={bos} onOpen={bos}
-            onClose={bos} onReload={bos}
-          />
-        ) : new URLSearchParams(location.search).get("ekran") === "home" ? (
-          <>
-            <div className="main__head">
-              <span className="av" style={{ width: 11, height: 11, background: "oklch(var(--av-l) var(--av-c) 250)" }} />
-              <span className="main__head__ad">Desktop Bot</span>
-              <span className="main__head__kunye">ornith-1.5-35b-a3b · 11 araç · ~/Masaüstü/app</span>
-              <button className="btn-quiet">Düzenle</button>
-            </div>
-            <SessionHome
-              sessions={sessions} onOpen={bos} onDelete={bos}
-              composer={
-                <Composer
-                  botName="Desktop Bot" workdir="/home/eymistaken" busy={false}
-                  resetKey="x" onSend={bos}
-                  foot={<><PermMenu value="sor" botName="Desktop Bot" tools={bots[0].tools} force={false} onChange={bos} onForce={bos} onEditTools={bos} /><div style={{ flexGrow: 1 }} /></>}
-                />
-              }
-            />
-          </>
-        ) : (
-        <Chat
-          bot={bots[0]} turns={turlar}
-          running={{ jobId: "j1", startedAt: simdi, label: "Chrome'da kanal araması" }}
-          busy sessionId="o1" sessionCount={7}
-          onSend={bos} onCancel={bos} pending={izin} onAnswer={bos}
-          onPermission={bos} onForce={bos} ctx={null} tps={null}
-          baseUrl="http://127.0.0.1:1234/v1" compacting={false} onCompact={bos}
-          efforts={[]} onEffort={bos} onEditBot={bos} onExport={bos}
-        />
-        )}
+        <Ana />
       </div>
     </div>
   </React.StrictMode>,

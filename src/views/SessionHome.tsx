@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { IconClose, IconSearch } from "../ui/Icon";
+import Oluk from "../ui/Oluk";
 import { useFlip } from "../lib/flip";
 import { locale, t } from "../lib/i18n";
 import type { SessionSummary } from "../lib/types";
@@ -61,25 +62,15 @@ export default function SessionHome({
         {/* Açılış kıtası: solda session numarası, sağda ne olduğunu söyleyen
          * tek cümle. Botun kimliği başlıkta zaten yazıyor; burada anlatılan
          * şey **session'ın kendisi** — bağlamın sınırı orası. */}
-        <div className="oluk">
-          <span className="oluk__et">
-            {t("home.sessionNo", { n: sessions.length + 1 })}
-          </span>
-          <div className="oluk__ic">
-            <h1 className="home__baslikBuyuk">{t("home.headline")}</h1>
-            <p className="home__alt">{t("home.subtitle")}</p>
-          </div>
-        </div>
+        <Oluk et={t("home.sessionNo", { n: sessions.length + 1 })}>
+          <h1 className="home__baslikBuyuk">{t("home.headline")}</h1>
+          <p className="home__alt">{t("home.subtitle")}</p>
+        </Oluk>
 
-        <div className="oluk">
-          <span className="oluk__et">{t("chat.gPrompt")}</span>
-          <div className="oluk__ic">{composer}</div>
-        </div>
+        <Oluk et={t("chat.gPrompt")}>{composer}</Oluk>
 
         {sessions.length > 0 && (
-          <div className="oluk">
-            <span className="oluk__et">{t("home.recent")}</span>
-            <div className="oluk__ic">
+          <Oluk et={t("home.recent")}>
               <div className="home__baslik">
                 {arama === null ? (
                   <button
@@ -148,8 +139,7 @@ export default function SessionHome({
                   {t("side.moreSessions", { n: gizli })}
                 </span>
               )}
-            </div>
-          </div>
+          </Oluk>
         )}
       </div>
     </div>

@@ -105,9 +105,9 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
   if (!metin) return null;
 
   return (
-    // Kıta ızgarası: etiket solda, kutu sağda. Sarmalayıcı `.oluk`,
-    // `Chat.tsx::Kita` ile aynı yapı — burada elle kuruluyor çünkü bu
-    // bileşenin kendi `data-yeni` kapısı var.
+    // Kıta ızgarası — `ui/Oluk.tsx` ile aynı yapı. Burada elle kuruluyor
+    // çünkü kutunun kendisi `.oluk__ic` sınıfını paylaşmak zorunda:
+    // yükseklik ölçümü (`gecirYukseklik`) o öğeye yazıyor.
     <div className="oluk" data-yeni={yeni || undefined}>
       <span className="oluk__et">{t("chat.gThought")}</span>
       <div className="oluk__ic dusunce">
