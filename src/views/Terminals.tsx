@@ -13,7 +13,16 @@ import { open } from "@tauri-apps/plugin-dialog";
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
 import SagMenu, { type MenuYer } from "../ui/SagMenu";
-import { IconClose, IconFolder, IconZoom } from "../ui/Icon";
+import {
+  IconClose,
+  IconFolder,
+  IconLayCols,
+  IconLayFree,
+  IconLayGrid,
+  IconLayMain,
+  IconLayRows,
+  IconZoom,
+} from "../ui/Icon";
 import {
   detailText,
   ptyClose,
@@ -45,6 +54,14 @@ import { kisaltEv } from "../lib/yol";
 import type { PtyInfo, TerminalsView, TmuxSession } from "../lib/types";
 
 const DUZENLER: Duzen[] = ["izgara", "sutunlar", "satirlar", "ana"];
+
+/** Her düzenin ikonu. Adı `aria-label` ve `title` taşıyor. */
+const DUZEN_IKONU: Record<Duzen, () => React.ReactElement> = {
+  izgara: IconLayGrid,
+  sutunlar: IconLayCols,
+  satirlar: IconLayRows,
+  ana: IconLayMain,
+};
 
 /**
  * Düzen geçişinin süresi + pay.
@@ -421,30 +438,42 @@ export default function Terminals({
           />
         )}
         {/*
-         * Düzen sırası — ikon değil kelime, tasarımdaki gibi.
+         * Düzen sırası — **ikonlar.**
+         *
+         * ⚠️ Kanun bugüne kadar "ikon değil kelime, tasarımdaki gibi" diyordu;
+         * kullanıcı 2026-09-08'de tersini istedi ve bu bilinçli bir sapma.
+         * **Kelimeler silinmedi:** `aria-label` ve `title` onları taşıyor.
          *
          * "SERBEST" bir düğme değil **durum**: ağaç hazır düzenlerin
          * hiçbirine uymuyorsa (kullanıcı bölmüş, takas etmiş ya da bir ayracı
          * sürüklemiş) o yanıyor. Basılacak bir şey yok, çünkü zaten oradasın.
-         * Eskiden bu satırdaki `aria-pressed` CSS kuralı yazılmıştı ama hiçbir
-         * düğme onu taşımıyordu — kural ölüydü, şimdi çalışıyor.
          */}
         <div className="layout" role="group" aria-label={t("panes.layout")}>
-          <button type="button" aria-pressed={serbest} disabled>
-            {t("panes.serbest")}
+          <button
+            type="button"
+            aria-pressed={serbest}
+            title={t("panes.serbest")}
+            aria-label={t("panes.serbest")}
+            disabled
+          >
+            <IconLayFree />
           </button>
-          {DUZENLER.map((d) => (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={etkinDuzen === d}
-              title={t(`panes.${d}`)}
-              disabled={sayi < 2}
-              onClick={() => duzenSec(d)}
-            >
-              {t(`panes.${d}`)}
-            </button>
-          ))}
+          {DUZENLER.map((d) => {
+            const Ikon = DUZEN_IKONU[d];
+            return (
+              <button
+                key={d}
+                type="button"
+                aria-pressed={etkinDuzen === d}
+                title={t(`panes.${d}`)}
+                aria-label={t(`panes.${d}`)}
+                disabled={sayi < 2}
+                onClick={() => duzenSec(d)}
+              >
+                <Ikon />
+              </button>
+            );
+          })}
         </div>
       </div>
 

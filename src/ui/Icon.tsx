@@ -337,3 +337,64 @@ export function IconFolder({
     },
   );
 }
+
+/*
+ * ── düzen ikonları ───────────────────────────────────────────────
+ *
+ * ⚠️ **Ledger kanunundan bilinçli sapma.** Kanun bugüne kadar "düzen sırası
+ * ikon değil kelime, tasarımdaki gibi" diyordu (`app.css`) ve tasarımın
+ * artboard'u `FREE · GRID · COLUMNS · ROWS · MAIN + STACK` yazıyor. Kullanıcı
+ * 2026-09-08'de ikon istedi. **Kelimeler silinmedi:** `aria-label` ve `title`
+ * olarak duruyorlar, yani ekran okuyucu ve ipucu aynı metni görüyor.
+ *
+ * Beşi de aynı çerçeveyi paylaşıyor; ayıran şey içindeki bölme çizgileri.
+ * Renk `currentColor`: etkin düğme `--text`, ötekiler `--text-muted` ve
+ * geçişi CSS yapıyor.
+ */
+function duzenIkonu(icerik: React.ReactNode, kesikli?: boolean) {
+  return svg(
+    15,
+    <>
+      <rect
+        x="3"
+        y="4.5"
+        width="14"
+        height="11"
+        rx="1.5"
+        strokeDasharray={kesikli ? "2.6 2" : undefined}
+      />
+      {icerik}
+    </>,
+    { stroke: "currentColor", strokeWidth: 1.4, strokeLinecap: "round" },
+  );
+}
+
+/**
+ * `SERBEST` — bir düzen değil **durum**: ağaç hazır düzenlerin hiçbirine
+ * uymuyor.
+ *
+ * ⚠️ **İçi boş, kesikli çerçeve.** İlk çizimde içinde asimetrik bir bölme
+ * vardı ve büyütülmüş görüntüde `ANA + YIĞIN` ile aynı yapıyı gösteriyordu
+ * (ikisi de solda büyük + sağda iki). Boş çerçeve doğrudan "hazır düzenlerin
+ * hiçbiri" diyor.
+ */
+export function IconLayFree() {
+  return duzenIkonu(null, true);
+}
+
+export function IconLayGrid() {
+  return duzenIkonu(<path d="M10 4.5v11M3 10h14" />);
+}
+
+export function IconLayCols() {
+  return duzenIkonu(<path d="M7.7 4.5v11M12.3 4.5v11" />);
+}
+
+export function IconLayRows() {
+  return duzenIkonu(<path d="M3 8.2h14M3 11.8h14" />);
+}
+
+/** Solda tam boy ana bölme, sağda kalanlar üst üste. */
+export function IconLayMain() {
+  return duzenIkonu(<path d="M10.5 4.5v11M10.5 10h6.5" />);
+}
