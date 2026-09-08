@@ -78,6 +78,15 @@ import type {
 
 /** Bölmeler uygulama kapanınca kaybolmamalı — bitiş ölçütü bunu istiyor. */
 const PANE_KEY = "pcbridge.panes";
+/**
+ * Kullanıcının elle verdiği bölme etiketleri (`session` → etiket).
+ *
+ * ⚠️ tmux adı **yeniden adlandırılmıyor.** O ad ağacın, bu anahtarın, PTY
+ * `HashMap`'inin ve olay yüklerinin anahtarı; değiştirmek dördünü birden
+ * kaydırırdı. Elle etiket varsa dinamik başlık (`user@host: ~dizin`) durur —
+ * GNOME Terminal'in davranışı. Etiket silinince dinamik başlık geri gelir.
+ */
+const ETIKET_KEY = "pcbridge.terminal.etiketler";
 const MODE_KEY = "pcbridge.mode";
 
 function okuMode(): Mode {
@@ -103,6 +112,21 @@ function okuAgac(): Dugum | null {
     return okuAgacHam(localStorage.getItem(PANE_KEY));
   } catch {
     return null;
+  }
+}
+
+function okuEtiketler(): Record<string, string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(ETIKET_KEY) ?? "{}");
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    // Bozuk bir kayıt arayüzü çökertmesin: yalnızca dizge değerler alınıyor.
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).filter(
+        ([, x]) => typeof x === "string" && x !== "",
+      ),
+    ) as Record<string, string>;
+  } catch {
+    return {};
   }
 }
 
@@ -238,6 +262,28 @@ export default function Shell({
    * elle tazelenebiliyor.
    */
   const [infos, setInfos] = useState<Record<string, PtyInfo>>({});
+  /** `oturumSonlandir` bir kez kuruluyor; yükleyiciyi ref'ten çağırıyor. */
+  const terminalleriYukleRef = useRef<() => Promise<void>>(async () => {});
+  const [etiketler, setEtiketler] = useState<Record<string, string>>(okuEtiketler);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ETIKET_KEY, JSON.stringify(etiketler));
+    } catch {
+      // Kalıcılık kaybolur; oturum içi etiketler çalışmaya devam eder.
+    }
+  }, [etiketler]);
+
+  /** Boş etiket **siler** ve dinamik başlığa döndürür. */
+  const etiketYaz = useCallback((session: string, ad: string) => {
+    setEtiketler((eski) => {
+      const yeni = { ...eski };
+      const kirpik = ad.trim();
+      if (kirpik) yeni[session] = kirpik;
+      else delete yeni[session];
+      return yeni;
+    });
+  }, []);
 
   const infoTazele = useCallback(async (adlar: string[]) => {
     if (adlar.length === 0) return;
@@ -331,6 +377,25 @@ export default function Shell({
     }
   }, [desktop.unlocked]);
 
+  /**
+   * Oturumu **sonlandırır** — bölme kapatmaktan ayrı ve geri dönüşü yok.
+   *
+   * İki yerden çağrılıyor (kenar çubuğu satırı ve sağ tık menüsü); ikinci bir
+   * kopya yazmak yerine tek fonksiyon. Bu depoda aynı işi yapan iki
+   * denetimden biri bir kez ölü kalmıştı.
+   */
+  const oturumSonlandir = useCallback((name: string) => {
+    void tmuxKill(name)
+      .then(() => {
+        // Oturum öldü: onu gösteren bölme de kalkmalı.
+        const mevcut = agacRef.current;
+        const yaprak = oturumaGore(mevcut, name);
+        if (yaprak && mevcut) setAgac(kapat(mevcut, yaprak.id));
+        return terminalleriYukleRef.current();
+      })
+      .catch((e) => setConnError(errorText(e as ConnError)));
+  }, []);
+
   const terminalleriYukle = useCallback(async () => {
     try {
       setTview(await loadTerminals());
@@ -338,6 +403,7 @@ export default function Shell({
       setConnError(errorText(e as ConnError));
     }
   }, []);
+  terminalleriYukleRef.current = terminalleriYukle;
 
   /**
    * Terminal kipinde oturum listesi. İlk geçişte çekilir, sonra 10 saniyede
@@ -902,6 +968,9 @@ export default function Shell({
         <Terminals
           view={tview}
           infos={infos}
+          etiketler={etiketler}
+          onEtiket={etiketYaz}
+          onKill={oturumSonlandir}
           agac={agac}
           onAgac={setAgac}
           onReload={() => {
@@ -922,6 +991,8 @@ export default function Shell({
       <TerminalSidebar
         view={tview}
         infos={infos}
+        etiketler={etiketler}
+        onEtiket={etiketYaz}
         panes={panes}
         desktop={desktop}
         onOpenSystem={() => {
@@ -930,16 +1001,7 @@ export default function Shell({
         }}
         onToggleDesktop={() => void masaustuCevir()}
         onOpen={(name) => setAgac(ekle(agac, name))}
-        onKill={(name) => {
-          void tmuxKill(name)
-            .then(() => {
-              // Oturum öldü: onu gösteren bölme de kalkmalı.
-              const yaprak = oturumaGore(agac, name);
-              if (yaprak && agac) setAgac(kapat(agac, yaprak.id));
-              return terminalleriYukle();
-            })
-            .catch((e) => setConnError(errorText(e as ConnError)));
-        }}
+        onKill={oturumSonlandir}
       />
     </div>
   );

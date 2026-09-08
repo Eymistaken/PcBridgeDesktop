@@ -196,6 +196,14 @@ const en: Record<string, string> = {
   "panes.zoomOut": "Shrink back",
   "panes.zoomNamed": "Expand pane {name}",
   "panes.tmuxName": "tmux session: {name}",
+  "menu.rename": "Rename",
+  "menu.closePane": "Close pane",
+  "menu.zoom": "Expand",
+  "menu.zoomOut": "Shrink back",
+  "menu.renameLabel": "New label for {name}",
+  "menu.openPane": "Open in a pane",
+  "menu.paneMenu": "Pane actions",
+  "menu.sessionMenu": "Session actions",
 
   // ── sohbet ──
   "chat.empty": "No conversation yet",
@@ -657,6 +665,14 @@ const tr: Record<string, string> = {
   "panes.zoomOut": "Geri küçült",
   "panes.zoomNamed": "{name} bölmesini genişlet",
   "panes.tmuxName": "tmux oturumu: {name}",
+  "menu.rename": "Yeniden adlandır",
+  "menu.closePane": "Bölmeyi kapat",
+  "menu.zoom": "Genişlet",
+  "menu.zoomOut": "Geri küçült",
+  "menu.renameLabel": "{name} için yeni etiket",
+  "menu.openPane": "Bölmede aç",
+  "menu.paneMenu": "Bölme eylemleri",
+  "menu.sessionMenu": "Oturum eylemleri",
 
   "chat.empty": "Henüz konuşma yok",
   "chat.emptyHint":

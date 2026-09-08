@@ -10,8 +10,10 @@ import {
 
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
+import SagMenu, { type MenuYer } from "../ui/SagMenu";
 import { IconClose, IconZoom } from "../ui/Icon";
 import { ptyClose } from "../lib/ipc";
+import { useCikisIcerik } from "../lib/cikis";
 import { t } from "../lib/i18n";
 import {
   bol,
@@ -59,6 +61,11 @@ interface Props {
   view: TerminalsView;
   /** Bölme başlığının canlı durumu — dizin ve ön plandaki program. */
   infos: Record<string, PtyInfo>;
+  /** Kullanıcının elle verdiği etiketler; varsa dinamik başlığın yerine geçer. */
+  etiketler: Record<string, string>;
+  onEtiket: (session: string, ad: string) => void;
+  /** Oturumu **sonlandırır** — bölme kapatmaktan ayrı, geri dönüşü yok. */
+  onKill: (session: string) => void;
   /** Bölme ağacı — `null` ise hiç bölme yok. */
   agac: Dugum | null;
   onAgac: Dispatch<SetStateAction<Dugum | null>>;
@@ -74,7 +81,23 @@ interface Surukleme {
   ad: string;
 }
 
-export default function Terminals({ view, infos, agac, onAgac, onReload }: Props) {
+/** Sağ tık menüsünün hedefi. */
+interface Menu {
+  yer: MenuYer;
+  bolmeId: string;
+  session: string;
+}
+
+export default function Terminals({
+  view,
+  infos,
+  etiketler,
+  onEtiket,
+  onKill,
+  agac,
+  onAgac,
+  onReload,
+}: Props) {
   const byName = useMemo(
     () => Object.fromEntries(view.sessions.map((s) => [s.name, s])),
     [view.sessions],
@@ -91,6 +114,16 @@ export default function Terminals({ view, infos, agac, onAgac, onReload }: Props
    * (`data-surukleniyor`) ve `Term`'in kendi 90 ms'lik gecikmesi doğru
    * davranış. Bayrak yalnızca devinimli değişimlerde açılıyor.
    */
+  const [menu, setMenu] = useState<Menu | null>(null);
+  // Menü kapanırken bir karede yok olmasın; hedef bilgisi devinim boyunca
+  // korunuyor — `menu` `null` olur olmaz öğe adları kaybolurdu.
+  const {
+    icerik: menuIcerik,
+    render: menuVar,
+    cikiyor: menuCikiyor,
+  } = useCikisIcerik(menu);
+  /** Etiketi düzenlenen oturum — başlıkta bir alan açılıyor. */
+  const [duzenlenen, setDuzenlenen] = useState<string | null>(null);
   const [gecis, setGecis] = useState(false);
   const gecisZaman = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -379,11 +412,60 @@ export default function Terminals({ view, infos, agac, onAgac, onReload }: Props
                 onZoom={zoomCevir}
                 onTut={tutmaBasla}
                 onOpened={onReload}
+                etiket={etiketler[b.session]}
+                duzenleniyor={duzenlenen === b.session}
+                onDuzenle={setDuzenlenen}
+                onEtiket={onEtiket}
+                onMenu={(yer) =>
+                  setMenu({ yer, bolmeId: b.id, session: b.session })
+                }
               />
             ))}
           </div>
         )}
       </div>
+
+      {menuVar && menuIcerik && (
+        <SagMenu
+          yer={menuIcerik.yer}
+          cikiyor={menuCikiyor}
+          ariaLabel={t("menu.paneMenu")}
+          onKapat={() => setMenu(null)}
+          ogeler={[
+            {
+              ad: t("menu.rename"),
+              onSec: () => setDuzenlenen(menuIcerik.session),
+            },
+            {
+              // ⚠️ `panes.zoom` bir **ipucu** metni ("tuvali kaplar; ötekiler
+              // ölçüsünü korur") ve menüde satırı taşırıyordu. Menünün kendi
+              // kısa anahtarı var.
+              ad: zoom === menuIcerik.bolmeId ? t("menu.zoomOut") : t("menu.zoom"),
+              onSec: () => zoomCevir(menuIcerik.bolmeId),
+            },
+            {
+              ad: t("panes.splitRight"),
+              ayrac: true,
+              kapali: !bosta[0],
+              onSec: () =>
+                bosta[0] && bolmeBol(menuIcerik.bolmeId, "satir", bosta[0]),
+            },
+            {
+              ad: t("panes.splitDown"),
+              kapali: !bosta[0],
+              onSec: () =>
+                bosta[0] && bolmeBol(menuIcerik.bolmeId, "sutun", bosta[0]),
+            },
+            {
+              ad: t("menu.closePane"),
+              ayrac: true,
+              onSec: () =>
+                void bolmeKapat(menuIcerik.bolmeId, menuIcerik.session),
+            },
+            { ad: t("term.kill"), onSec: () => onKill(menuIcerik.session) },
+          ]}
+        />
+      )}
 
       {/* Sürükleme hayaleti — imleci izliyor, hedef bölme vurgulanıyor. */}
       {surukleme && (
@@ -414,6 +496,11 @@ interface BolmeProps {
   onZoom: (bolmeId: string) => void;
   onTut: (e: React.PointerEvent, bolmeId: string, ad: string) => void;
   onOpened: () => void;
+  etiket?: string;
+  duzenleniyor: boolean;
+  onDuzenle: (session: string | null) => void;
+  onEtiket: (session: string, ad: string) => void;
+  onMenu: (yer: MenuYer) => void;
 }
 
 function Bolme({
@@ -432,6 +519,11 @@ function Bolme({
   onZoom,
   onTut,
   onOpened,
+  etiket,
+  duzenleniyor,
+  onDuzenle,
+  onEtiket,
+  onMenu,
 }: BolmeProps) {
   /**
    * Ön planda ne çalışıyor. Kaynak **yerel** `pty_info`; `tmux_list`'ten
@@ -445,7 +537,11 @@ function Bolme({
    * — GNOME Terminal'in biçimi, kullanıcının istediği. Teknik ad (`term1`)
    * ipucunda ve erişilebilirlik etiketlerinde duruyor.
    */
-  const etiket = info ? `${info.user}@${info.host}: ${kisaltEv(info.path)}` : session;
+  /** Etiket yokken görünen — ve etiket silinince geri dönülecek — başlık. */
+  const dinamik = info
+    ? `${info.user}@${info.host}: ${kisaltEv(info.path)}`
+    : session;
+  const gorunen = etiket ?? dinamik;
 
   return (
     <div
@@ -467,6 +563,12 @@ function Bolme({
         <div
           className="phead"
           onPointerDown={(e) => onTut(e, bolmeId, session)}
+          onContextMenu={(e) => {
+            // ⚠️ Yalnızca **başlıkta**. xterm'in içine konmuyor: orada sağ
+            // tık xterm'in kendi seçim/yapıştırma davranışı.
+            e.preventDefault();
+            onMenu({ x: e.clientX, y: e.clientY });
+          }}
           title={t("panes.dragHint")}
         >
           <span
@@ -477,12 +579,26 @@ function Bolme({
            * `flex: none` idi ve uzun bir dizin komutu "clau…" diye kesiyordu
            * (WebKitGTK görüntüsünde görüldü). Hangi CLI koştuğu kritik bilgi;
            * dizinin kuyruğu değil. Tam yol ipucunda. */}
-          <span
-            className="phead__ad"
-            title={`${info?.path ?? ""}\n${t("panes.tmuxName", { name: session })}`.trim()}
-          >
-            {etiket}
-          </span>
+          {duzenleniyor ? (
+            <EtiketAlani
+              deger={etiket ?? ""}
+              session={session}
+              ipucu={dinamik}
+              onBitti={(v) => {
+                onEtiket(session, v);
+                onDuzenle(null);
+              }}
+              onIptal={() => onDuzenle(null)}
+            />
+          ) : (
+            <span
+              className="phead__ad"
+              title={`${info?.path ?? ""}\n${t("panes.tmuxName", { name: session })}`.trim()}
+              onDoubleClick={() => onDuzenle(session)}
+            >
+              {gorunen}
+            </span>
+          )}
           {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
            * Kuyunun içindeyiz: renk `--well-muted`, `--text-muted` burada
            * aydınlık temada 2.63:1 verirdi. */}
@@ -543,6 +659,59 @@ function Bolme({
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * Etiket düzenleme alanı.
+ *
+ * **Boş bırakmak etiketi siler** ve dinamik başlığı (`user@host: ~dizin`)
+ * geri getirir — GNOME Terminal'in davranışı.
+ *
+ * ⚠️ `stopPropagation` şart: bu alan bölme başlığında duruyor ve uygulamanın
+ * global kısayol dinleyicisi `window`'da. Onsuz `Ctrl+N` yazarken yeni bir
+ * terminal açılırdı. (Dinleyici `INPUT`'u zaten süzüyor ama Escape'i
+ * süzmüyor.)
+ */
+function EtiketAlani({
+  deger,
+  session,
+  ipucu,
+  onBitti,
+  onIptal,
+}: {
+  deger: string;
+  session: string;
+  /** Alan boşken görünen — yani etiket silinirse başlıkta yazacak olan. */
+  ipucu: string;
+  onBitti: (v: string) => void;
+  onIptal: () => void;
+}) {
+  const [v, setV] = useState(deger);
+  const alan = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    alan.current?.select();
+  }, []);
+
+  return (
+    <input
+      ref={alan}
+      className="phead__alan mono"
+      value={v}
+      spellCheck={false}
+      autoFocus
+      placeholder={ipucu}
+      aria-label={t("menu.renameLabel", { name: session })}
+      onChange={(e) => setV(e.target.value)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") onBitti(v);
+        else if (e.key === "Escape") onIptal();
+      }}
+      onBlur={() => onBitti(v)}
+    />
   );
 }
 

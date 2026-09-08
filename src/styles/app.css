@@ -4342,3 +4342,113 @@ pre.well {
 .session-panel { overflow: hidden; }
 .session-panel--collapsed { height: 0; }
 
+
+/* ── sağ tık menüsü ──────────────────────────────────────────────── */
+/*
+ * ⚠️ Uygulamada bir yıl boyunca **hiç sağ tık menüsü yoktu.**
+ *
+ * Zemin `--field`: menü kuyunun (bölme başlığının) üstünde yüzüyor ama onun
+ * bir parçası değil. Öğeler **ikincil metin taşımıyor** — kontrast
+ * tablosunda `--text-muted` `--field-h` üstünde 4.44 ile AA'nın altında ve
+ * kanun onu orada yasaklıyor; `--text` aynı yerde 11.43.
+ *
+ * Köşe `--r-sm`: kanunda 4px "kuyu, panel, bölme ve örtü" için, ve bu bir
+ * panel. Düğmelerin yarıçapı yok, o yüzden öğeler köşesiz.
+ */
+.sagmenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 180px;
+  padding: 4px 0;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  box-shadow:
+    inset 0 0 0 1px var(--line-2),
+    0 12px 32px -8px rgb(0 0 0 / 0.55);
+  animation: girisSoluk var(--dur-fast) var(--ease-out) both;
+}
+
+.sagmenu[data-cikis] {
+  animation: cikisSoluk var(--dur-fast) var(--ease-in) both;
+}
+
+.sagmenu__oge {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: left;
+  color: var(--text-2);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.sagmenu__oge:hover:not(:disabled) {
+  background: var(--field-h);
+  color: var(--text);
+}
+
+.sagmenu__oge:active:not(:disabled) {
+  background: var(--field-a);
+}
+
+.sagmenu__oge:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Grup ayracı — cetvel, yüzey kademesi değil. */
+.sagmenu__oge[data-ayrac] {
+  margin-top: 4px;
+  padding-top: 4px;
+  box-shadow: inset 0 1px 0 var(--line-2);
+}
+
+/*
+ * Etiket düzenleme alanları.
+ *
+ * İkisi ayrı çünkü kapları ayrı: bölme başlığı **kuyunun içinde** (renkleri
+ * `--well-*`, çünkü `--text` aydınlık temada kuyu üstünde 1.12:1 verir),
+ * kenar çubuğu satırı kabukta.
+ */
+.phead__alan {
+  flex-grow: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--well-sel);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--well-text);
+  box-shadow: inset 0 0 0 1px var(--well-line);
+}
+
+.phead__alan::placeholder {
+  color: var(--well-muted);
+}
+
+.row__alan {
+  flex-grow: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--field);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+
+.row__alan::placeholder {
+  color: var(--text-muted);
+}
