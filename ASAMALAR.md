@@ -1339,6 +1339,133 @@ IPC'yle derlendi ve **panik/hata olmadan açıldı** — bu depoda ilk kez.
 
 ⛔ **Bot koşumu başlatılmadı**; yerel model yasağı yürürlükte.
 
+## Aşama 23 — Terminal kipi gerçek bir terminale döndü ✅ BİTTİ
+
+Kullanıcı sekiz şey istedi ve hepsi kondu. Özet: terminal kipi artık ad
+sormuyor, klasörü değişiyor, sağ tık menüsü taşıyor, bölmeleri ışınlanmadan
+yer değiştiriyor ve sekmeli.
+
+### Çekirdek: iç içe flexbox → hesaplanan dikdörtgenler (23a)
+
+Üç isteğin (animasyonlu sıra değişimi, kenar çubuğundan sürükleyip takas,
+arkadakileri boyutlandırmayan zoom) **ayrı ayrı çözümü yoktu.** Sebebi
+ölçülmüş: eski düzende her düğüm bir `.dal` sarmalayıcısıydı ve bir bölme yer
+değiştirince DOM ağacındaki **yeri** değişiyordu — geçirilecek bir `left/top`
+yok. Üstüne `takas` `session` alanını değiştirdiği için `Term`'in `useEffect`
+deps'i tetikleniyor ve **iki terminal de sıfırdan kuruluyordu**; Aşama 17'de
+tam bu maliyet 91 ms'lik bir kare olarak ölçülmüştü.
+
+`agac.ts::yerlesim` ağacı yüzde dikdörtgenlere açıyor, liste `key={session}`
+ile çiziliyor. Takas artık yalnızca `kutu` prop'unu değiştiriyor: React öğeyi
+koruyor, PTY yeniden bağlanmıyor, geçiş CSS'e kalıyor. Üç istek aynı
+değişiklikten geldi.
+
+| | |
+|---|---|
+| Takasta 33 ms'yi aşan kare | **0** (en uzun 17 ms) |
+| Takasta `pty_open` çağrısı | **0** — `Term` yeniden kurulmadı |
+| Zoom'da arkadakilerin kutusu | **birebir aynı** |
+| Zoom'un ilk karesi | 46–66 ms; sebebi büyüyen yüzeyin boyası |
+
+⚠️ Zoom'un ilk karesi için üç şey denendi ve **hepsi geri alındı**:
+`will-change` (48 → 53/59/66 ms, daha kötü), `z-index: 1` + `contain: paint`
+(etkisiz), `.term`'e `visibility: hidden` (55 ms — yani xterm sebep değil).
+Kabul edildi ve kayda geçti.
+
+### Sekiz istek
+
+1. **Ad sorulmuyor** (23c). Rust `tmux_free_name` ile çakışmayan `term1`,
+   `term2`… üretiyor; başlık `pty_info`'dan `eymistaken@ZorinOS: ~yol`.
+   `pty://exit` de bağlandı — bir tmux oturumu ölünce bölme artık ekranda ölü
+   kalmıyor.
+2. **Sağ tık menüsü + yeniden adlandırma** (23d). Uygulamada bir yıl boyunca
+   hiç sağ tık menüsü yoktu (`grep onContextMenu` → sıfır). `ui/SagMenu.tsx`;
+   xterm'in içine **konmadı**, o kendi seçim/yapıştırma davranışını taşıyor.
+3. **Klasör değiştirme** (23e). `workdir` boruları bir yıldır uçtan uca
+   hazırdı ve **hiç bağlanmamıştı**; Rust'a hiç dokunulmadı.
+4. **Gruplama → çalışma alanları** (23g). Aşağıda ayrı başlık.
+5. **Düzen sırası ikonlarla** (23h). Kelimeler `aria-label` + `title`'da.
+6. **Sıra değişimi animasyonlu** (23a).
+7. **Kenar çubuğundan bölmeye sürükleme** (23f). Tek uygulama
+   (`lib/surukle.ts`), iki çağıran.
+8. **Genişletme düğmesi** (23b) — arkadakiler boyutlanmıyor.
+
+### Çalışma alanları (23g) — bir sapma
+
+Plan *"otomatik grup ataması yalnızca doğuşta"* diyordu. **Sapıldı:** bir yeni
+terminal `~`'da doğuyor, yani dizine göre atama hepsini tek gruba düşürürdü,
+ve `cd`'den sonra yeniden atamak terminalleri gruplar arasında **zıplatırdı**
+— kullanıcının şartı *"o terminal orada kalır."*
+
+Onun yerine: **alan üyeliği elle, listenin gruplanması dizine göre.** `cd`
+artık bir grup başlığını değiştiriyor, terminalin yerini değiştirmiyor.
+
+- Üyeliğin **tek kaynağı** alanın ağacı; ayrı bir `session → alan` haritası
+  yok. Alan rengi için de ayrı bir hue alanı yok (addan türüyor). İkisi de
+  aynı sebeple: bu depoda okunmayan bir denetim (`Bot.desktop`) bir kez ölü
+  kaldı ve kullanıcı ölü anahtarı açıp izin verdiğini sandı.
+- **Alan değişince eski alanın PTY'leri kapanıyor.** `Term` sökülürken PTY'yi
+  bilerek kapatmıyor, ama arka plandaki bir alanın okuma iş parçacıkları
+  kimsenin dinlemediği olaylar yayardı. Oturum ölmüyor.
+- **Göç üç biçimden**, gerçek transpile edilmiş kod üstünde 10 durumla
+  ölçüldü: düz dizi → tek `Dugum` (`pcbridge.panes`) → `AlanDurum`, artı bozuk
+  JSON, bozuk ağaç, gidiş-dönüş, son alanın korunması. Bölme kaybı yok.
+
+### Bu turda bulunan ve düzeltilen dokuz şey
+
+Hepsi ya WebKitGTK görüntüsünde ya gerçek kabukta görüldü — hiçbiri
+tahminden gelmedi.
+
+| Bulgu | Nasıl görüldü |
+|---|---|
+| Bölmeler tuvalin kenarına yapışıyordu (CSS `position: absolute`'u **dolgu kutusuna** göre çözüyor) | WebKitGTK görüntüsü → içe `.tuval` katmanı |
+| `IconZoom` 13px'te **artı işareti** gibi okunuyordu | büyütülmüş görüntü → parantezler kenara, 13 → 14 |
+| `Ctrl+Y` kill-ring'deki **eski** metni yapıştırıyordu (boş satırda `Ctrl+U` kill-ring'e dokunmuyor) | gerçek kabuk → `\x19` kaldırıldı |
+| Uzun dizin çalışan komutu dışarı itiyordu (`clau…`) | görüntü → etiket eriyen taraf oldu |
+| 252px'lik sütunda dört satır da `eymistaken@ZorinOS…` yazıyordu | görüntü → `__kim` / `__yol` iki parça, `flex-shrink: 999` |
+| "Burada değil" satırları yalnızca `~` yazıyordu, ayırt edilemiyordu | görüntü → orada oturum adı yazılıyor |
+| `.card`'ın dolgusu **0px**'ti; onay kutusunun metni kenara yapışıyordu | ölçüm → `.scrim > .card` (eski silme kutusunu da düzeltti) |
+| `IconLayFree` `IconLayMain` ile **yapısal olarak aynıydı** | görüntü → boş kesikli çerçeve |
+| Sekmelerin artısı kaydırılan şeridin içinde kalıp **erişilemez** oluyordu | görüntü → şerit ikiye ayrıldı, sağ kenara nötr maske |
+
+### Toplananlar
+
+- **`ui/InlineAd.tsx`** — üç yerinde-adlandırma alanı. İki kopya bir süre yan
+  yana durmuştu; gerekçe "kapları farklı" idi ve `sinif` prop'u tam olarak onu
+  çözüyor. Toplanınca bir sarkıntı kapandı: kenar çubuğu kopyası yalnızca
+  `onClick`'i durduruyordu, oysa satırın sürüklemesi `pointerdown`'da
+  başlıyor — alanın içinde metin seçmek satırı sürüklemeye başlatıyordu.
+- **`lib/surukle.ts`** — bölmeye sürükleme, iki çağıran.
+
+### Yeni ölçülmüş gerçekler
+
+- `bind -p`: `\C-u` = `unix-line-discard` (satırı keser **ve kill-ring'e
+  koyar**), `\C-y` = `yank`. `HISTCONTROL=ignoreboth`, yani baştaki bir
+  boşluk komutu geçmişe hiç sokmuyor.
+- **`tmux display-message -p -t <olmayan>` exit 0 döndürüyor**, stderr'e
+  hiçbir şey yazmıyor ve bütün alanlar boş geliyor. İlk `info()` bu yüzden boş
+  bir `PtyInfo` döndürüyordu ve başlık `eymistaken@: ` yazacaktı. Varlık
+  yoklaması `#{session_name}`: boşsa `PtyError::Yok`.
+- **`:has()` WebKitGTK 4.1'de destekleniyor** — varsayılmadı, ölçüldü.
+- **Çalışan bir sürecin cwd'si dışarıdan değiştirilemez** ve bu bir uygulama
+  eksiği değil; işletim sisteminin kuralı. CLI algılaması
+  `#{pane_current_command}`, karar kullanıcının.
+- **`lib.rs:586`'nın doc yorumu yanlıştı** — `tmux new-session -A` diyordu,
+  gerçek uygulama `-A`'yı bilinçli reddediyor (Aşama 6'da ölçülen sebep).
+  Düzeltildi.
+
+### Kanuna eklenen iki değişmez
+
+1. **Görünen etiket ile tmux adı ayrı.** Ad ağacın, `localStorage`'ın, PTY
+   `HashMap`'inin ve olay yüklerinin anahtarı — yeniden adlandırmak dördünü
+   birden kaydırırdı. Etiket varsa dinamik başlık durur (GNOME Terminal
+   davranışı), silinince geri gelir.
+2. **Otomatik olan şey listenin gruplanması, alan üyeliği değil.** Yukarıdaki
+   sapmanın gerekçesi.
+
+⛔ **Terminalin İÇİ hâlâ kapsam dışı.** Devinen şey bölme **çerçevesi**
+(`.yer`); `.pane *` ve `.xterm *` seçicilerine hiç dokunulmadı.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

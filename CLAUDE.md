@@ -82,10 +82,25 @@ derse **başka bir şey sormadan** şunu yap:
      tauri dev`, panik/hata yok) ama **pencerede gözle görülmedi**; görsel
      doğrulama WebKitGTK'da, aynı motorda yapıldı. Yeni tasarımın gerçek
      pencerede ilk kez görülmesi kullanıcıya kalıyor.
-8. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi iki aşama da
+8. ✅ **Aşama 23 2026-09-08'de bitti — terminal kipi.** Kullanıcının sekiz
+   isteği kapandı: ad sormayan `+`, sağ tık + yeniden adlandırma, klasör
+   değiştirme, çalışma alanları, ikonlu düzen sırası, animasyonlu sıra
+   değişimi, kenar çubuğundan bölmeye sürükleme, genişletme. Ayrıntı ve bütün
+   ölçümler [ASAMALAR.md](ASAMALAR.md) Aşama 23'te; özetle:
+
+   - **Düzen artık hesaplanan dikdörtgen**, iç içe flexbox değil
+     (`agac.ts::yerlesim`). Liste `key={session}` ile çiziliyor, yani takas
+     `Term`'i **yeniden kurmuyor**: 33 ms'yi aşan kare 0, `pty_open` çağrısı 0.
+   - **Zoom arkadakileri boyutlandırmıyor** — ötekilerin kutusu birebir aynı.
+   - **Çalışma alanları sekmeli**, her birinin kendi ağacı var.
+
+   ⚠️ **Yeni tasarım hâlâ gerçek pencerede gözle görülmedi** (madde 7).
+   Doğrulama WebKitGTK'da, aynı motorda yapıldı.
+
+9. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi üç aşama da
    bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
    yeni iş bitince oraya bir aşama olarak taşınır.
-9. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+10. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -151,6 +166,22 @@ gerçek terminal ızgarası.
   monitörü zaten yazıyordu, `screen_capture` dönüşüm formülünü zaten veriyordu,
   model her tıklamadan sonra görüntü zaten alıyordu — üçü de dinlenmedi.
   Kaldıraç ya kararı modelden almak ya da eylemi engellemek.
+- **Görünen etiket ile tmux adı ayrı.** Bir bölme bir tmux oturumu, ama ad
+  ağacın, `localStorage`'ın, PTY `HashMap`'inin ve olay yüklerinin anahtarı —
+  yeniden adlandırmak dördünü birden kaydırırdı. Kullanıcının verdiği etiket
+  ayrı bir haritada (`pcbridge.terminal.etiketler`); varsa dinamik başlık
+  (`user@host: ~dizin`) durur, silinince geri gelir. GNOME Terminal'in
+  davranışı. Yeni terminalin adını **Rust üretiyor** (`tmux_free_name`),
+  kullanıcı hiç yazmıyor.
+- **Otomatik olan şey listenin gruplanması, alan üyeliği değil.** Kullanıcı
+  *"varsayılan olarak dizine göre otomatik ayrılır… ancak o terminal orada
+  kalır"* dedi. Bir yeni terminal `~`'da doğuyor, yani dizine göre **atama**
+  hepsini tek gruba düşürürdü; `cd`'den sonra yeniden atamak da terminalleri
+  gruplar arasında zıplatırdı. Bu yüzden **alan üyeliği elle**, kenar
+  çubuğundaki "burada değil" listesi **dizine göre** gruplanıyor.
+  Üyeliğin tek kaynağı alanın ağacı (`alanlar.ts`) — ayrı bir
+  `session → alan` haritası **yok**, alan rengi için ayrı bir hue alanı da
+  yok (addan türüyor). İkisi de `Bot.desktop` dersinden.
 - **Terminal bölme sayısında sınır YOK.** Dörtlü sınır bir ön yüz
   sözleşmesiydi (`slice(0, 4)`) ve beşinci oturumu **sessizce yutuyordu**;
   Rust'ta hiç olmadı (`pty.rs` sınırsız `HashMap`). Düzen bir ağaç
@@ -159,6 +190,13 @@ gerçek terminal ızgarası.
   `calc-size()` yok, `height: auto` CSS'ten geçirilemiyor. Düşünce kutusu,
   besteci, katlanır session listesi ve BotForge sekmeleri aynı yardımcıyı
   kullanıyor — dört kopya er geç ayrışırdı.
+- **Yerinde adlandırma tek yerde:** `src/ui/InlineAd.tsx`. Bölme başlığı,
+  kenar çubuğu satırı ve alan sekmesi aynı alanı kullanıyor; kabı `sinif`
+  prop'undan geliyor. İki kopya bir süre yan yana durdu ve gerekçe "kapları
+  farklı" idi — toplanınca bir sarkıntı kapandı: kenar çubuğu kopyası yalnızca
+  `onClick`'i durduruyordu, oysa satırın sürüklemesi `pointerdown`'da başlıyor
+  ve alanın içinde metin seçmek satırı sürüklemeye başlatıyordu.
+  Bölmeye sürükleme de tek yerde: `src/lib/surukle.ts`, iki çağıran.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
 ## Tasarım kanunu — "Ledger"
@@ -347,7 +385,16 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
    not measured."*
 5. **Masaüstü panelinde "LOCK NOW" düğmesi yok.** Anahtar zaten kilitliyor
    ve bu depoda aynı işi yapan iki denetimden biri bir kez ölü kaldı.
-6. **Kenar çubuğunda satır eylemleri var** (düzenle · sil · katla), tasarımda
+6. ⚠️ **Düzen sırası kelimeyle değil İKONLA.** Kanun 2026-09-08'e kadar
+   tersini diyordu (*"ikon değil kelime, tasarımdaki gibi"*); kullanıcı aynı
+   gün ikon istedi. Kelimeler `aria-label` ve `title`'da yaşıyor, yani ekran
+   okuyucu ve ipucu aynı metni görüyor. Beş ikon 20px ızgarada, etkin olan
+   `box-shadow: inset 0 -1px 0 var(--line-3)` ile altı çizili. Aynı gösterge
+   çalışma alanı sekmelerinde de kullanılıyor — ikinci bir dil icat edilmedi.
+7. **Terminal kipi sekmeli** (çalışma alanları) — tasarımda yok, kullanıcının
+   isteği. Sekme bir kutu değil: etkin olan altındaki cetvelle işaretleniyor,
+   rengi addan türüyor (`hueOf`, botlardaki formülün aynısı).
+8. **Kenar çubuğunda satır eylemleri var** (düzenle · sil · katla), tasarımda
    yok. Çalışan işlevler; akışın dışında, satırın üstüne binerek duruyorlar —
    yer kapladıklarında 252px'lik sütunda bot adı "Deskto…" diye kırpılıyordu.
 
@@ -380,6 +427,39 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
   `398 gecti, 0 kaldi` (aksansız, kaynakta öyle).
 - **`systemctl --user restart pcbridge` çalışan işleri öldürür** (cgroup).
   Bu depoda gerekmiyor — pcbridge değişmiyor — ama unutma.
+
+### Terminal kipi — 2026-09-08'de ölçüldü (Aşama 23)
+
+- **`bind -p`:** `\C-u` = `unix-line-discard` — satırı keser **ve kill-ring'e
+  koyar**; `\C-y` = `yank`. `HISTCONTROL=ignoreboth`, yani **baştaki bir
+  boşluk** komutu geçmişe hiç sokmuyor. `cd` bu yüzden ` cd -- '<yol>'` diye
+  gönderiliyor (`src/lib/kabuk.ts::cdDizisi`).
+  ⚠️ **`\x19` (Ctrl+Y) bilinçli olarak YOK.** Plan yarım komutu geri koymak
+  için onu kullanıyordu; ölçüldü ki **boş** satırda `Ctrl+U` kill-ring'e
+  dokunmuyor, yani `Ctrl+Y` kullanıcının çok daha eski bir kesilmiş metnini
+  yapıştırıyor (gerçek kabukta `echo ESKI_KESILEN` prompta düştü). Yarım
+  komut kill-ring'de duruyor; geri getirmek isteyen kullanıcı kendisi
+  `Ctrl+Y` yapıyor.
+- **`tmux display-message -p -t <olmayan-oturum>` exit 0 döndürüyor**,
+  stderr'e hiçbir şey yazmıyor ve bütün alanlar **boş** geliyor. İlk `info()`
+  bu yüzden boş bir `PtyInfo` döndürüyordu ve başlık `eymistaken@: ` yazacaktı.
+  Varlık yoklaması `#{session_name}`: boş dönerse `PtyError::Yok`.
+- **Çalışan bir sürecin cwd'si dışarıdan değiştirilemez** — bu işletim
+  sisteminin kuralı, uygulamanın eksiği **değil**. CLI algılaması
+  `#{pane_current_command}`; bir CLI çalışıyorsa kullanıcıya soruluyor
+  (*yeni pencere · yine de gönder · iptal*), sessizce hiçbir şey yapılmıyor.
+- **`:has()` WebKitGTK 4.1'de destekleniyor** — varsayılmadı, ölçüldü.
+- **CSS `position: absolute`'u DOLGU KUTUSUNA göre çözüyor.** `.agac`'ın
+  `padding`'i sessizce atlanıyordu ve bölmeler tuvalin kenarına yapışıyordu;
+  içe bir `.tuval` katmanı kondu (`position: relative` onun).
+- **Zoom'un ilk karesi 46–66 ms ve sebebi büyüyen yüzeyin boyası.** Üç şey
+  denendi, **üçü de geri alındı**: `will-change` (48 → 53/59/66 ms, daha
+  kötü), `z-index: 1` + `contain: paint` (etkisiz), `.term`'e
+  `visibility: hidden` (55 ms — yani xterm sebep değil). Kabul edildi.
+- **`Term` sökülürken PTY'yi kapatmıyor** (bölme yeniden çizilirse aynı
+  oturuma bağlı kalmalı). Bu yüzden **çalışma alanı değişince** eski alanın
+  PTY'leri açıkça kapatılıyor: yoksa arka plandaki alanların okuma iş
+  parçacıkları kimsenin dinlemediği olaylar yayardı. Oturum ölmüyor.
 
 ### Masaüstü istemcisinin yığını — 2026-09-01'de ölçüldü
 
