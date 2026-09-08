@@ -284,3 +284,38 @@ export function IconBolt({
     strokeLinecap: "round",
   });
 }
+
+/**
+ * Bölmeyi genişlet / geri küçült.
+ *
+ * **Tek çizim, yönü tersine dönüyor:** iki köşe braketi genişletmede dışa,
+ * küçültmede içe bakıyor. `IconChevron` ile aynı gerekçe — iki ayrı path'i
+ * ayrı ayrı bakımda tutmak yerine tek bir çizimin yönünü değiştirmek.
+ *
+ * Renk varsayılanı **kuyu tokenı**: bu düğme bölme başlığında, yani kuyunun
+ * içinde duruyor ve `--text-muted` orada aydınlık temada 2.63:1 verirdi.
+ */
+export function IconZoom({
+  size = 14,
+  color = "var(--well-muted)",
+  strokeWidth = 1.6,
+  kucult = false,
+}: IconProps & { kucult?: boolean }) {
+  return svg(
+    size,
+    // ⚠️ Braketler **kenarlara** çizilir. İlk denemede (4,9)/(16,11)
+    // merkeze yakındı ve 13px'te iki braket birbirine değip bir artı gibi
+    // okunuyordu — WebKitGTK görüntüsünde görüldü.
+    kucult ? (
+      <path d="M8 3v5H3M12 17v-5h5" />
+    ) : (
+      <path d="M3 8V3h5M17 12v5h-5" />
+    ),
+    {
+      stroke: color,
+      strokeWidth,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    },
+  );
+}

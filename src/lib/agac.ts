@@ -251,6 +251,101 @@ function dengeli(dugumler: Dugum[], yon: Yon): Dugum {
   };
 }
 
+// ─────────────────────────── yerleşim ───────────────────────────
+
+/** Tuvalin **yüzdesi** cinsinden bir dikdörtgen. */
+export interface Kutu {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface YerBolme {
+  id: string;
+  session: string;
+  kutu: Kutu;
+}
+
+/** Ayracın kutusu **çizgidir**: `satir` yönünde `w`, `sutun` yönünde `h` sıfır.
+ *  Kalınlığı (14px tutma alanı) CSS'ten geliyor, yüzdeden değil. */
+export interface YerAyrac {
+  id: string;
+  yon: Yon;
+  kutu: Kutu;
+}
+
+export interface Yerlesim {
+  bolmeler: YerBolme[];
+  ayraclar: YerAyrac[];
+}
+
+/**
+ * Ağacı yüzde dikdörtgenlere açar.
+ *
+ * ⚠️ **Bu, iç içe flexbox'ın yerine geçti ve sebebi ölçülmüş.** Eskiden her
+ * düğüm bir `.dal` sarmalayıcısıydı ve pay `flex-basis`'te duruyordu. O
+ * modelde bir bölme yer değiştirince DOM ağacındaki **yeri** değişiyor —
+ * geçirilecek bir `left/top` yok, ve CLAUDE.md'nin kendi kaydı bunu söylüyor:
+ * *"Yeni kurulan bir öğe geçiş oynatmaz"* (Aşama 12, kip anahtarı bir yıl
+ * boyunca hiç kaymamıştı). Üstüne `takas` `session` alanını değiştirdiği için
+ * `Term`'in `useEffect` deps'i tetikleniyor ve **iki terminal de sıfırdan
+ * kuruluyordu**: yazı tipi beklemesi, 20 tokenin `getComputedStyle`'ı,
+ * `new Terminal` + iki eklenti + `open` + `fit`, bir IPC, iki abonelik, iki
+ * gözlemci. Aşama 17'de tam bu maliyet 91 ms'lik bir kare olarak ölçülmüştü.
+ *
+ * Dikdörtgen modelinde bölme listesi `key={session}` ile çiziliyor: takas
+ * yalnızca `kutu` prop'unu değiştiriyor, React öğeyi **koruyor**, PTY yeniden
+ * bağlanmıyor ve geçiş CSS'e kalıyor.
+ *
+ * `zoom` verilirse o bölme tuvalin tamamını kaplar ve **ötekilerin kutusu hiç
+ * değişmez** — kullanıcının şartı bu: *"arkadakiler resize olmayacak."*
+ */
+export function yerlesim(kok: Dugum | null, zoom?: string | null): Yerlesim {
+  const out: Yerlesim = { bolmeler: [], ayraclar: [] };
+  if (!kok) return out;
+  gez(kok, { x: 0, y: 0, w: 100, h: 100 }, out);
+
+  if (zoom) {
+    const i = out.bolmeler.findIndex((b) => b.id === zoom);
+    // Bulunamazsa hiçbir şey yapılmıyor: kapanmış bir bölmenin kimliği
+    // durumda kalmış olabilir ve o hâlde normal düzen doğru olan.
+    if (i >= 0) {
+      out.bolmeler[i] = {
+        ...out.bolmeler[i],
+        kutu: { x: 0, y: 0, w: 100, h: 100 },
+      };
+    }
+  }
+  return out;
+}
+
+function gez(d: Dugum, kutu: Kutu, out: Yerlesim): void {
+  if (d.t === "bolme") {
+    out.bolmeler.push({ id: d.id, session: d.session, kutu });
+    return;
+  }
+  if (d.yon === "satir") {
+    const aw = kutu.w * d.oran;
+    gez(d.a, { ...kutu, w: aw }, out);
+    gez(d.b, { x: kutu.x + aw, y: kutu.y, w: kutu.w - aw, h: kutu.h }, out);
+    out.ayraclar.push({
+      id: d.id,
+      yon: d.yon,
+      kutu: { x: kutu.x + aw, y: kutu.y, w: 0, h: kutu.h },
+    });
+  } else {
+    const ah = kutu.h * d.oran;
+    gez(d.a, { ...kutu, h: ah }, out);
+    gez(d.b, { x: kutu.x, y: kutu.y + ah, w: kutu.w, h: kutu.h - ah }, out);
+    out.ayraclar.push({
+      id: d.id,
+      yon: d.yon,
+      kutu: { x: kutu.x, y: kutu.y + ah, w: kutu.w, h: 0 },
+    });
+  }
+}
+
 // ─────────────────────────── kalıcılık ───────────────────────────
 
 /**

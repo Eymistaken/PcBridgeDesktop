@@ -1,8 +1,16 @@
-import { type Dispatch, type SetStateAction, useCallback, useMemo, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
-import { IconClose } from "../ui/Icon";
+import { IconClose, IconZoom } from "../ui/Icon";
 import { ptyClose } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import {
@@ -15,13 +23,25 @@ import {
   oranYaz,
   oturumlar,
   takas,
+  yerlesim,
   type Dugum,
   type Duzen,
+  type Kutu,
   type Yon,
 } from "../lib/agac";
 import type { TerminalsView, TmuxSession } from "../lib/types";
 
 const DUZENLER: Duzen[] = ["izgara", "sutunlar", "satirlar", "ana"];
+
+/**
+ * Düzen geçişinin süresi + pay.
+ *
+ * `--dur-slow` 300 ms; 40 ms pay geçişin gerçekten bittiğini garanti ediyor.
+ * `transitionend` yerine zamanlayıcı: dört özellik (left/top/width/height)
+ * ayrı ayrı ateşliyor ve kutusu hiç değişmeyen bölmeler **hiç**
+ * ateşlemiyor — yani olay tek bir "bitti" anı vermiyor.
+ */
+const GECIS_MS = 340;
 
 interface Props {
   view: TerminalsView;
@@ -46,7 +66,29 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
     [view.sessions],
   );
   const [surukleme, setSurukleme] = useState<Surukleme | null>(null);
+  /** Genişletilmiş bölmenin kimliği. Ağaç değişmiyor — yalnızca yerleşim. */
+  const [zoom, setZoom] = useState<string | null>(null);
   const kok = useRef<HTMLDivElement>(null);
+
+  /**
+   * Düzen geçişi sürüyor mu — `Term`'in ölçümünü bastırmak için.
+   *
+   * ⚠️ Ayraç sürüklemesi bunu **açmıyor**: orada geçiş zaten kapalı
+   * (`data-surukleniyor`) ve `Term`'in kendi 90 ms'lik gecikmesi doğru
+   * davranış. Bayrak yalnızca devinimli değişimlerde açılıyor.
+   */
+  const [gecis, setGecis] = useState(false);
+  const gecisZaman = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const gecisBaslat = useCallback(() => {
+    // Devinim kapalıysa geçiş de yok: ölçümü bastırmak yalnızca gecikme olurdu.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setGecis(true);
+    clearTimeout(gecisZaman.current);
+    gecisZaman.current = setTimeout(() => setGecis(false), GECIS_MS);
+  }, []);
+
+  useEffect(() => () => clearTimeout(gecisZaman.current), []);
 
   const acik = oturumlar(agac);
   const bosta = view.sessions
@@ -57,10 +99,14 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
   const bolmeBol = useCallback(
     (bolmeId: string, yon: Yon, session: string) => {
       if (!agac) return;
+      // Genişletilmiş bölmeyi bölmek yeni bölmeyi zoom'un **arkasında**
+      // bırakırdı; bölmek zoom'dan çıkmak demek.
+      setZoom(null);
+      gecisBaslat();
       onAgac(bol(agac, bolmeId, yon, session));
       onReload();
     },
-    [agac, onAgac, onReload],
+    [agac, onAgac, onReload, gecisBaslat],
   );
 
   const bolmeKapat = useCallback(
@@ -68,10 +114,12 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
       if (!agac) return;
       // Bölmeyi kapatmak oturumu **ÖLDÜRMEZ**.
       await ptyClose(session).catch(() => {});
-      onAgac((current) => current ? kapat(current, bolmeId) : null);
+      setZoom((z) => (z === bolmeId ? null : z));
+      gecisBaslat();
+      onAgac((current) => (current ? kapat(current, bolmeId) : null));
       onReload();
     },
-    [agac, onAgac, onReload],
+    [agac, onAgac, onReload, gecisBaslat],
   );
 
   /**
@@ -82,6 +130,8 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
   const tutmaBasla = useCallback(
     (e: React.PointerEvent, bolmeId: string, ad: string) => {
       if (e.button !== 0 || (e.target as Element).closest("button")) return;
+      // Genişletilmişken tek bölme görünüyor; takas edilecek bir komşu yok.
+      if (zoom) return;
       const hedefEl = e.currentTarget as HTMLElement;
       hedefEl.setPointerCapture(e.pointerId);
       let basladi = false;
@@ -96,7 +146,8 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
         const alt = document
           .elementsFromPoint(ev.clientX, ev.clientY)
           .find((el) => el.classList.contains("pane")) as
-          HTMLElement | undefined;
+          | HTMLElement
+          | undefined;
         const uzerinde = alt?.dataset.bolme ?? null;
         setSurukleme({
           kaynak: bolmeId,
@@ -113,7 +164,10 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
         hedefEl.removeEventListener("pointerup", birak);
         hedefEl.removeEventListener("pointercancel", birak);
         setSurukleme((s) => {
-          if (s?.hedef && agac) onAgac(takas(agac, s.kaynak, s.hedef));
+          if (s?.hedef && agac) {
+            gecisBaslat();
+            onAgac(takas(agac, s.kaynak, s.hedef));
+          }
           return null;
         });
       };
@@ -122,18 +176,26 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
       hedefEl.addEventListener("pointerup", birak);
       hedefEl.addEventListener("pointercancel", birak);
     },
-    [agac, onAgac],
+    [agac, onAgac, zoom, gecisBaslat],
   );
 
-  /** Ayraç sürüklemesi: oranı canlı yazıyor. */
+  /**
+   * Ayraç sürüklemesi: oranı canlı yazıyor.
+   *
+   * Kök öğeye `data-surukleniyor` konuyor ve CSS geçişi o sürece kapanıyor —
+   * açık kalsaydı ayraç imleci `--dur-slow` kadar geriden takip ederdi.
+   */
   const ayracTut = useCallback(
     (e: React.PointerEvent, bolId: string, yon: Yon) => {
       if (e.button !== 0) return;
       const el = e.currentTarget as HTMLElement;
-      const ebeveyn = el.parentElement;
-      if (!ebeveyn) return;
+      const tuval = kok.current;
+      if (!tuval) return;
       el.setPointerCapture(e.pointerId);
-      const kutu = ebeveyn.getBoundingClientRect();
+      // Ölçü artık **tuvalin** kendisi: ayraçlar iç içe kutuların değil,
+      // hesaplanan dikdörtgenlerin çocuğu.
+      const kutu = tuval.getBoundingClientRect();
+      tuval.dataset.surukleniyor = "1";
 
       const hareket = (ev: PointerEvent) => {
         const oran =
@@ -147,6 +209,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
         el.removeEventListener("pointermove", hareket);
         el.removeEventListener("pointerup", birak);
         el.removeEventListener("pointercancel", birak);
+        delete tuval.dataset.surukleniyor;
       };
       el.addEventListener("pointermove", hareket);
       el.addEventListener("pointerup", birak);
@@ -155,7 +218,37 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
     [agac, onAgac],
   );
 
+  const duzenSec = useCallback(
+    (d: Duzen) => {
+      setZoom(null);
+      gecisBaslat();
+      onAgac(duzenKur(acik, d));
+    },
+    [acik, onAgac, gecisBaslat],
+  );
+
+  const zoomCevir = useCallback(
+    (bolmeId: string) => {
+      gecisBaslat();
+      setZoom((z) => (z === bolmeId ? null : bolmeId));
+    },
+    [gecisBaslat],
+  );
+
   const sayi = bolmeSayisi(agac);
+  const yer = useMemo(() => yerlesim(agac, zoom), [agac, zoom]);
+
+  /**
+   * Çizim sırası **oturum adına göre**, yerleşim sırasına göre değil.
+   *
+   * `key={session}` React'in öğeyi korumasını sağlıyor; DOM sırasını da
+   * kararlı tutmak takasta düğümlerin yer değiştirmesini önlüyor. Bölmeler
+   * absolute konumlandığı için görünen sıra zaten kutulardan geliyor.
+   */
+  const cizim = useMemo(
+    () => [...yer.bolmeler].sort((a, b) => (a.session < b.session ? -1 : 1)),
+    [yer],
+  );
 
   // Şu anki ağaç hazır düzenlerden birine mi uyuyor? Karşılaştırma
   // `bicim` ile, düğüm kimlikleri dışarıda bırakılarak.
@@ -178,6 +271,8 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
             onChange={(n) => {
               // Boştaki oturumu **en sığ** yaprağı bölerek ekliyoruz; yön
               // dönüşümlü, uzun ince şeritler oluşmuyor.
+              setZoom(null);
+              gecisBaslat();
               onAgac(ekle(agac, n));
               onReload();
             }}
@@ -203,7 +298,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
               aria-pressed={etkinDuzen === d}
               title={t(`panes.${d}`)}
               disabled={sayi < 2}
-              onClick={() => onAgac(duzenKur(acik, d))}
+              onClick={() => duzenSec(d)}
             >
               {t(`panes.${d}`)}
             </button>
@@ -211,26 +306,67 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
         </div>
       </div>
 
-      <div className="agac" ref={kok}>
+      <div className="agac">
         {agac === null ? (
           <div className="chat__bos agac__bos">
             <span className="h">{t("panes.empty")}</span>
-            <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)", maxWidth: 420 }}>
+            <span
+              style={{
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: "var(--text-3)",
+                maxWidth: 420,
+              }}
+            >
               {t("panes.emptyHint")}
             </span>
           </div>
         ) : (
-          <Dal
-            dugum={agac}
-            byName={byName}
-            bosta={bosta}
-            surukleme={surukleme}
-            onBol={bolmeBol}
-            onKapat={bolmeKapat}
-            onTut={tutmaBasla}
-            onAyrac={ayracTut}
-            onOpened={onReload}
-          />
+          <div className="tuval" ref={kok} data-zoom={zoom ? "1" : undefined}>
+            {yer.ayraclar.map((a) => (
+              <div
+                key={a.id}
+                className={`ayrac ayrac--${a.yon}`}
+                role="separator"
+                aria-orientation={a.yon === "satir" ? "vertical" : "horizontal"}
+                style={
+                  a.yon === "satir"
+                    ? {
+                        left: `${a.kutu.x}%`,
+                        top: `${a.kutu.y}%`,
+                        height: `${a.kutu.h}%`,
+                      }
+                    : {
+                        left: `${a.kutu.x}%`,
+                        top: `${a.kutu.y}%`,
+                        width: `${a.kutu.w}%`,
+                      }
+                }
+                onPointerDown={(e) => ayracTut(e, a.id, a.yon)}
+              >
+                <i />
+              </div>
+            ))}
+            {cizim.map((b) => (
+              <Bolme
+                key={b.session}
+                bolmeId={b.id}
+                session={b.session}
+                kutu={b.kutu}
+                zoomlu={zoom === b.id}
+                gecis={gecis}
+                oturum={byName[b.session]}
+                eklenecek={bosta[0]}
+                hedef={surukleme?.hedef === b.id}
+                kaynak={surukleme?.kaynak === b.id}
+                onBol={bolmeBol}
+                onKapat={bolmeKapat}
+                onZoom={zoomCevir}
+                onTut={tutmaBasla}
+                onOpened={onReload}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -247,118 +383,117 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
   );
 }
 
-interface DalProps {
-  dugum: Dugum;
-  byName: Record<string, TmuxSession>;
-  bosta: string[];
-  surukleme: Surukleme | null;
+interface BolmeProps {
+  bolmeId: string;
+  session: string;
+  kutu: Kutu;
+  zoomlu: boolean;
+  gecis: boolean;
+  oturum?: TmuxSession;
+  eklenecek?: string;
+  hedef: boolean;
+  kaynak: boolean;
   onBol: (bolmeId: string, yon: Yon, session: string) => void;
   onKapat: (bolmeId: string, session: string) => void;
+  onZoom: (bolmeId: string) => void;
   onTut: (e: React.PointerEvent, bolmeId: string, ad: string) => void;
-  onAyrac: (e: React.PointerEvent, bolId: string, yon: Yon) => void;
   onOpened: () => void;
 }
 
-function Dal(p: DalProps) {
-  const { dugum } = p;
-  if (dugum.t === "bolme") {
-    return <Bolme {...p} dugum={dugum} />;
-  }
-  return (
-    <div className={`dal dal--${dugum.yon}`}>
-      <div className="dal__yan" style={{ flexBasis: `${dugum.oran * 100}%` }}>
-        <Dal {...p} dugum={dugum.a} />
-      </div>
-      <div
-        className={`ayrac ayrac--${dugum.yon}`}
-        role="separator"
-        aria-orientation={dugum.yon === "satir" ? "vertical" : "horizontal"}
-        onPointerDown={(e) => p.onAyrac(e, dugum.id, dugum.yon)}
-      >
-        <i />
-      </div>
-      <div
-        className="dal__yan"
-        style={{ flexBasis: `${(1 - dugum.oran) * 100}%` }}
-      >
-        <Dal {...p} dugum={dugum.b} />
-      </div>
-    </div>
-  );
-}
-
 function Bolme({
-  dugum,
-  byName,
-  bosta,
-  surukleme,
+  bolmeId,
+  session,
+  kutu,
+  zoomlu,
+  gecis,
+  oturum,
+  eklenecek,
+  hedef,
+  kaynak,
   onBol,
   onKapat,
+  onZoom,
   onTut,
   onOpened,
-}: DalProps & { dugum: Extract<Dugum, { t: "bolme" }> }) {
-  const oturum = byName[dugum.session];
+}: BolmeProps) {
   const calisiyor = oturum?.command && oturum.command !== "bash";
-  const hedef = surukleme?.hedef === dugum.id;
-  const kaynak = surukleme?.kaynak === dugum.id;
-  // Yeni bölmeye konacak oturum; boşta yoksa bölme düğmeleri kapalı.
-  const eklenecek = bosta[0];
 
   return (
     <div
-      className="pane"
-      data-bolme={dugum.id}
-      data-hedef={hedef || undefined}
-      data-kaynak={kaynak || undefined}
+      className="yer"
+      data-zoom={zoomlu || undefined}
+      style={{
+        left: `${kutu.x}%`,
+        top: `${kutu.y}%`,
+        width: `${kutu.w}%`,
+        height: `${kutu.h}%`,
+      }}
     >
       <div
-        className="phead"
-        onPointerDown={(e) => onTut(e, dugum.id, dugum.session)}
-        title={t("panes.dragHint")}
+        className="pane"
+        data-bolme={bolmeId}
+        data-hedef={hedef || undefined}
+        data-kaynak={kaynak || undefined}
       >
-        <span
-          className="dot"
-          style={{ background: calisiyor ? "var(--run)" : "var(--ok)" }}
-        />
-        <span style={{ fontWeight: 500, flex: "none" }}>{dugum.session}</span>
-        {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
-         * Kuyunun içindeyiz: renk `--well-muted`, `--text-muted` burada
-         * aydınlık temada 2.63:1 verirdi. */}
-        <span className="phead__alt">{oturum?.command ?? ""}</span>
-        {oturum?.attached && (
-          <span className="phead__uzak">{t("term.alsoOnPc")}</span>
-        )}
-        <button
-          type="button"
-          className="pb"
-          disabled={!eklenecek}
-          title={t("panes.splitRight")}
-          aria-label={t("panes.splitRight")}
-          onClick={() => eklenecek && onBol(dugum.id, "satir", eklenecek)}
+        <div
+          className="phead"
+          onPointerDown={(e) => onTut(e, bolmeId, session)}
+          title={t("panes.dragHint")}
         >
-          <IconSplit yon="satir" />
-        </button>
-        <button
-          type="button"
-          className="pb"
-          disabled={!eklenecek}
-          title={t("panes.splitDown")}
-          aria-label={t("panes.splitDown")}
-          onClick={() => eklenecek && onBol(dugum.id, "sutun", eklenecek)}
-        >
-          <IconSplit yon="sutun" />
-        </button>
-        <button
-          type="button"
-          className="pb"
-          title={t("panes.close")}
-          aria-label={t("panes.closeNamed", { name: dugum.session })}
-          onClick={() => void onKapat(dugum.id, dugum.session)}
-        >
-          <IconClose />
-        </button>
+          <span
+            className="dot"
+            style={{ background: calisiyor ? "var(--run)" : "var(--ok)" }}
+          />
+          <span style={{ fontWeight: 500, flex: "none" }}>{session}</span>
+          {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
+           * Kuyunun içindeyiz: renk `--well-muted`, `--text-muted` burada
+           * aydınlık temada 2.63:1 verirdi. */}
+          <span className="phead__alt">{oturum?.command ?? ""}</span>
+          {oturum?.attached && (
+            <span className="phead__uzak">{t("term.alsoOnPc")}</span>
+          )}
+          <button
+            type="button"
+            className="pb"
+            title={zoomlu ? t("panes.zoomOut") : t("panes.zoom")}
+            aria-label={t("panes.zoomNamed", { name: session })}
+            aria-pressed={zoomlu}
+            onClick={() => onZoom(bolmeId)}
+          >
+            <IconZoom kucult={zoomlu} />
+          </button>
+          <button
+            type="button"
+            className="pb"
+            disabled={!eklenecek}
+            title={t("panes.splitRight")}
+            aria-label={t("panes.splitRight")}
+            onClick={() => eklenecek && onBol(bolmeId, "satir", eklenecek)}
+          >
+            <IconSplit yon="satir" />
+          </button>
+          <button
+            type="button"
+            className="pb"
+            disabled={!eklenecek}
+            title={t("panes.splitDown")}
+            aria-label={t("panes.splitDown")}
+            onClick={() => eklenecek && onBol(bolmeId, "sutun", eklenecek)}
+          >
+            <IconSplit yon="sutun" />
+          </button>
+          <button
+            type="button"
+            className="pb"
+            title={t("panes.close")}
+            aria-label={t("panes.closeNamed", { name: session })}
+            onClick={() => void onKapat(bolmeId, session)}
+          >
+            <IconClose />
+          </button>
+        </div>
+        <Term session={session} dondur={gecis} onOpened={onOpened} />
       </div>
-      <Term session={dugum.session} onOpened={onOpened} />
     </div>
   );
 }

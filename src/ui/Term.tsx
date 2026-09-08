@@ -10,6 +10,18 @@ import { ptyOpen, ptyResize, ptyWrite } from "../lib/ipc";
 interface Props {
   session: string;
   workdir?: string;
+  /**
+   * Düzen geçişi sürerken boyut ölçümünü **bastırır.**
+   *
+   * ⚠️ Gerekçe ölçülmüş bir tuzak: bölmeler artık yüzde dikdörtgenlerle
+   * konumlanıyor ve yer değişimi bir CSS geçişi (`--dur-slow`). O 300 ms
+   * boyunca `ResizeObserver` her karede ateşliyor; aşağıdaki 90 ms'lik
+   * gecikme geçişin **ortasındaki** bir ara boyutu yakalayıp tmux'a
+   * gönderiyor ve tmux tam yeniden çizim yapıyor. Gecikmeyi uzatmak yanlış
+   * olurdu — pencere sürüklemesini de yavaşlatırdı. Geçiş boyunca hiç
+   * ölçmüyoruz; bayrak düşünce **bir kez** ölçülüyor.
+   */
+  dondur?: boolean;
   onExit?: () => void;
   /** PTY gerçekten açıldıktan sonra — oturum listesi ancak o zaman günceldir. */
   onOpened?: () => void;
@@ -63,12 +75,19 @@ function palet() {
   };
 }
 
-export default function Term({ session, workdir, onExit, onOpened }: Props) {
+export default function Term({ session, workdir, dondur, onExit, onOpened }: Props) {
   const kap = useRef<HTMLDivElement>(null);
   const cikis = useRef(onExit);
   cikis.current = onExit;
   const acildi = useRef(onOpened);
   acildi.current = onOpened;
+  // `dondur` ref'te taşınıyor: kurulum efektinin deps'ine girse her geçişte
+  // terminal sökülüp yeniden kurulurdu — düzeltmek istediğimiz şeyin ta
+  // kendisi.
+  const dondurRef = useRef(dondur);
+  dondurRef.current = dondur;
+  /** Kurulumun içindeki ölçüm fonksiyonu — geçiş bitince dışarıdan çağrılıyor. */
+  const boyutlaRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = kap.current;
@@ -150,7 +169,7 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
 
       /** Ölçüp yalnızca boyut GERÇEKTEN değiştiyse tmux'a haber verir. */
       const boyutla = () => {
-        if (!canli) return;
+        if (!canli || dondurRef.current) return;
         try {
           fit.fit();
         } catch {
@@ -169,6 +188,10 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
         clearTimeout(zaman);
         zaman = setTimeout(boyutla, 90);
       };
+      boyutlaRef.current = gecikmeliBoyutla;
+      sokulecek.push(() => {
+        boyutlaRef.current = null;
+      });
 
       // Abonelik **ortak veri yolundan** (`lib/ptybus.ts`): Rust yayın
       // gönderiyor ve her bölme kendi `listen`'ını kursaydı her bayt her
@@ -240,6 +263,12 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
       // bağlı kalmalı. Kapatma açık bir eylem (pty_close).
     };
   }, [session, workdir]);
+
+  // Geçiş bitti: son ölçüyü **şimdi** al. `gecikmeliBoyutla` kendi 90 ms'sini
+  // bekliyor, yani üst üste binen geçişlerde de tek bir ölçüm yapılıyor.
+  useEffect(() => {
+    if (!dondur) boyutlaRef.current?.();
+  }, [dondur]);
 
   return <div className="term" ref={kap} />;
 }

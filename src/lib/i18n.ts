@@ -201,6 +201,9 @@ const en: Record<string, string> = {
     "Click a session in the list on the left, or press the plus to open a new one. Every pane is a real tmux session.",
   "panes.close": "Close pane (the session keeps running)",
   "panes.closeNamed": "Close pane {name}",
+  "panes.zoom": "Expand (fills the canvas; the others keep their size)",
+  "panes.zoomOut": "Shrink back",
+  "panes.zoomNamed": "Expand pane {name}",
 
   // ── sohbet ──
   "chat.empty": "No conversation yet",
@@ -667,6 +670,9 @@ const tr: Record<string, string> = {
     "Soldaki listeden bir oturuma tıkla ya da artıya basıp yeni bir tane aç. Her bölme gerçek bir tmux oturumudur.",
   "panes.close": "Bölmeyi kapat (oturum yaşamaya devam eder)",
   "panes.closeNamed": "{name} bölmesini kapat",
+  "panes.zoom": "Genişlet (tuvali kaplar; ötekiler ölçüsünü korur)",
+  "panes.zoomOut": "Geri küçült",
+  "panes.zoomNamed": "{name} bölmesini genişlet",
 
   "chat.empty": "Henüz konuşma yok",
   "chat.emptyHint":

@@ -2843,17 +2843,44 @@ pre.well {
 }
 
 /*
- * Bölme ağacı. Eskiden sabit bir ızgaraydı ve yerleşim `panes.length`'ten
- * türüyordu — dört sabit düzen, en fazla dört bölme. Artık iç içe esnek
- * kutular: her düğüm iki yana ve aralarında sürüklenebilir bir ayraca
- * ayrılıyor.
+ * Bölme ağacı — **konumlandırma tuvali.**
+ *
+ * Üç kuşak: sabit ızgara (`panes.length`, en fazla dört bölme) → iç içe
+ * esnek kutular (`.dal` / `.dal__yan`, pay `flex-basis`'te) → hesaplanan
+ * yüzde dikdörtgenler.
+ *
+ * ⚠️ **Flexbox'tan çıkmanın sebebi ölçülmüş.** İç içe kutularda bir bölme
+ * yer değiştirince DOM ağacındaki *yeri* değişiyordu; geçirilecek bir
+ * `left/top` yok ve CLAUDE.md'nin kaydı bunu söylüyor: *"yeni kurulan bir
+ * öğe geçiş oynatmaz"* (Aşama 12). Üstüne `takas` `session` alanını
+ * değiştirdiği için `Term` sıfırdan kuruluyordu — Aşama 17'de 91 ms'lik bir
+ * kare olarak ölçülen maliyetin aynısı.
+ *
+ * Dolgu 7px azaltıldı: ayraç boşluğu artık `.pane`'in `inset`'inden geliyor
+ * ve kenarlarda da o kadar boşluk bırakıyor.
  */
 .agac {
   flex-grow: 1;
   display: flex;
-  padding: 18px 32px 32px;
+  padding: 11px 25px 25px;
   min-height: 0;
   min-width: 0;
+}
+
+/*
+ * Konumlandırma çerçevesi — **dolgunun içinde ayrı bir katman.**
+ *
+ * ⚠️ Sarmalayıcı bir süs değil, CSS'in kuralı: absolute konumlu bir öğe
+ * ebeveyninin **padding box**'ına göre yerleşir, yani `left: 0` dolgunun
+ * dışına oturur ve dolgu sessizce atlanır. `.agac`'a doğrudan
+ * `position: relative` verilen ilk sürümde bölmeler tuvalin kenarına
+ * dayanmıştı — WebKitGTK görüntüsünde görüldü.
+ */
+.tuval {
+  position: relative;
+  flex-grow: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .agac__bos {
@@ -2864,28 +2891,41 @@ pre.well {
   margin: 0;
 }
 
-.dal {
-  display: flex;
-  flex-grow: 1;
-  min-width: 0;
-  min-height: 0;
+/*
+ * Bölmenin yeri. Kutu **yüzde** cinsinden (`agac.ts::yerlesim`), geçen şey
+ * de o dört özellik.
+ *
+ * ⚠️ `transform: scale` **kullanılmıyor**: xterm hücre ızgarasını ölçüyle
+ * çiziyor, ölçeklemek glifleri bulanıklaştırır ve kutu-çizim karakterlerini
+ * kaydırır (`customGlyphs` ölçümü). `width/height` geçişinde xterm yeniden
+ * akmıyor — kap kırpıyor, içerik kaymıyor.
+ */
+.yer {
+  position: absolute;
+  transition:
+    left var(--dur-slow) var(--ease-inout),
+    top var(--dur-slow) var(--ease-inout),
+    width var(--dur-slow) var(--ease-inout),
+    height var(--dur-slow) var(--ease-inout);
 }
 
-.dal--satir {
-  flex-direction: row;
+/* Genişletilmiş bölme ötekilerin üstüne seriliyor; arkadaki düzen
+ * **hiç değişmiyor** — kullanıcının şartı: "arkadakiler resize olmayacak." */
+.yer[data-zoom] {
+  z-index: 3;
 }
 
-.dal--sutun {
-  flex-direction: column;
+/* Ayraç sürüklenirken geçiş kapalı: açık kalsa imleç `--dur-slow` kadar
+ * geriden takip edilirdi. */
+.tuval[data-surukleniyor] .yer,
+.tuval[data-surukleniyor] .ayrac {
+  transition: none;
 }
 
-/* Payı `flex-basis` taşıyor; `flex-grow: 0` ki oran gerçekten uygulansın. */
-.dal__yan {
-  display: flex;
-  flex-grow: 0;
-  flex-shrink: 1;
-  min-width: 0;
-  min-height: 0;
+/* Genişletilmişken ayraçlar ne görünüyor ne tutuluyor. */
+.tuval[data-zoom] .ayrac {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /*
@@ -2896,19 +2936,28 @@ pre.well {
  * boşta duran bir ayraç gereksiz bir çizgi olurdu.
  */
 .ayrac {
-  flex: none;
-  position: relative;
-  align-self: stretch;
+  position: absolute;
+  z-index: 2;
   touch-action: none;
+  transition:
+    left var(--dur-slow) var(--ease-inout),
+    top var(--dur-slow) var(--ease-inout),
+    width var(--dur-slow) var(--ease-inout),
+    height var(--dur-slow) var(--ease-inout),
+    opacity var(--dur-base) var(--ease-out);
 }
 
+/* Kalınlık pikselden, uzunluk yüzdeden: negatif kenar boşluğu ayracı
+ * hesaplanan çizginin **üstüne** ortalıyor. */
 .ayrac--satir {
   width: 14px;
+  margin-left: -7px;
   cursor: col-resize;
 }
 
 .ayrac--sutun {
   height: 14px;
+  margin-top: -7px;
   cursor: row-resize;
 }
 
@@ -2944,16 +2993,18 @@ pre.well {
 /* Bölme — kuyu yüzeyi, 4px köşe ve **içe halka.** Halka gölgenin yerini
  * alıyor: ledger'da yükseklik gölgeyle değil çizgiyle anlatılıyor. */
 .pane {
+  position: absolute;
+  /* Ayraç boşluğu **burada**: yerleşim kutuları komşu, aradaki 14px'i iki
+   * bölmenin 7px'lik içe çekilmesi açıyor. */
+  inset: 7px;
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
   border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--well);
   box-shadow: inset 0 0 0 1px var(--well-line);
   min-width: 0;
   min-height: 0;
-  position: relative;
 }
 
 /* Sürüklenen bölme soluyor, hedef bölme **yüzey değil çerçeveyle**
