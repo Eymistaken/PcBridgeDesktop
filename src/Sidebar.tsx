@@ -6,7 +6,6 @@ import {
   IconChevron,
   IconClose,
   IconPencil,
-  IconPlus,
   IconSearch,
   IconTrash,
 } from "./ui/Icon";
@@ -44,6 +43,8 @@ interface Props {
   onDeleteSession: (sessionId: string) => void;
   onEdit: (bot: Bot) => void;
   onDelete: (bot: Bot) => void;
+  /** Listenin sonundaki "yeni bot" satırı — tasarımda başlıkta artı yok. */
+  onNewBot: () => void;
   refreshing: boolean;
   connError?: string;
   /**
@@ -71,6 +72,7 @@ export default function Sidebar({
   onDeleteSession,
   onEdit,
   onDelete,
+  onNewBot,
   refreshing,
   connError,
   waiting,
@@ -116,36 +118,48 @@ export default function Sidebar({
     );
   }, [kalanlar, query, summaries, selectedId, sessions]);
 
+  const bekleyen = waiting.length;
+
   return (
     <>
+      {/* Arama listenin İÇİNDE: tasarımda kendi kutusu yok, altı çizili bir
+       * satır ve sağında eşleşme sayısı. */}
       <div className="side__search">
         <div className="field">
           <IconSearch />
           <input
+            className="mono"
+            style={{ fontSize: 11 }}
             value={query}
             placeholder={t("side.sessionSearch")}
             aria-label={t("side.sessionSearch")}
             spellCheck={false}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {query.trim() !== "" && (
+            <span className="mono" style={{ fontSize: 10, color: "var(--text-muted)" }}>
+              {t("side.hits", { n: filtered.length })}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="side__list" ref={liste}>
         {bots.length === 0 && (
           <div className="side__empty">
-            <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-              {t("side.noBots")}
-            </span>
-            <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+            <span className="h">{t("side.noBots")}</span>
+            <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)" }}>
               {t("side.noBotsHint")}
             </span>
+            <button type="button" className="btn-fld" onClick={onNewBot}>
+              {t("side.newBotShort")}
+            </button>
           </div>
         )}
 
         {bots.length > 0 && filtered.length === 0 && (
           <div className="side__empty">
-            <span className="muted" style={{ fontSize: 12.5 }}>
+            <span style={{ fontSize: 12.5, color: "var(--text-3)", lineHeight: 1.7 }}>
               {t("side.noMatch", { q: query })}
             </span>
           </div>
@@ -154,8 +168,14 @@ export default function Sidebar({
         {filtered.map(({ oge: b, cikiyor }) => {
           const s = summaries[b.id];
           const secili = b.id === selectedId;
+          const soruyor = waiting.includes(b.id);
           return (
-            <div key={b.id} data-flip={b.id} data-cikis={cikiyor || undefined}>
+            <div
+              className="botblok"
+              key={b.id}
+              data-flip={b.id}
+              data-cikis={cikiyor || undefined}
+            >
               <div
                 className="row"
                 role="option"
@@ -170,60 +190,28 @@ export default function Sidebar({
                 }}
               >
                 <Avatar tone={b.avatar} name={b.name} />
-                <div className="row__body">
-                  <div className="row__top">
-                    <span
-                      className="row__name"
-                      style={{ fontWeight: secili ? 600 : 500 }}
-                    >
-                      {b.name}
-                    </span>
-                    <span
-                      className="mono"
-                      style={{
-                        fontSize: 11,
-                        flex: "none",
-                        color: s?.running ? "var(--run)" : "var(--text-muted)",
-                      }}
-                    >
-                      {zaman(s?.at ?? b.updatedAt)}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      minWidth: 0,
-                    }}
-                  >
-                    {s?.running && (
-                      <span
-                        className="dot dot--pulse"
-                        style={{ background: "var(--run)" }}
-                      />
-                    )}
-                    <span className="row__sub">
-                      {waiting.includes(b.id)
-                        ? t("side.waitingPermission")
-                        : altMetin(b, s)}
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 2,
-                    flex: "none",
-                    alignSelf: "center",
-                  }}
+                <span className="row__name">{b.name}</span>
+
+                {/* Sağ künye tek bir şey söyler ve önceliği var: önce
+                 * "seni bekliyor", sonra "koşuyor", yoksa session sayısı.
+                 * Tasarımda üçü de aynı yerde duruyor. */}
+                <span
+                  className={soruyor || s?.running ? "row__mark row__mark--run" : "row__mark"}
                 >
+                  {soruyor
+                    ? t("side.ask")
+                    : s?.running
+                      ? t("side.stRun")
+                      : (s?.sessionCount ?? b.sessions.length)}
+                </span>
+
+                <div className="row__ops">
                   {secili && (
                     <>
                       <button
                         type="button"
                         className="ib"
-                        style={{ width: 30, height: 30 }}
+                        style={{ width: 22, height: 22 }}
                         title={t("side.edit")}
                         aria-label={t("side.editBot", { name: b.name })}
                         onClick={(e) => {
@@ -236,7 +224,7 @@ export default function Sidebar({
                       <button
                         type="button"
                         className="ib"
-                        style={{ width: 30, height: 30 }}
+                        style={{ width: 22, height: 22 }}
                         title={t("side.delete")}
                         aria-label={t("side.deleteBot", { name: b.name })}
                         onClick={(e) => {
@@ -251,7 +239,7 @@ export default function Sidebar({
                   <button
                     type="button"
                     className="ib"
-                    style={{ width: 30, height: 30 }}
+                    style={{ width: 22, height: 22 }}
                     aria-label={t("side.toggleSessions", { name: b.name })}
                     aria-expanded={secili && !collapsed.has(b.id)}
                     aria-controls={secili ? `sessions-${b.id}` : undefined}
@@ -294,6 +282,16 @@ export default function Sidebar({
             </div>
           );
         })}
+
+        {/* "Yeni bot" listenin sonunda — tasarımda başlıkta artı yok. */}
+        {bots.length > 0 && (
+          <button type="button" className="row" onClick={onNewBot}>
+            <Avatar tone={null} name="" bos />
+            <span className="h" style={{ flexGrow: 1, textAlign: "left" }}>
+              {t("side.newBotShort")}
+            </span>
+          </button>
+        )}
       </div>
 
       <ConnStrip
@@ -306,6 +304,7 @@ export default function Sidebar({
               : sayilar(snap.toolCount, snap.agents.length)
         }
         ok={!connError}
+        uyari={bekleyen > 0 ? t("side.waitingCount", { n: bekleyen }) : undefined}
         desktop={desktop}
         onClick={onOpenSystem}
         onToggleDesktop={onToggleDesktop}
@@ -350,11 +349,12 @@ function SessionListesi({
   return (
     <div className="oturumlist" ref={kap}>
       {gorunen.map((o) => {
-        const renk = o.running
-          ? "var(--run)"
+        // Durum dar olukta, üç harf. Renk yalnızca durumdan geliyor.
+        const [st, sinif] = o.running
+          ? [t("side.stRun"), "osat__st osat__st--run"]
           : o.status === "failed"
-            ? "var(--fail)"
-            : "var(--ok)";
+            ? [t("side.stErr"), "osat__st osat__st--fail"]
+            : [t("side.stOk"), "osat__st"];
         return (
           <div
             key={o.id}
@@ -370,10 +370,7 @@ function SessionListesi({
               }
             }}
           >
-            <span
-              className={o.running ? "dot dot--pulse" : "dot"}
-              style={{ background: renk }}
-            />
+            <span className={o.running ? `${sinif} nabiz` : sinif}>{st}</span>
             <span className="osat__ad">{o.title || t("side.untitled")}</span>
             <button
               type="button"
@@ -401,8 +398,7 @@ function SessionListesi({
             setHepsi(true);
           }}
         >
-          <IconChevron />
-          <span>{t("side.moreSessions", { n: gizli })}</span>
+          {t("side.moreSessions", { n: gizli })}
         </button>
       )}
       {hepsi && sessions.length > ACIK_SESSION && (
@@ -414,8 +410,7 @@ function SessionListesi({
             setHepsi(false);
           }}
         >
-          <IconChevron acik />
-          <span>{t("home.less")}</span>
+          {t("home.less")}
         </button>
       )}
 
@@ -424,8 +419,7 @@ function SessionListesi({
         className="osat osat--eylem osat--yeni"
         onClick={onNew}
       >
-        <IconPlus size={12} color="var(--text)" />
-        <span>{t("side.newSession")}</span>
+        {t("side.newSession")}
       </button>
     </div>
   );
@@ -443,36 +437,4 @@ function hostPort(endpoint: string): string {
   } catch {
     return endpoint;
   }
-}
-
-function altMetin(b: Bot, s?: BotSummary): string {
-  if (s?.line) return s.line;
-  if (s?.running) return t("side.running");
-  // Koşum sayısı **botun** değil session'ların işi; bot satırında anlamlı
-  // olan kaç iş var. Hiç yoksa botun kimliği yazılıyor.
-  const sayi = s?.sessionCount ?? b.sessions.length;
-  if (sayi === 0) {
-    // Yerel botta ajan yok; anlamlı olan model ve kaç aracı gördüğü.
-    const kimlik =
-      b.backend === "yerel-model"
-        ? `${b.model ?? "—"} · ${t("side.nTools", { n: b.tools.length })}`
-        : `${b.agent}${b.model ? " · " + b.model : ""}`;
-    return `${kimlik} · ${t("side.noSessions")}`;
-  }
-  return t("side.sessions", { n: sayi });
-}
-
-function zaman(unix: number): string {
-  if (!unix) return "";
-  const d = new Date(unix * 1000);
-  const simdi = new Date();
-  const gun = 24 * 3600 * 1000;
-  const fark = simdi.getTime() - d.getTime();
-  const lc = locale();
-  if (d.toDateString() === simdi.toDateString()) {
-    return d.toLocaleTimeString(lc, { hour: "2-digit", minute: "2-digit" });
-  }
-  if (fark < 2 * gun) return t("side.yesterday");
-  if (fark < 7 * gun) return d.toLocaleDateString(lc, { weekday: "short" });
-  return d.toLocaleDateString(lc, { day: "numeric", month: "short" });
 }

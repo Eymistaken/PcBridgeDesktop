@@ -1,13 +1,14 @@
-import { IconLock } from "./Icon";
 import { t } from "../lib/i18n";
 import type { DesktopState } from "../lib/types";
 
 interface Props {
-  /** Sol taraftaki tek satır — `127.0.0.1:8765` ya da `tmux`. */
+  /** İlk satır — `127.0.0.1:8765` ya da `tmux 3.4 · 6 oturum`. */
   title: string;
   sub: string;
   /** Nokta rengi: bağlantı sağlıklı mı. */
   ok: boolean;
+  /** Dikkat çeken tek satır — "1 bot seni bekliyor". Varsa alt metnin yerine. */
+  uyari?: string;
   desktop?: DesktopState;
   onClick: () => void;
   /** Kilit rozetine basınca — izni açar ya da kapatır. */
@@ -16,32 +17,38 @@ interface Props {
 }
 
 /**
- * Kenar çubuğunun dibindeki şerit. Artboard'daki üçüncü parça — masaüstü
- * izni — burada: izin **her kipte görünür** olmalı, çünkü açık bir izin
- * kullanıcı başka bir ekrandayken de sürüyor.
+ * Kenar çubuğunun dibindeki şerit: iki mono satır, üstünde bir cetvel.
+ *
+ * Masaüstü izni burada, çünkü açık bir izin kullanıcı başka bir ekrandayken
+ * de sürüyor — her kipte görünmesi gerekiyor.
+ *
+ * ⚠️ Bu şerit `--text-muted` taşıyor; hover **dolguya değil metne** biniyor.
+ * `--field-h` üstünde oran 4.44 ile AA'nın altına düşerdi.
  */
 export default function ConnStrip({
   title,
   sub,
   ok,
+  uyari,
   desktop,
   onClick,
   onToggleDesktop,
   disabled,
 }: Props) {
   return (
-    // **Kap artık düğme değil.** Kilit rozeti kendi başına bir eylem oldu
-    // (tek tıkla izni aç/kapat) ve düğme içine düğme konamaz.
+    // **Kap düğme değil.** Kilit rozeti kendi başına bir eylem (tek tıkla
+    // izni aç/kapat) ve düğme içine düğme konamaz.
     <div className="side__conn">
       <button className="side__conn__ana" type="button" onClick={onClick} disabled={disabled}>
-        <span className="dot" style={{ background: ok ? "var(--ok)" : "var(--fail)" }} />
-        <span style={{ display: "flex", flexDirection: "column", gap: 1, flexGrow: 1, minWidth: 0 }}>
-          <span className="mono" style={{ fontSize: 12 }}>
-            {title}
-          </span>
-          <span className="row__sub" style={{ fontSize: 11.5 }}>
-            {sub}
-          </span>
+        <span className="side__conn__st">
+          <span className="dot" style={{ background: ok ? "var(--ok)" : "var(--fail)" }} />
+          <span>{title}</span>
+        </span>
+        <span
+          className="side__conn__alt"
+          style={uyari ? { color: "var(--run)" } : undefined}
+        >
+          {uyari ?? sub}
         </span>
       </button>
       {desktop && <DesktopBadge d={desktop} onToggle={onToggleDesktop} />}
@@ -54,6 +61,10 @@ export default function ConnStrip({
  *
  * Eskiden yalnızca durum gösteriyordu ve izni açmak için panele gidip süre
  * seçmek gerekiyordu. Sık yapılan şey "şimdi aç"; süre seçimi panelde duruyor.
+ *
+ * Tasarım bu bilgiyi alt satıra düz metin olarak yazıyor ("desktop unlocked
+ * 1:24") ama orada tıklanacak bir şey yok; rozet duruyor, çünkü izni tek
+ * tıkla kapatabilmek çalışan bir işlev.
  */
 function DesktopBadge({ d, onToggle }: { d: DesktopState; onToggle?: () => void }) {
   const acik = d.unlocked;
@@ -70,8 +81,7 @@ function DesktopBadge({ d, onToggle }: { d: DesktopState; onToggle?: () => void 
       }
       onClick={onToggle}
     >
-      <IconLock size={15} color={acik ? "var(--run)" : undefined} open={acik} />
-      {acik && <span className="mono">{sayac(d.remaining)}</span>}
+      {acik ? sayac(d.remaining) : t("strip.lockedShort")}
     </button>
   );
 }

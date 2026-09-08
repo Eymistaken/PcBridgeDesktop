@@ -111,7 +111,7 @@ const en: Record<string, string> = {
   "side.newBotTitle": "New bot (Ctrl+N)",
   "side.search": "Search bots",
   "side.noBots": "No bots yet",
-  "side.noBotsHint": "Press the plus at the top right. A bot is an agent, a model, an effort and a directory.",
+  "side.noBotsHint": "A bot binds an agent, a model, an effort and a directory to a name.",
   "side.noMatch": "No bot matches “{q}”.",
   "side.edit": "Edit",
   "side.delete": "Delete",
@@ -140,6 +140,19 @@ const en: Record<string, string> = {
   "side.nTools_one": "{n} tool",
   "side.nTools_other": "{n} tools",
   "side.yesterday": "yesterday",
+  // Dar oluk — session durum kısaltmaları. Genişlik `--oluk-dar` (34px);
+  // üçü de üç harf, çünkü oluk hizası bozulmasın.
+  "strip.lockedShort": "LOCKED",
+  "side.stRun": "RUN",
+  "side.stOk": "OK",
+  "side.stErr": "ERR",
+  "side.ask": "ASK",
+  "side.hits_one": "{n} HIT",
+  "side.hits_other": "{n} HITS",
+  "side.waitingCount_one": "{n} bot waiting on you",
+  "side.waitingCount_other": "{n} bots waiting on you",
+  "side.empty": "empty",
+  "side.newBotShort": "New bot",
 
   // ── şerit ──
   "strip.clickUnlock": "click to unlock for 15 minutes",
@@ -537,7 +550,7 @@ const tr: Record<string, string> = {
   "side.newBotTitle": "Yeni bot (Ctrl+N)",
   "side.search": "Bot ara",
   "side.noBots": "Henüz bot yok",
-  "side.noBotsHint": "Sağ üstteki artıya bas. Bot bir ajan, model, effort ve dizin demek.",
+  "side.noBotsHint": "Bot bir ada; bir ajan, model, effort ve dizin bağlar.",
   "side.noMatch": "“{q}” ile eşleşen bot yok.",
   "side.edit": "Düzenle",
   "side.delete": "Sil",
@@ -564,6 +577,19 @@ const tr: Record<string, string> = {
   "side.nTools_one": "{n} araç",
   "side.nTools_other": "{n} araç",
   "side.yesterday": "dün",
+  // Dar oluk — session durum kısaltmaları. Genişlik `--oluk-dar` (34px);
+  // üçü de üç harf, çünkü oluk hizası bozulmasın.
+  "strip.lockedShort": "KİLİTLİ",
+  "side.stRun": "ÇLS",
+  "side.stOk": "TMM",
+  "side.stErr": "HTA",
+  "side.ask": "SOR",
+  "side.hits_one": "{n} EŞLEŞME",
+  "side.hits_other": "{n} EŞLEŞME",
+  "side.waitingCount_one": "{n} bot seni bekliyor",
+  "side.waitingCount_other": "{n} bot seni bekliyor",
+  "side.empty": "boş",
+  "side.newBotShort": "Yeni bot",
 
   "strip.clickUnlock": "15 dakika açmak için tıkla",
   "strip.clickLock": "şimdi kilitlemek için tıkla",

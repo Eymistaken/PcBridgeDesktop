@@ -13,7 +13,7 @@ import Terminals from "./views/Terminals";
 import ModeSwitch from "./ui/ModeSwitch";
 import Avatar from "./ui/Avatar";
 import PermMenu from "./ui/PermMenu";
-import { IconPencil, IconPlus, IconRefresh } from "./ui/Icon";
+import { IconPlus } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
 import { botDraft } from "./lib/types";
@@ -775,28 +775,27 @@ export default function Shell({
     <div className="side">
       <div className="side__head">
         <span className="side__title">pcbridge</span>
-        <button
-          className="ib ib--filled"
-          type="button"
-          title={
-            mode === "terminals"
-              ? t("term.newSessionTitle")
-              : t("side.newBotTitle")
-          }
-          aria-label={
-            mode === "terminals" ? t("term.newSession") : t("side.newBot")
-          }
-          onClick={() =>
-            mode === "terminals" ? setYeniSinyal((n) => n + 1) : setForge({})
-          }
-        >
-          <IconPlus />
-        </button>
+        {/* Artı yalnızca terminal kipinde: bot kipinde "yeni bot" listenin
+         * sonunda bir satır (tasarım başlıkta artı göstermiyor), terminalde
+         * ise yeni oturum adı bir forma yazılıyor ve o form Ctrl+N ile
+         * açılıyor — tetikleyecek bir yer gerekiyor. */}
+        {mode === "terminals" && (
+          <button
+            className="ib"
+            type="button"
+            title={t("term.newSessionTitle")}
+            aria-label={t("term.newSession")}
+            onClick={() => setYeniSinyal((n) => n + 1)}
+          >
+            <IconPlus />
+          </button>
+        )}
       </div>
 
-      <div className="side__modes">
-        <ModeSwitch mode={mode} onMode={setMode} />
-      </div>
+      {/* ⚠️ `.side__modes` sınıfını ModeSwitch'in KENDİSİ taşıyor; buradaki
+       * ikinci sarmalayıcı kalktı. İki öğe aynı sınıfı taşıyınca dolgu iki
+       * kez uygulanıyordu. */}
+      <ModeSwitch mode={mode} onMode={setMode} />
 
       <div className="side__govde">{icerik}</div>
     </div>
@@ -906,6 +905,7 @@ export default function Shell({
               }
               onEdit={(bot) => setForge({ bot })}
               onDelete={setSilinecek}
+              onNewBot={() => setForge({})}
               refreshing={busyConn}
               connError={connError}
               waiting={pending.map((p) => p.botId)}
@@ -926,16 +926,11 @@ export default function Shell({
               <>
                 <div className="main__head">
                   <Avatar tone={secili.avatar} name={secili.name} size={11} />
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {secili.name}
-                  </span>
-                  <span className="mono muted" style={{ fontSize: 12 }}>
+                  <span className="main__head__ad">{secili.name}</span>
+                  {/* Künye kenar çubuğundan buraya taşındı: tasarımda bot
+                   * satırı tek satır ve modeli, araç sayısını, dizini
+                   * başlık söylüyor. */}
+                  <span className="main__head__kunye">
                     {[
                       secili.model,
                       secili.backend === "yerel-model"
@@ -946,15 +941,14 @@ export default function Shell({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <div style={{ flexGrow: 1 }} />
                   <button
-                    className="ib"
+                    className="btn-quiet"
                     type="button"
                     title={t("side.edit")}
                     aria-label={t("side.editBot", { name: secili.name })}
                     onClick={() => setForge({ bot: secili })}
                   >
-                    <IconPencil />
+                    {t("side.edit")}
                   </button>
                 </div>
                 <SessionHome
@@ -1041,40 +1035,31 @@ export default function Shell({
             ) : (
               <>
                 <div className="main__head">
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {t("sys.title")}
-                  </span>
-                  <span className="mono muted" style={{ fontSize: 12 }}>
+                  <span className="main__head__ad">{t("sys.title")}</span>
+                  <span className="main__head__kunye">
                     {sayilar(snap.toolCount, snap.agents.length)}
                   </span>
-                  <div style={{ flexGrow: 1 }} />
                   <button
-                    className="ib"
+                    className="btn-quiet"
                     type="button"
                     title={t("sys.refresh")}
                     aria-label={t("sys.refreshConn")}
                     disabled={busyConn}
                     onClick={() => void tazele()}
                   >
-                    <IconRefresh />
+                    {t("sys.refresh")}
                   </button>
                 </div>
                 <div className="main__body">
                   {connError && (
                     <div
                       style={{
-                        marginBottom: 14,
-                        padding: "13px 16px",
-                        borderRadius: "var(--r-lg)",
-                        background: "var(--field)",
+                        marginBottom: 20,
+                        padding: "12px 0",
+                        borderTop: "1px solid var(--line)",
+                        borderBottom: "1px solid var(--line)",
                         fontSize: 13,
-                        lineHeight: 1.5,
+                        lineHeight: 1.6,
                         color: "var(--fail)",
                       }}
                     >
