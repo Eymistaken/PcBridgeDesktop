@@ -22,6 +22,7 @@ import {
   kapat,
   oku as okuAgacHam,
   oturumaGore,
+  oturumKoy,
   oturumlar,
   type Dugum,
 } from "./lib/agac";
@@ -48,6 +49,7 @@ import {
   sendMessage,
   sessionCtx,
   sessionHistory,
+  ptyClose,
   ptyInfo,
   terminals as loadTerminals,
   tmuxFreeName,
@@ -394,6 +396,24 @@ export default function Shell({
         return terminalleriYukleRef.current();
       })
       .catch((e) => setConnError(errorText(e as ConnError)));
+  }, []);
+
+  /**
+   * Kenar çubuğundan bir oturumu açık bir bölmenin **üstüne** bırakmak.
+   *
+   * Gelen oturum ağaçta zaten varsa iş `takas`'a düşüyor (iki bölme yer
+   * değiştiriyor, kimse arka plana atılmıyor); yoksa bölmedeki oturum arka
+   * plana düşüyor ve PTY'si kapanıyor. **Oturum ölmüyor** — tmux'ta yaşamaya
+   * devam ediyor ve kenar çubuğunda "burada değil" listesine geçiyor.
+   */
+  const oturumYerlestir = useCallback((session: string, bolmeId: string) => {
+    const mevcut = agacRef.current;
+    if (!mevcut) return;
+    const { agac: yeni, dusen } = oturumKoy(mevcut, bolmeId, session);
+    if (yeni === mevcut) return;
+    setAgac(yeni);
+    if (dusen) void ptyClose(dusen).catch(() => {});
+    void terminalleriYukleRef.current();
   }, []);
 
   const terminalleriYukle = useCallback(async () => {
@@ -995,6 +1015,7 @@ export default function Shell({
         infos={infos}
         etiketler={etiketler}
         onEtiket={etiketYaz}
+        onYerlestir={oturumYerlestir}
         panes={panes}
         desktop={desktop}
         onOpenSystem={() => {

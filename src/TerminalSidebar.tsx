@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import ConnStrip from "./ui/ConnStrip";
+import Hayalet from "./ui/Hayalet";
 import SagMenu, { type MenuYer } from "./ui/SagMenu";
 import { IconTrash } from "./ui/Icon";
 import { useCikisIcerik } from "./lib/cikis";
+import { bolmeyeSurukle } from "./lib/surukle";
 import { t } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
 import { KABUKLAR } from "./lib/kabuk";
@@ -16,6 +18,11 @@ interface Props {
   /** Elle verilen etiketler; varsa dinamik başlığın yerine geçer. */
   etiketler: Record<string, string>;
   onEtiket: (session: string, ad: string) => void;
+  /**
+   * Bir oturumu açık bir bölmenin **üstüne** bırakmak: o oturum bölmeye
+   * gelir, bölmedeki arka plana düşer.
+   */
+  onYerlestir: (session: string, bolmeId: string) => void;
   panes: string[];
   desktop: DesktopState;
   onOpenSystem: () => void;
@@ -30,6 +37,7 @@ export default function TerminalSidebar({
   infos,
   etiketler,
   onEtiket,
+  onYerlestir,
   panes,
   desktop,
   onOpenSystem,
@@ -44,6 +52,11 @@ export default function TerminalSidebar({
     cikiyor: menuCikiyor,
   } = useCikisIcerik(menu);
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null);
+  const [surukleme, setSurukleme] = useState<{
+    ad: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const burada = view.sessions.filter((s) => panes.includes(s.name));
   const uzakta = view.sessions.filter((s) => !panes.includes(s.name));
@@ -81,6 +94,8 @@ export default function TerminalSidebar({
             onDuzenle={setDuzenlenen}
             onEtiket={onEtiket}
             onMenu={(yer) => setMenu({ yer, ad: s.name })}
+            onSurukle={setSurukleme}
+            onYerlestir={onYerlestir}
           />
         ))}
 
@@ -99,6 +114,8 @@ export default function TerminalSidebar({
             onDuzenle={setDuzenlenen}
             onEtiket={onEtiket}
             onMenu={(yer) => setMenu({ yer, ad: s.name })}
+            onSurukle={setSurukleme}
+            onYerlestir={onYerlestir}
           />
         ))}
 
@@ -108,6 +125,10 @@ export default function TerminalSidebar({
           </pre>
         )}
       </div>
+
+      {surukleme && (
+        <Hayalet ad={surukleme.ad} x={surukleme.x} y={surukleme.y} />
+      )}
 
       {menuVar && menuIcerik && (
         <SagMenu
@@ -157,6 +178,8 @@ function SessionRow({
   onDuzenle,
   onEtiket,
   onMenu,
+  onSurukle,
+  onYerlestir,
 }: {
   s: { name: string; command: string; workdir: string; attached: boolean };
   /** Yalnızca burada açık olan bölmelerde var — canlı dizin ve program. */
@@ -169,6 +192,8 @@ function SessionRow({
   onDuzenle: (n: string | null) => void;
   onEtiket: (session: string, ad: string) => void;
   onMenu: (yer: MenuYer) => void;
+  onSurukle: (d: { ad: string; x: number; y: number } | null) => void;
+  onYerlestir: (session: string, bolmeId: string) => void;
 }) {
   const komut = info?.command ?? s.command;
   /**
@@ -177,12 +202,19 @@ function SessionRow({
    * Burada açık olmayan oturumlarda `info` yok (yerel sorgu yalnızca açık
    * bölmeler için yapılıyor); orada `tmux_list`'ten gelen dizin kullanılıyor.
    */
-  /** Etiket yokken görünen — ve etiket silinince geri dönülecek — başlık. */
+  /**
+   * Etiket yokken görünen — ve etiket silinince geri dönülecek — başlık.
+   *
+   * ⚠️ **Burada açık olmayan oturumda `user@host: dizin` yazılmıyor.**
+   * Ölçüldü: o satırların `info`'su yok (yerel sorgu yalnızca açık bölmeler
+   * için yapılıyor) ve yalnızca `tmux_list`'ten gelen dizin kalıyordu — iki
+   * oturum aynı dizindeyse ikisi de `~` yazıyor ve ayırt edilemiyordu. Orada
+   * en ayırt edici bilgi **oturum adının kendisi**: onlar çoğu zaman
+   * kullanıcının kendi tmux oturumları ve adları kendi verdiği adlar.
+   */
   const dinamik = info
     ? `${info.user}@${info.host}: ${kisaltEv(info.path)}`
-    : s.workdir
-      ? kisaltEv(s.workdir)
-      : s.name;
+    : s.name;
   const gorunen = etiket ?? dinamik;
   return (
     <div
@@ -190,7 +222,17 @@ function SessionRow({
       role="option"
       tabIndex={0}
       aria-selected={!!secili}
-      onClick={() => onOpen(s.name)}
+      onPointerDown={(e) =>
+        bolmeyeSurukle(e, {
+          onDegis: (d) => onSurukle({ ad: s.name, x: d.x, y: d.y }),
+          onBirak: (hedef, suruklendi) => {
+            onSurukle(null);
+            if (hedef) onYerlestir(s.name, hedef);
+            // Sürüklenmediyse bu bir tıklama: oturumu bölmede aç.
+            else if (!suruklendi) onOpen(s.name);
+          },
+        })
+      }
       onContextMenu={(e) => {
         e.preventDefault();
         onMenu({ x: e.clientX, y: e.clientY });
@@ -230,17 +272,39 @@ function SessionRow({
       ) : (
         <span
           className="row__name row__name--mono"
-          title={t("panes.tmuxName", { name: s.name })}
+          title={`${info?.path ?? s.workdir ?? ""}\n${t("panes.tmuxName", { name: s.name })}`.trim()}
           onDoubleClick={(e) => {
             e.stopPropagation();
             onDuzenle(s.name);
           }}
         >
-          {gorunen}
+          {/*
+           * ⚠️ Bölme başlığındaki aynı düzeltme. 252px'lik sütunda
+           * `eymistaken@ZorinOS: ~/…` sığmıyor ve `text-overflow` sonu
+           * kırptığı için dört açık satır da `eymistaken@ZorinOS…` diye
+           * görünüyordu — birbirinden ayırt edilemez (WebKitGTK görüntüsünde
+           * görüldü). Önek `flex-shrink` ile önce eriyor.
+           */}
+          {etiket || !info ? (
+            gorunen
+          ) : (
+            <>
+              <span className="row__kim">
+                {info.user}@{info.host}:
+              </span>
+              <span className="row__yol">{kisaltEv(info.path)}</span>
+            </>
+          )}
         </span>
       )}
       <span className="row__mark">
-        {[komut, s.attached ? t("term.alsoOnPc") : null]
+        {[
+          komut,
+          // Dizin yalnızca burada açık OLMAYAN satırlarda: açık olanlarda
+          // etiketin kendisi zaten yolu yazıyor.
+          !info && s.workdir ? kisaltEv(s.workdir) : null,
+          s.attached ? t("term.alsoOnPc") : null,
+        ]
           .filter(Boolean)
           .join(" · ")}
       </span>

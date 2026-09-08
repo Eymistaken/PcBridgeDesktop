@@ -106,6 +106,36 @@ export function takas(kok: Dugum, aId: string, bId: string): Dugum {
   return yaz(kok);
 }
 
+/**
+ * Bir yaprağa **dışarıdan** oturum koyar; düşen oturumu da döndürür.
+ *
+ * Kenar çubuğundan bir oturumu açık bir bölmenin üstüne bırakmanın yolu.
+ * Gelen oturum ağaçta **zaten varsa** iş `takas`'a düşüyor: iki bölme yer
+ * değiştiriyor ve hiçbir oturum arka plana atılmıyor. Yoksa yaprağın oturumu
+ * değişiyor ve eskisi arka plana düşüyor — çağıran onun PTY'sini kapatıyor
+ * (oturum **ölmez**, tmux'ta yaşamaya devam eder).
+ */
+export function oturumKoy(
+  kok: Dugum,
+  bolmeId: string,
+  session: string,
+): { agac: Dugum; dusen: string | null } {
+  const hedef = bul(kok, bolmeId);
+  if (!hedef || hedef.t !== "bolme") return { agac: kok, dusen: null };
+  if (hedef.session === session) return { agac: kok, dusen: null };
+
+  const mevcut = oturumaGore(kok, session);
+  if (mevcut && mevcut.t === "bolme") {
+    return { agac: takas(kok, mevcut.id, bolmeId), dusen: null };
+  }
+
+  const yaz = (d: Dugum): Dugum => {
+    if (d.t === "bolme") return d.id === bolmeId ? { ...d, session } : d;
+    return { ...d, a: yaz(d.a), b: yaz(d.b) };
+  };
+  return { agac: yaz(kok), dusen: hedef.session };
+}
+
 /** Ayraç sürüklenince oranı yazar. Uçlara yapışmasın diye kırpılıyor. */
 export function oranYaz(kok: Dugum, bolId: string, oran: number): Dugum {
   if (kok.t === "bolme") return kok;

@@ -33,6 +33,7 @@ import {
 } from "../lib/ipc";
 import { useCikisIcerik } from "../lib/cikis";
 import { KABUKLAR, cdDizisi } from "../lib/kabuk";
+import { bolmeyeSurukle } from "../lib/surukle";
 import { t } from "../lib/i18n";
 import {
   bol,
@@ -205,58 +206,26 @@ export default function Terminals({
   );
 
   /**
-   * Sürükle-takas. HTML5 DnD **kullanılmıyor**: proje sıfır bağımlılıkla
-   * yazılmış ve `pointer` olayları WebKitGTK'da denetlenebilir — sürükleme
-   * hayaleti, hedef vurgusu ve iptal hepsi bizim elimizde.
+   * Başlıktan tutup başka bir bölmeyle **takas**.
+   *
+   * Sürükleme mekaniği `lib/surukle.ts`'te; kenar çubuğu satırları da aynı
+   * yardımcıyı kullanıyor ve iki kopya er geç ayrışırdı.
    */
   const tutmaBasla = useCallback(
     (e: React.PointerEvent, bolmeId: string, ad: string) => {
-      if (e.button !== 0 || (e.target as Element).closest("button")) return;
       // Genişletilmişken tek bölme görünüyor; takas edilecek bir komşu yok.
       if (zoom) return;
-      const hedefEl = e.currentTarget as HTMLElement;
-      hedefEl.setPointerCapture(e.pointerId);
-      let basladi = false;
-      const bas = { x: e.clientX, y: e.clientY };
-
-      const hareket = (ev: PointerEvent) => {
-        // Küçük titremeler sürükleme sayılmasın: başlık aynı zamanda
-        // tıklanabilir bir şerit.
-        if (!basladi && Math.hypot(ev.clientX - bas.x, ev.clientY - bas.y) < 5)
-          return;
-        basladi = true;
-        const alt = document
-          .elementsFromPoint(ev.clientX, ev.clientY)
-          .find((el) => el.classList.contains("pane")) as
-          | HTMLElement
-          | undefined;
-        const uzerinde = alt?.dataset.bolme ?? null;
-        setSurukleme({
-          kaynak: bolmeId,
-          hedef: uzerinde && uzerinde !== bolmeId ? uzerinde : null,
-          x: ev.clientX,
-          y: ev.clientY,
-          ad,
-        });
-      };
-
-      const birak = (ev: PointerEvent) => {
-        hedefEl.releasePointerCapture(ev.pointerId);
-        hedefEl.removeEventListener("pointermove", hareket);
-        hedefEl.removeEventListener("pointerup", birak);
-        hedefEl.removeEventListener("pointercancel", birak);
-        setSurukleme((s) => {
-          if (s?.hedef && agac) {
+      bolmeyeSurukle(e, {
+        kaynakBolme: bolmeId,
+        onDegis: (d) => setSurukleme({ ...d, kaynak: bolmeId, ad }),
+        onBirak: (hedef) => {
+          setSurukleme(null);
+          if (hedef && agac) {
             gecisBaslat();
-            onAgac(takas(agac, s.kaynak, s.hedef));
+            onAgac(takas(agac, bolmeId, hedef));
           }
-          return null;
-        });
-      };
-
-      hedefEl.addEventListener("pointermove", hareket);
-      hedefEl.addEventListener("pointerup", birak);
-      hedefEl.addEventListener("pointercancel", birak);
+        },
+      });
     },
     [agac, onAgac, zoom, gecisBaslat],
   );
@@ -693,7 +662,6 @@ function Bolme({
   gecis,
   oturum,
   info,
-  hedef,
   kaynak,
   onKapat,
   onZoom,
@@ -739,7 +707,6 @@ function Bolme({
       <div
         className="pane"
         data-bolme={bolmeId}
-        data-hedef={hedef || undefined}
         data-kaynak={kaynak || undefined}
       >
         <div
