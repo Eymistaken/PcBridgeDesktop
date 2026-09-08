@@ -1466,6 +1466,74 @@ tahminden gelmedi.
 ⛔ **Terminalin İÇİ hâlâ kapsam dışı.** Devinen şey bölme **çerçevesi**
 (`.yer`); `.pane *` ve `.xterm *` seçicilerine hiç dokunulmadı.
 
+## Aşama 24 — Türkçe karakterler iki kez gönderiliyordu ✅ BİTTİ
+
+Kullanıcının bildirimi: *"bu ö harflerini ben sadece bir kez ö harfine basınca
+yazdı tamamen kendisi ve bu hep oluyor… her silip yeniden yazdığımda
+katlanarak türkçe özel harfler yazıyor stackleniyor bildiğin. ciddi hata."*
+Herhangi bir terminalde (CLI de düz kabuk da), `ö ç ı ğ` gibi karakterlerde.
+
+### Sebep
+
+xterm'in **iki göndericisi** var: `_keyDown` (tuşun kendisi) ve `_inputEvent`
+(metin alanına düşen `insertText`). İkincisinin yineleme koruması:
+
+```js
+if (e.data && "insertText" === e.inputType && (!e.composed || !this._keyDownSeen) && …)
+```
+
+`e.composed` gerçek kullanıcı girdisinde her zaman `true`, yani koruma
+tamamen `_keyDownSeen`'e bakıyor — ve **`_keyUp` onu sıfırlıyor**
+(`_keyUp(e){this._keyDownSeen=!1,…}`). Sonuç: `input` olayı `keyup`'tan
+**sonra** gelirse koruma çalışmıyor ve harf ikinci kez gönderiliyor.
+
+ibus Türkçe düzende ASCII olmayan tuşu **eşzamansız** işliyor: `input`
+gerçekten `keyup`'tan sonra geliyor. ASCII eşzamanlı geldiği için hiç
+ikilenmiyordu — hata bu yüzden "Türkçe karakter hatası" gibi görünüyor, oysa
+**sıra** hatası.
+
+Katlanmanın açıklaması da bu: her tuş **iki** karakter yazıyor, her geri
+silme **bir** tanesini siliyor. Sil-yeniden yaz döngüsünün her turunda satır
+bir karakter uzuyor — kullanıcının ekran görüntüsündeki desen tam olarak bu.
+
+### Ölçüm — WebKitGTK, gerçek xterm 6.0.0, iki olay sırası
+
+| | gönderilen | |
+|---|---|---|
+| Türkçe, `input` `keyup`'tan **sonra** (ibus yolu) | `ööççıığğ` | ⛔ hepsi ikili |
+| aynısı, **yamalı** | `öçığ` | ✅ |
+| Türkçe, `input` `keyup`'tan **önce** | `öçığ` | doğru — sorun harf değil sıra |
+| **ASCII**, geç sıra | `aabbccdd` | ASCII de ikileniyor |
+| ASCII, geç sıra, yamalı | `abcd` | ✅ |
+| büyük harf (65–90 muafiyeti), yamalı / yamasız | `AB` / `AB` | yama o yolu bozmuyor |
+| gerçek IME derlemesi (`中文`, keyCode 229), yamalı | `中文` | derleme bozulmuyor |
+
+Çıktı yolu da ayrıca elendi: `"öçığşüÖÇİĞŞÜ ok"` **her olası bayt kesiminde**
+ikiye bölünüp `atob` + `TextDecoder({stream:true})` + `term.write` üstünden
+yazıldı — bozulan kesim **yok**, bayt bayt yazmak da metni birebir veriyor.
+
+### Düzeltme
+
+`onKey` **yalnızca** `_keyDown`/`_keyPress` veriyi kendisi gönderdiğinde
+ateşliyor — aynı dalda, `triggerDataEvent`'in bir satır öncesinde. Yani
+ateşlediyse bundan sonra gelen aynı içerikli `insertText` o tuşun **ikinci
+kopyasıdır** ve durduruluyor.
+
+Dinleyici **kapta ve yakalama evresinde**: xterm kendi `input` dinleyicisini
+metin alanının üstüne `open()` içinde kuruyor, aynı düğümde sonradan kurulan
+bir dinleyici **sonra** çalışır. Bir atadan yakalama evresinde
+`stopPropagation` olayın hedefe hiç ulaşmamasını sağlıyor.
+
+Her yeni `keydown` işareti siliyor: `_keyDown`'ın gönderdiği ama `input`
+doğurmayan tuşlar (Enter, oklar, geri silme) işaret bırakmasın.
+
+⛔ **`onData` seviyesinde yamak yanlış olurdu:** orada iki özdeş olay
+görünüyor ve gerçekten iki kez basılmış bir harften ayırt edilemez.
+⛔ **Metin alanını elle temizlemek de yanlış olurdu:** xterm onu yalnızca
+Enter, Ctrl+C ve odak kaybında boşaltıyor, yani yazdıkça biriktiriyor (bu da
+ölçüldü) — ama `_handleAnyTextareaChanges`'in bekleyen bir farkı varsa alanın
+kısalması ona geri silme gibi görünür.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

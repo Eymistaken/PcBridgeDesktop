@@ -97,10 +97,16 @@ derse **başka bir şey sormadan** şunu yap:
    ⚠️ **Yeni tasarım hâlâ gerçek pencerede gözle görülmedi** (madde 7).
    Doğrulama WebKitGTK'da, aynı motorda yapıldı.
 
-9. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi üç aşama da
+9. ✅ **Aşama 24 (2026-09-08): Türkçe karakterler iki kez gönderiliyordu.**
+   Kullanıcı *"ciddi hata"* dedi ve haklıydı. Sebep xterm'in yineleme
+   korumasının `_keyUp`'ta sıfırlanan bir bayrağa bakması; ayrıntı aşağıda
+   "Terminal kipi" ölçümlerinde ve [ASAMALAR.md](ASAMALAR.md) Aşama 24'te.
+   **Sorun harf değil olay sırasıydı** — geç sırada ASCII de ikileniyor.
+
+10. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi dört aşama da
    bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
    yeni iş bitince oraya bir aşama olarak taşınır.
-10. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+11. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -449,6 +455,35 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
   `#{pane_current_command}`; bir CLI çalışıyorsa kullanıcıya soruluyor
   (*yeni pencere · yine de gönder · iptal*), sessizce hiçbir şey yapılmıyor.
 - **`:has()` WebKitGTK 4.1'de destekleniyor** — varsayılmadı, ölçüldü.
+- ⚠️ **xterm bir tuşu iki kez gönderebiliyor ve bu "Türkçe karakter hatası"
+  gibi görünüyor.** xterm'in iki göndericisi var: `_keyDown` (tuş) ve
+  `_inputEvent` (metin alanına düşen `insertText`). İkincisinin yineleme
+  koruması `(!e.composed || !this._keyDownSeen)` ve **`_keyDownSeen`'i
+  `_keyUp` sıfırlıyor** — yani `input` olayı `keyup`'tan **sonra** gelirse
+  koruma çalışmıyor. ibus Türkçe düzende ASCII olmayan tuşu eşzamansız
+  işliyor, `input` gerçekten sonra geliyor.
+  **Sorun harf değil sıra:** ölçüldü ki geç sırada ASCII de ikileniyor
+  (`aabbccdd`), erken sırada Türkçe ikilenmiyor (`öçığ`).
+  Katlanma da buradan: her tuş iki karakter yazıyor, her geri silme birini
+  siliyor; sil-yeniden yaz döngüsünün her turunda satır bir karakter uzuyor.
+  **Düzeltme `Term.tsx`'te:** `onKey` yalnızca `_keyDown`/`_keyPress` veriyi
+  kendisi gönderdiğinde ateşliyor, o yüzden ateşledikten sonra gelen aynı
+  içerikli `insertText` durduruluyor. Dinleyici **kapta ve yakalama
+  evresinde** — xterm kendi dinleyicisini metin alanına `open()` içinde
+  kuruyor, aynı düğümde sonradan kurulan dinleyici sonra çalışır.
+  Bozulmayan iki yol da ölçüldü: büyük harf muafiyeti (`_keyDown` 65–90'ı
+  bilerek göndermiyor) ve gerçek IME derlemesi (keyCode 229).
+  ⛔ **Yamayı `onData` seviyesinde yapmak yanlış olurdu:** orada iki özdeş
+  olay görünüyor ve gerçekten iki kez basılmış bir harften ayırt edilemez.
+- **`atob` + `TextDecoder({stream:true})` + `term.write` yolu temiz.**
+  Yukarıdaki hatayı ararken ölçüldü: `"öçığşüÖÇİĞŞÜ ok"` her olası bayt
+  kesiminde ikiye bölünüp yazıldı — **bozulan kesim yok**; bayt bayt yazmak
+  da metni birebir veriyor. Çok baytlı karakter sorunu ÇIKTI yolunda değil.
+- ⚠️ **xterm'in yardımcı metin alanı yalnızca Enter, Ctrl+C ve odak
+  kaybında boşalıyor.** Yani yazdıkça birikiyor (ölçüldü). Zararsız — her
+  gönderici kendi başlangıç ofsetini derleme başında okuyor — ama **elle
+  temizlemek tehlikeli**: `_handleAnyTextareaChanges` bekleyen bir farkı
+  varsa alanın kısalması ona geri silme (`DEL`) gibi görünür.
 - **CSS `position: absolute`'u DOLGU KUTUSUNA göre çözüyor.** `.agac`'ın
   `padding`'i sessizce atlanıyordu ve bölmeler tuvalin kenarına yapışıyordu;
   içe bir `.tuval` katmanı kondu (`position: relative` onun).

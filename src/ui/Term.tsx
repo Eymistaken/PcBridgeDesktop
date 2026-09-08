@@ -225,6 +225,71 @@ export default function Term({ session, workdir, dondur, onExit, onOpened }: Pro
           );
         });
 
+      /*
+       * ⚠️ **Türkçe karakterler İKİ KEZ gönderiliyordu.** Kullanıcının
+       * bildirimi: bir kez `ö`'ye basınca ekrana birden çok `ö` düşüyor, ve
+       * her silip yeniden yazmada bir tane daha ekleniyor. Sebebi bulundu ve
+       * ölçüldü (2026-09-08, WebKitGTK):
+       *
+       * xterm iki yerden veri gönderiyor — `_keyDown` (tuşun kendisi) ve
+       * `_inputEvent` (metin alanına düşen `insertText`). İkincisinin
+       * yineleme koruması `(!e.composed || !this._keyDownSeen)` ve
+       * **`_keyDownSeen`'i `_keyUp` sıfırlıyor.** Yani `input` olayı
+       * `keyup`'tan **sonra** gelirse koruma çalışmıyor ve harf ikinci kez
+       * gönderiliyor.
+       *
+       * ibus Türkçe düzende ASCII olmayan tuşu eşzamansız işliyor: `input`
+       * gerçekten `keyup`'tan sonra geliyor. ASCII eşzamanlı geldiği için
+       * hiç ikilenmiyordu — hata bu yüzden "Türkçe karakter hatası" gibi
+       * görünüyor, oysa **sıra** hatası. Ölçüm: geç sırada ASCII de ikileniyor
+       * (`aabbccdd`), erken sırada Türkçe ikilenmiyor (`öçığ`).
+       *
+       * Katlanma da buradan: her tuş **iki** karakter yazıyor, her geri silme
+       * **bir** tanesini siliyor; sil-yeniden yaz döngüsünün her turunda satır
+       * bir karakter uzuyor.
+       *
+       * **Düzeltme.** `onKey` yalnızca `_keyDown`/`_keyPress` veriyi kendisi
+       * gönderdiğinde ateşliyor — aynı dalda, `triggerDataEvent`'in bir satır
+       * öncesinde. Yani ateşlediyse bundan sonra gelecek aynı içerikli
+       * `insertText` o tuşun **ikinci kopyasıdır** ve durdurulur.
+       *
+       * Dinleyici **kapta ve yakalama evresinde**: xterm kendi `input`
+       * dinleyicisini metin alanının üstüne `open()` içinde kuruyor, yani
+       * bizim ondan sonra kurulan dinleyicimiz aynı düğümde **sonra** çalışır.
+       * Bir atadan yakalama evresinde durdurmak olayın hedefe hiç
+       * ulaşmamasını sağlıyor.
+       *
+       * Bozmadığı iki yol da ölçüldü: büyük harf muafiyeti (`_keyDown`
+       * 65–90'ı bilerek göndermiyor ve `onKey` de ateşlemiyor) ve gerçek IME
+       * derlemesi (keyCode 229 → `_keyDown` erken dönüyor). İkisinde de
+       * `beklenen` boş kalıyor ve olay geçiyor.
+       */
+      let beklenen: string | null = null;
+      const iz = term.onKey(({ key }) => {
+        beklenen = key;
+      });
+      sokulecek.push(() => iz.dispose());
+      // Her yeni tuş işareti siler: bir sonraki basıma kadar tüketilmemiş
+      // işaret (Enter, oklar, geri silme — `_keyDown` onları gönderiyor ama
+      // `input` doğurmuyorlar) sonraki meşru bir `input`'u yutmasın.
+      const tusIzi = () => {
+        beklenen = null;
+      };
+      const girdiIzi = (e: Event) => {
+        const ie = e as InputEvent;
+        if (ie.inputType !== "insertText" || !ie.data) return;
+        if (beklenen !== null && ie.data === beklenen) {
+          beklenen = null;
+          e.stopPropagation();
+        }
+      };
+      kap.addEventListener("keydown", tusIzi, true);
+      kap.addEventListener("input", girdiIzi, true);
+      sokulecek.push(() => {
+        kap.removeEventListener("keydown", tusIzi, true);
+        kap.removeEventListener("input", girdiIzi, true);
+      });
+
       const veri = term.onData((d) => {
         void ptyWrite(session, d).catch(() => {});
       });
