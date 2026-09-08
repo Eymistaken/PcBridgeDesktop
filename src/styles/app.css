@@ -1,4 +1,7 @@
-/* Kabuk. Ölçüler design/Main.dc.html'den birebir taşındı. */
+/* Kabuk. Ölçüler design/*.dc.html'den ("Ledger") birebir taşındı.
+ *
+ * Tek ilke: kutu yok, cetvel var. Ayırıcı bir yüzey kademesi değil 1px'lik
+ * bir çizgi; her bölüm solda mono, büyük harf bir etiket oluğuyla başlıyor. */
 
 * {
   box-sizing: border-box;
@@ -44,7 +47,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   color: inherit;
   border: 0;
@@ -56,25 +60,98 @@ select {
 
 /* WebKitGTK yerel <select>'e kendi çerçevesini çiziyor; sözleşme düz alan
  * diyor. appearance tek başına yetmiyor, sınırı da açıkça kaldırıyoruz. */
-select:focus {
-  outline: none;
-}
-
+select:focus,
 input:focus {
   outline: none;
 }
 
+/* ── yazı yardımcıları ───────────────────────────────────────────── */
+
 /* Tek aralıklı yazı **arayüzün her yerinde** var — iş kimliği, yol, model
- * adı, sayaç. Seçilebilir olması sürükleyince bunların hepsini yakalıyordu. */
+ * adı, sayaç. Ledger'da payı daha da büyük: bütün etiketler, düğmeler ve
+ * tablolar mono. */
 .mono {
   font-family: var(--mono);
   letter-spacing: -0.01em;
 }
 
+/* Serif yalnızca **ad ve başlık** için: bot adı, ekran başlığı, büyük söz.
+ * Gövde metni serif olmaz — tasarımda tek bir serif paragraf yok. */
+.serif {
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* Bölüm başlığı — mono, büyük harf, geniş aralık. Tablolarda sütun başlığı. */
+.h {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.lbl {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ── oluk ızgarası — tasarımın imzası ────────────────────────────── */
+/*
+ * Sekiz ekranın da omurgası: solda sabit genişlikte mono büyük harf bir
+ * etiket, sağda içerik. Tek yerde tanımlanır; kopyalanırsa er geç ayrışır —
+ * bu depoda `yukseklik.ts` aynı sebeple tek dosyaya toplanmıştı.
+ *
+ * Etiket `--text-muted` ve **daima `--bg` / `--bg-side` üstünde** durur;
+ * dolgulu bir yüzeye girmez (orada 5.17'ye düşüyor, hâlâ AA ama oluğun işi
+ * zemin değil).
+ */
+.oluk {
+  display: flex;
+  gap: var(--oluk-ara);
+  min-width: 0;
+}
+
+.oluk__et {
+  width: var(--oluk);
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  /* Etiket içeriğin ilk satırıyla hizalanır; içerik punto değiştikçe
+   * çağıran taraf `padding-top` veriyor. */
+  padding-top: 4px;
+}
+
+/* Durum oluğu — sohbet ve kenar çubuğundaki `ÇLS · TMM · HTA`.
+ * Tasarımda 26px; Türkçe kısaltmalar için 34px'e çıkarıldı. */
+.oluk__et--dar {
+  width: var(--oluk-dar);
+  letter-spacing: 0.06em;
+  padding-top: 0;
+}
+
+.oluk__ic {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* ── odak ────────────────────────────────────────────────────────── */
+
 /* Klavye odağı görünür kalmalı; fare tıklamasında halka çıkmaz. */
 :focus-visible {
-  /* outline öğenin kendi border-radius'unu izler; dördüncü bir köşe değeri
-   * tanımlamıyoruz — üç değer var, arası yok. */
+  /* Ledger'da düğmenin yarıçapı yok; halka da köşeli çıkıyor ve öğenin
+   * kendi biçimini izliyor. */
   outline: 2px solid var(--text);
   outline-offset: 2px;
   /* Halka bir karede belirmesin, **yerine otursun**. Geçiş kuralı durumun
@@ -86,28 +163,39 @@ input:focus {
 
 /* ── temel parçalar ──────────────────────────────────────────────── */
 
+/* Durum noktası — 9999px'in kabukta kullanıldığı **tek** yer. */
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 9999px;
   flex: none;
 }
 
+/*
+ * Kimlik çipi. Eskiden daire ve içinde harf vardı; tasarımda **kare ve
+ * harfsiz** — rengin kendisi kimlik, harf gürültüydü.
+ *
+ * Hue addan türüyor (`types.ts::hueOf`), açıklık ve doygunluk sabit
+ * (`--av-l` / `--av-c`), yani renk 360 hue boyunca aynı ağırlıkta duruyor.
+ */
 .av {
-  border-radius: 9999px;
+  border-radius: 0;
   flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: var(--bg);
+  display: block;
+}
+
+/* Boş / pasif kimlik çipi — "yeni bot" ve "PC'de açık değil" satırları.
+ * Dolgu yerine içe halka: ledger'da yokluk bir çizgiyle anlatılıyor. */
+.av--bos {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--line-3);
 }
 
 /* ikon düğmesi */
 .ib {
-  width: 34px;
-  height: 34px;
-  border-radius: 9999px;
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -115,9 +203,15 @@ input:focus {
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-/* Hover'da zıplama veya ölçeklenme YASAK — yalnızca yüzey kademesi. */
+/* Hover'da zıplama veya ölçeklenme YASAK. `.ib` yalnızca ikon taşıyor
+ * (ikincil metin değil), o yüzden dolgu kademesine çıkması güvenli. */
 .ib:hover {
-  background: var(--surface);
+  background: var(--field);
+}
+
+.ib:active {
+  background: var(--field-h);
+  transition-duration: var(--dur-tap);
 }
 
 /* İkon hover'da soluktan tam metne çıkıyor: eylem olduğu böyle belli
@@ -132,17 +226,28 @@ input:focus {
 }
 
 .ib--filled:hover {
-  background: var(--surface);
+  background: var(--field-h);
 }
 
-/* birincil eylem: renkli değil, en yüksek kontrastlı */
+/* ── düğmeler ────────────────────────────────────────────────────── */
+/*
+ * ⚠️ **Düğmelerin yarıçapı yok.** Tasarımda tek bir yuvarlatılmış düğme
+ * bulunmuyor; 4px yalnızca kuyu, panel ve terminal bölmesinde.
+ *
+ * Hepsi mono, büyük harf, `.06em` aralıklı. Birincil eylem **renksiz**:
+ * `--text` dolgu, `--bg` metin — bağırmıyor ama en yüksek kontrastta
+ * (koyu 15.58, aydınlık 15.57).
+ */
 .btn-primary {
-  padding: 9px 20px;
-  border-radius: var(--r-sm);
+  padding: 8px 20px;
+  border-radius: 0;
   background: var(--text);
   color: var(--bg);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
@@ -150,32 +255,117 @@ input:focus {
   opacity: 0.86;
 }
 
+.btn-primary:active:not(:disabled) {
+  opacity: 0.74;
+  transition-duration: var(--dur-tap);
+}
+
 .btn-primary:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.btn-quiet {
-  padding: 9px 18px;
-  border-radius: var(--r-sm);
-  color: var(--text-muted);
-  font-size: 13.5px;
+/* İkincil eylem — dolgulu ama renksiz. Metni `--text-2`: `--field` üstünde
+ * 9.44, `--field-h` üstünde 8.09. İkisi de AA üstünde, yani bu düğme
+ * dolgu kademesine güvenle çıkabiliyor. */
+.btn-fld {
+  padding: 7px 16px;
+  border-radius: 0;
+  background: var(--field);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.btn-quiet:hover {
+.btn-fld:hover:not(:disabled) {
+  background: var(--field-h);
   color: var(--text);
 }
 
-/* segmentli seçim — seçim yükselen yüzeyle anlatılır, renkli çubukla değil.
- * İç yarıçap: dış 10 − dolgu 3 = 7. */
+.btn-fld:active:not(:disabled) {
+  background: var(--field-a);
+  transition-duration: var(--dur-tap);
+}
+
+.btn-fld:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*
+ * Sessiz eylem — dolgusuz metin düğmesi. Ledger'da en yaygın olan bu.
+ *
+ * ⚠️ Hover'ı **dolgu değil metin** kademesi: `--text-muted` `--field-h`
+ * üstünde 4.44'e düşüyor (AA altı). İkincil metin taşıyan denetim yukarı
+ * değil, metniyle parlar. Bu, eski paletteki "`--text-muted` `--surface-2`
+ * üstünde kullanılmaz" kuralının ledger dilindeki karşılığı.
+ */
+.btn-quiet {
+  padding: 0;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.btn-quiet:active:not(:disabled) {
+  /* Basmada "bir kademe daha ileri" gidecek yer yok (tavan `--text`),
+   * o yüzden aşağı iner — eski paletteki kuralın aynısı. */
+  color: var(--text-2);
+  transition-duration: var(--dur-tap);
+}
+
+.btn-quiet:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Yıkıcı eylem yalnızca renkte ayrışır; biçimi sessiz düğmeyle aynı. */
+.btn-quiet--fail {
+  color: var(--fail);
+}
+
+.btn-quiet--fail:hover:not(:disabled) {
+  color: var(--fail);
+  opacity: 0.8;
+}
+
+/*
+ * Seçili duran metin seçeneği — `WINDOW 15 · 60 · 2 H`, kip satırı, ayar
+ * sekmeleri. Ledger'da seçim **altı çizgiyle** anlatılıyor; kayan yüzey
+ * parçası kalktı.
+ */
+.btn-quiet[aria-pressed="true"],
+.btn-quiet[aria-selected="true"] {
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--text);
+}
+
+/* ── seçenek sırası (eski `.seg`) ────────────────────────────────── */
+/*
+ * Eskiden kayan bir yüzey parçası taşıyan segmentli denetimdi. Tasarımda
+ * öyle bir parça yok: seçenekler yan yana mono metin, etkin olanın altı
+ * çizili. Ölçülen thumb (`Seg.tsx`) böylece gereksizleşti.
+ */
 .seg {
-  position: relative;
   display: flex;
-  gap: 3px;
-  padding: 3px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  gap: 20px;
   align-self: flex-start;
+  background: none;
+  padding: 0;
+  border-radius: 0;
 }
 
 .seg[data-esit] {
@@ -184,47 +374,27 @@ input:focus {
 
 .seg[data-esit] > button {
   flex: 1;
-}
-
-/*
- * Kayan parça — `ModeSwitch`'in deseni.
- *
- * ⚠️ Seçim eskiden bir karede öteki düğmeye ışınlanıyordu. Parçanın yeri
- * `Seg.tsx`'te **ölçülüyor**: seçenekler farklı genişlikte ve yüzde hesabı
- * yalnızca eşit genişlikte doğru olurdu.
- */
-.seg__parca {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  border-radius: 9px;
-  background: var(--surface-2);
-  transition:
-    transform var(--dur-slow) var(--ease-inout),
-    width var(--dur-slow) var(--ease-inout);
-  pointer-events: none;
+  text-align: left;
 }
 
 .seg > button {
   position: relative;
-  padding: 7px 15px;
-  border-radius: 9px;
-  font-size: 13.5px;
+  padding: 0 0 2px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .seg > button:hover {
-  color: var(--text);
+  color: var(--text-2);
 }
 
-/* Yüzeyi artık kayan parça taşıyor; düğme yalnızca metin rengini değiştiriyor.
- * ⚠️ `background` **kalkmalıydı**: parçayla birlikte iki yüzey üst üste
- * biniyor ve kayma sırasında hedef düğme baştan dolu görünüyordu. */
 .seg > button[aria-pressed="true"] {
   color: var(--text);
-  font-weight: 500;
+  box-shadow: inset 0 -1px 0 var(--text);
 }
 
 /* Kip ile araç filtresi arasındaki boşluk — burada söylenip burada kapanıyor.
@@ -235,15 +405,15 @@ input:focus {
   align-items: center;
   gap: 10px;
   margin-top: 2px;
-  padding: 9px 11px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .permgap__metin {
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-3);
   min-width: 0;
 }
 

@@ -241,7 +241,7 @@ export default function Chat({
   return (
     <>
       <div className="main__head">
-        <Avatar tone={bot.avatar} name={bot.name} size={26} />
+        <Avatar tone={bot.avatar} name={bot.name} size={11} />
         <span
           style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}
         >

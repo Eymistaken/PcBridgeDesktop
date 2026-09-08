@@ -59,7 +59,7 @@ export default function SessionHome({
     <div className="home">
       <div className="home__ic">
         <div className="home__selam">
-          <Avatar tone={bot.avatar} name={bot.name} size={52} />
+          <Avatar tone={bot.avatar} name={bot.name} size={11} />
           <span className="home__ad">{bot.name}</span>
           <span className="home__alt">{t("home.subtitle")}</span>
         </div>

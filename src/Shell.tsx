@@ -925,7 +925,7 @@ export default function Shell({
             {secili && !selectedSession ? (
               <>
                 <div className="main__head">
-                  <Avatar tone={secili.avatar} name={secili.name} size={26} />
+                  <Avatar tone={secili.avatar} name={secili.name} size={11} />
                   <span
                     style={{
                       fontSize: 15,

@@ -1,14 +1,19 @@
 /* Pcbridge Desktop — tasarım sözleşmesi.
  *
- * Kaynak: CLAUDE.md "Nötr Kabuk" + design/Tokens.dc.html.
- * Kabuk renksiz. Renk yalnızca KİMLİKTEN (bot avatarı) ve DURUMDAN
- * (çalışıyor / bitti / başarısız) gelir. Sistem aksan rengi YOKTUR.
+ * Kaynak: CLAUDE.md "Ledger" + design/*.dc.html.
  *
- * Üç blok, bu sırayla — son ikisinin özgüllüğü eşit olduğu için sıra karar verir:
- *   1. :root                                   → koyu, birincil
+ * Tek ilke: **kutular yok, cetveller var.** Ayırıcı bir yüzey kademesi değil
+ * 1px'lik bir çizgi; her bölüm solda mono, büyük harf bir etiket oluğuyla
+ * başlıyor. Kabuk yine renksiz — renk yalnızca KİMLİKTEN (bot avatarı) ve
+ * DURUMDAN (çalışıyor / bitti / başarısız) gelir. Sistem aksan rengi YOKTUR.
+ *
+ * Üç blok, bu sırayla — son ikisinin özgüllüğü eşit olduğu için sıra karar
+ * verir:
+ *   1. :root                                          → koyu, birincil
  *   2. @media light + :root:not([data-theme="dark"])  → sistemi izle
- *   3. :root[data-theme="light"]               → zorla aydınlık, media'yı yener
- * Dört kombinasyonun dördü de doğru çıkar.
+ *   3. :root[data-theme="light"]                      → zorla aydınlık
+ * Dört kombinasyonun dördü de doğru çıkar. Bu yapı eski paletten aynen
+ * taşındı; değişen renkler, sıra değil.
  */
 
 :root {
@@ -17,108 +22,192 @@
    * tokenlar koyu, çubuklar aydınlık kalıyor. */
   color-scheme: dark;
 
-  /* zeminler */
-  --bg: #151618;
-  --bg-side: #0f0f11;
-  --field: #1f2023;
-  --surface: #26282a;
-  --surface-2: #36383b;
-  --line: #2f3033;
-  --well: #08090b;
+  /* ── zeminler ────────────────────────────────────────────────────────── */
+  --bg: #101112;
+  --bg-side: #0b0c0d;
+  --well: #08090a;
 
-  /* Kuyunun metni — **iki temada da aynı.**
-   *
-   * Kuyu (terminal, ham çıktı, onaylanan komut) aydınlık temada da koyu
-   * kalıyor; metni `--text`'ten almak aydınlıkta 1.09:1 veriyordu, yani
-   * görünmez. Ölçüldü: sabit değerlerle 15.72 ve 6.49 — ikisi de AA üstünde.
+  /* Etkileşim dolgusu — düğme ve alan zemini, üç kademe.
+   * `--field-a` değeri tasarımın kendi vurgu renginden geliyor (kenar
+   * çubuğu arama eşleşmesi, ekran 07). */
+  --field: #1f2122;
+  --field-h: #2a2d2f; /* hover */
+  --field-a: #33383a; /* basılı */
+
+  /* ── cetveller ───────────────────────────────────────────────────────── */
+  /* Üç kademe, hepsi 1px. Tasarımda kutu yok; hiyerarşi bunlarla kuruluyor.
+   * Dekoratif ayırıcılar oldukları için 3:1 aranmaz (WCAG 1.4.11 kapsam dışı);
+   * yine de ölçüldü: `--line` zemin üstünde 1.17, `--line-2` 1.44. */
+  --line: #1f2122; /* olağan ayırıcı */
+  --line-2: #2a2d2f; /* besteci altı, bölme halkası */
+  --line-3: #3a3d3f; /* etkin sekme altı, boş kutucuk halkası */
+
+  /* ── kuyu ────────────────────────────────────────────────────────────── */
+  /* Kuyu (terminal, ham çıktı, kod bloğu) **iki temada da koyu kalır** ve
+   * metnini tema tokenlarından ALMAZ: aydınlık temada `--text` kuyuda 1.12:1
+   * veriyor, yani görünmez. Ölçüldü — sabit değerlerle 16.43 ve 7.41.
    * Bu yüzden aşağıdaki tema bloklarında **yeniden tanımlanmıyorlar.** */
-  --well-text: #eaebed; /* 15.72:1 */
-  --well-muted: #96989c; /* 6.49:1 */
+  --well-text: #e9e9ea; /* 16.43:1 */
+  --well-muted: #9b9ea2; /* 7.41:1 */
+  --well-sel: #33383a; /* terminal seçim zemini — üstünde --well-text 9.79 */
 
-  /* metin — iki seviye, üçüncüsü YOK (her denemede AA altında kaldı) */
-  --text: #eaebed; /* 15.2:1 */
-  --text-muted: #96989c; /* 6.3:1 — --surface-2 üstünde KULLANILMAZ (4.08:1) */
+  /* ── metin — DÖRT seviye ─────────────────────────────────────────────── */
+  /* Eski palette iki seviye vardı ve "üçüncüsü yok" bir kuraldı; sebebi o
+   * seviyenin iki denemede de AA altında kalmasıydı (3.7 ve 3.1). Bu rampa
+   * düşmüyor — dördü de her zeminde ölçüldü:
+   *
+   *              --bg   --bg-side  --well  --field
+   *   --text     15.58    16.14    16.43   13.33
+   *   --text-2   11.03    11.43    11.63    9.44
+   *   --text-3    7.03     7.28     7.41    6.01
+   *   --text-muted 6.05     6.26     6.38    5.17
+   */
+  --text: #e9e9ea;
+  --text-2: #c4c6c8; /* ikincil satır, pasif sekme */
+  --text-3: #9b9ea2; /* gövde paragrafı, açıklama */
+  --text-muted: #8f9296; /* oluk etiketi, mono üstbilgi */
 
-  /* durum */
-  --run: #d3a056; /* 7.7 */
-  --ok: #75b683; /* 7.6 */
-  --fail: #e2726b; /* 5.9 */
-  /* ANSI — yalnızca terminal paleti. Kabukta kullanılmazlar; `--blue` da
-   * baştan beri öyleydi. Magenta ve cyan eskiden kimlik tonlarından
-   * ödünç alınıyordu; kimlik artık hue'dan türediği için kendi tokenları var
-   * (değerler aynı, terminalde görsel değişiklik yok). */
+  /* ⚠️ `--text-3` ve `--text-muted` **`--field-h` / `--field-a` üstünde
+   * KULLANILMAZ** — orada 5.15/4.42 ve 4.44/3.80'e düşüyorlar. İkincil metin
+   * taşıyan bir denetimin hover'ı dolguyu değil **metni** bir kademe
+   * parlatır (muted → text-2 → text). Bu, eski paletteki
+   * "`--text-muted` `--surface-2` üstünde kullanılmaz" kuralının ledger
+   * dilindeki karşılığı; aynı tuzak, aynı ölçüm. */
+
+  /* ── durum ───────────────────────────────────────────────────────────── */
+  /* Tasarım bu üçünü eski paletten **birebir** devraldı; değişmediler. */
+  --run: #d3a056; /* 8.04 */
+  --ok: #75b683; /* 7.90 */
+  --fail: #e2726b; /* 6.17 */
+
+  /* ANSI — yalnızca terminal paleti. Kabukta kullanılmazlar. */
   --blue: #398ad6;
   --magenta: #8d73d1;
   --cyan: #009fa0;
 
-  /* kimlik — hue **addan türer** (0-359), açıklık ve doygunluk sabit.
-   *
-   * Sabit oldukları için avatardaki harfin kontrastı hue'dan bağımsız garanti
-   * kalıyor: 360 hue'nun hepsi için hesaplandı, koyu temada en düşük oran
-   * 4.62, aydınlıkta 4.88 — AA'nın (4.5) altına düşen hue yok. Altı sabit
-   * ton kalktı; eski botlar hue karşılıklarına göç etti. */
+  /* ── kimlik ──────────────────────────────────────────────────────────── */
+  /* Hue **addan türer** (0-359), açıklık ve doygunluk sabit. Sabit oldukları
+   * için avatardaki harfin kontrastı hue'dan bağımsız garanti: 360 hue'nun
+   * hepsi için hesaplandı, koyu temada en düşük 4.62, aydınlıkta 4.88.
+   * Tasarım bu formülü aynen kullanıyor — `oklch(0.62 0.14 250)`.
+   * Değişen tek şey **biçim**: avatar artık daire değil, 9px kare. */
   --av-l: 0.62;
   --av-c: 0.14;
 
-  /* köşeler — üç değer, arası yok.
+  /* ── köşeler — İKİ değer ─────────────────────────────────────────────── */
+  /* Eski palette üç vardı (12 / 20 / tam). Ledger'da kutu olmadığı için
+   * yarıçapa da gerek kalmadı.
    *
-   * Kullanıcının 2026-09-03 isteğiyle yumuşatıldı: 10 → 12, iç içe 7 → 9.
-   * Oran korundu — iç içe yüzeyde yarıçap **dış − dolgu** (12 − 3 = 9). */
-  --r-sm: 12px; /* satır · alan · düğme */
-  --r-lg: 20px; /* baloncuk · kuyu · panel */
-  /* üçüncüsü 9999px, doğrudan yazılır */
+   * ⚠️ **Düğmelerin yarıçapı YOKTUR** — tasarımda tek bir yuvarlatılmış
+   * düğme yok; hepsi köşeli (`ALLOW ONCE`, `SEND`, `LOCK NOW`, `SAVE`,
+   * `CONNECT`, `RETRY`). `--r-sm` yalnızca **kuyu, panel, kip ve bölme**
+   * için; `9999px` yalnızca 6px'lik durum noktası için ve doğrudan yazılır.
+   * Yani üç yarıçap değil, iki: 0 ve 4px (artı noktanın tamı). */
+  --r-sm: 4px;
 
-  /* devinim — süreler ROLE göre adlandırılır, sayıya göre değil.
-   *
-   * Rol ayrımı olmadan tutarlılık kurulamıyor: göçten önce sekiz ayrı süre
-   * (`0.12 0.14 0.16 0.18 0.2 0.22 0.35 0.7`) elle yazılmıştı ve hangisinin
-   * neden seçildiği hiçbir yerde yazmıyordu. "Profesyonel" hissin kaynağı
-   * parlaklık değil tutarlılık.
+  /* ── oluk ızgarası ───────────────────────────────────────────────────── */
+  /* Tasarımın imzası. Tek yerde tanımlanır; sekiz ekran da bunu kullanıyor.
+   * Dar oluk tasarımda 26px; Türkçe durum kısaltmaları (ÇLS · TMM · HTA)
+   * için 34px'e çıkarıldı. */
+  --oluk: 104px;
+  --oluk-dar: 34px;
+  --oluk-ara: 28px;
+
+  /* ── devinim ─────────────────────────────────────────────────────────── */
+  /* Aşama 12'de ölçülerek kuruldu ve **hiç değişmedi** — tasarım devinim
+   * hakkında bir şey söylemiyor, bu yüzden çalışan sistem korunuyor.
+   * Süreler ROLE göre adlandırılır, sayıya göre değil.
    *
    * Basma ile bırakma **kasten asimetrik**: basma `--dur-tap` ile girer,
-   * bırakma `--dur-fast` ile döner. "Tuş gerçekten bastı" hissi oradan
-   * geliyor. */
+   * bırakma `--dur-fast` ile döner. */
   --dur-tap: 70ms; /* basma — anında hissedilmeli */
   --dur-fast: 120ms; /* hover · renk · opaklık */
-  --dur-base: 180ms; /* giriş ve çıkış */
+  --dur-base: 180ms; /* giriş ve çıkış — lib/cikis.ts bunu OKUYOR */
   --dur-slow: 300ms; /* kayan parça · düzen · yükseklik */
   --dur-pulse: 1.6s; /* durum ritmi — geçiş değil, nabız */
 
-  /* İlk ikisi kodda **zaten vardı** ve aynen korunuyor: `--ease-inout` kip
-   * anahtarının kayan parçasının ve BotForge girişinin bugünkü eğrisi, yani
-   * kullanıcının "iyi olanın örneği" dediği iki şeyin hissi değişmiyor.
-   * `--ease-in` yeni — çıkış devinimi olmadığı için karşılığı yoktu. */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1); /* giren */
   --ease-in: cubic-bezier(0.55, 0, 1, 0.45); /* çıkan */
   --ease-inout: cubic-bezier(0.32, 0.72, 0, 1); /* iki uçlu */
 
-  /* yazı — aile adları @fontsource paketlerinin ilan ettiği adlar.
-   * Türkçe kapsamı ölçüldü: geist-sans tek altkümede (538 glif) hepsini
-   * taşıyor; geist-mono ikiye bölünmüş — `ı ç ö ü` latin'de, `ğ ş İ Ğ Ş`
-   * latin-ext'te, unicode-range doğru yönlendiriyor. Yedek yığına düşen
-   * karakter yok. Bu yüzden 400.css/500.css bütün olarak içe aktarılıyor,
-   * tek tek altküme seçilmiyor. */
-  --sans: "Geist Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  /* ── yazı ────────────────────────────────────────────────────────────── */
+  /* Aile adları @fontsource paketlerinin ilan ettiği adlar.
+   *
+   * Türkçe kapsamı **ölçüldü** (fontTools ile cmap okundu, varsayılmadı):
+   * üçünde de `ı ç ö ü Ç Ö Ü â î û` → latin, `ğ ş İ Ğ Ş` → latin-ext;
+   * `unicode-range` doğru yönlendiriyor, yedek yığına düşen karakter yok.
+   * Bu yüzden ağırlık dosyaları bütün olarak içe aktarılıyor, tek tek
+   * altküme seçilmiyor.
+   *
+   * ⚠️ Google Fonts `<link>` KULLANILMAZ: Tauri CSP'si `font-src 'self'
+   * data:` ve açılışta ağa bağlanılmıyor. Tasarımın artboard'u o linki
+   * kullanıyor çünkü o bir web sayfası. */
+  --sans: "Public Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --serif: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* Terminalin İÇİ ayrı — kullanıcının kararı: arayüz tasarımın mono'suna
+   * geçer, terminal bugünkü yazı tipinde kalır. Böylece CLAUDE.md'deki hücre
+   * genişliği, satır aralığı (1.15) ve 222x45 ölçümleri geçerli kalıyor.
+   * `ui/Term.tsx` **bunu** okur, `--mono`'yu değil. */
+  --mono-term: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* ── GÖÇ KÖPRÜSÜ — Aşama H'de SİLİNECEK ──────────────────────────────────
+   *
+   * `app.css` hâlâ eski paletin yüzey kademesini ve ikinci yarıçapını 120+
+   * yerde kullanıyor. Bunlar blok blok, ekran ekran gidiyor (Aşama B-G);
+   * o iş bitene kadar uygulamanın çalışır kalması için burada karşılıkları
+   * duruyor.
+   *
+   * Bu bir "ölü token" değil, **kaldırılmakta olan** bir token: Aşama H'nin
+   * ölçütü `grep -c -- "--surface\|--r-lg" src/styles/app.css` → 0 ve bu
+   * bloğun silinmiş olması. Kalırsa kanun ihlalidir. */
+  --surface: var(--field);
+  --surface-2: var(--field-h);
+  --r-lg: var(--r-sm);
 }
+
+/* ── aydınlık ──────────────────────────────────────────────────────────────
+ *
+ * Tasarım aydınlık varyant vermiyor (sekiz ekran da koyu). Bu palet
+ * **türetildi**: koyu rampanın kontrast yapısı aynalandı, sonra her
+ * metin/zemin çifti hesaplandı.
+ *
+ *              --bg   --bg-side  --field   koyu eşi
+ *   --text     15.57    14.11     12.74     15.58
+ *   --text-2   11.10    10.06      9.08     11.03
+ *   --text-3    7.07     6.41      5.79      7.03
+ *   --text-muted 6.05     5.49      4.95      6.05
+ *   --run       7.35      —        6.02        —
+ *   --ok        6.76      —        5.53        —
+ *   --fail      6.86      —        5.61        —
+ *
+ * Zemin ailesi nötr-sıcak: tasarımın kendi tuval kâğıdı (#e8e6e1) o yönü
+ * gösteriyordu. Eski aydınlık palet soğuk griydi (hue 265).
+ * ------------------------------------------------------------------------ */
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #f8f8fa;
-    --bg-side: #f1f2f4;
-    --field: #ebedef;
-    --surface: #e8e9ec;
-    --surface-2: #d9dbde;
-    --line: #d9dbdd;
-    --well: #111213;
 
-    --text: #191b1d; /* 16.3:1 */
-    --text-muted: #56585d; /* 6.7:1 */
+    --bg: #f5f3ef;
+    --bg-side: #ebe8e2;
+    --field: #e1ddd5;
+    --field-h: #d5d0c6;
+    --field-a: #c6c0b5;
 
-    --run: #8d5e00;
-    --ok: #337344;
-    --fail: #af3c3a;
+    --line: #dcd7ce;
+    --line-2: #c6c0b5;
+    --line-3: #aaa397;
+
+    --text: #191b1e;
+    --text-2: #333538;
+    --text-3: #505255;
+    --text-muted: #5a5c5f;
+
+    --run: #6f4700;
+    --ok: #266034;
+    --fail: #992d29;
     --blue: #0465af;
     --magenta: #6a4fa9;
     --cyan: #007a7c;
@@ -134,20 +223,25 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f8f8fa;
-  --bg-side: #f1f2f4;
-  --field: #ebedef;
-  --surface: #e8e9ec;
-  --surface-2: #d9dbde;
-  --line: #d9dbdd;
-  --well: #111213;
 
-  --text: #191b1d;
-  --text-muted: #56585d;
+  --bg: #f5f3ef;
+  --bg-side: #ebe8e2;
+  --field: #e1ddd5;
+  --field-h: #d5d0c6;
+  --field-a: #c6c0b5;
 
-  --run: #8d5e00;
-  --ok: #337344;
-  --fail: #af3c3a;
+  --line: #dcd7ce;
+  --line-2: #c6c0b5;
+  --line-3: #aaa397;
+
+  --text: #191b1e;
+  --text-2: #333538;
+  --text-3: #505255;
+  --text-muted: #5a5c5f;
+
+  --run: #6f4700;
+  --ok: #266034;
+  --fail: #992d29;
   --blue: #0465af;
   --magenta: #6a4fa9;
   --cyan: #007a7c;

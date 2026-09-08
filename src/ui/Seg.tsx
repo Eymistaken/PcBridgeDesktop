@@ -1,5 +1,3 @@
-import { useLayoutEffect, useRef, useState } from "react";
-
 export interface SegSecenek<T extends string> {
   value: T;
   label: string;
@@ -16,16 +14,18 @@ interface Props<T extends string> {
 }
 
 /**
- * Segmentli seçim — **kayan parçalı.**
+ * Seçenek sırası — mono, büyük harf, **etkin olanın altı çizili.**
  *
- * ⚠️ Eskiden `.seg` yalnızca `aria-pressed` ile yüzey takas ediyordu: seçim
- * bir karede öteki düğmeye **ışınlanıyordu**. `ModeSwitch`'in kayan parçası
- * zaten doğru hissi veriyordu ve kullanıcının "iyi olanın örneği" dediği
- * şeydi; aynı desen buraya taşındı.
+ * ⚠️ Burada bir zamanlar ölçülen bir kayan parça vardı (`.seg__parca`):
+ * seçili düğmenin `offsetLeft`/`offsetWidth`'i `useLayoutEffect`'te
+ * okunuyor, bir `ResizeObserver` yazı tipi geç yüklenince yeniden ölçüyordu.
+ * Ledger'da yüzey kademesi yok — seçim altı çizgiyle anlatılıyor — ve
+ * parçanın taşıyacağı yüzey ortadan kalktı. Ölçüm makinesi de onunla
+ * birlikte kalktı: taşıyacağı bir şey olmayan bir ölçüm, sessizce yanlış
+ * olabilen bir ölçümdür.
  *
- * Parçanın yeri **ölçülüyor**, hesaplanmıyor: seçenekler farklı genişlikte
- * olabiliyor (`Sorarak çalış` ile `Serbest` aynı değil) ve yüzde hesabı
- * yalnızca eşit genişlikte doğru olurdu.
+ * Alt çizgi `box-shadow: inset 0 -1px 0` ile çiziliyor (`app.css`), yani
+ * düzeni etkilemiyor ve geçişi `color` ile aynı karede oluyor.
  */
 export default function Seg<T extends string>({
   value,
@@ -34,39 +34,8 @@ export default function Seg<T extends string>({
   ariaLabel,
   esit,
 }: Props<T>) {
-  const kap = useRef<HTMLDivElement>(null);
-  const [parca, setParca] = useState<{ x: number; w: number } | null>(null);
-
-  useLayoutEffect(() => {
-    const el = kap.current;
-    if (!el) return;
-    const olc = () => {
-      const secili = el.querySelector<HTMLElement>('[aria-pressed="true"]');
-      if (!secili) return setParca(null);
-      setParca({ x: secili.offsetLeft, w: secili.offsetWidth });
-    };
-    olc();
-    // Yazı tipi geç yüklenirse ya da pencere daralırsa parça kaymalı.
-    const gozcu = new ResizeObserver(olc);
-    gozcu.observe(el);
-    return () => gozcu.disconnect();
-  }, [value, options]);
-
   return (
-    <div
-      className="seg"
-      role="group"
-      aria-label={ariaLabel}
-      ref={kap}
-      data-esit={esit || undefined}
-    >
-      {parca && (
-        <span
-          className="seg__parca"
-          aria-hidden="true"
-          style={{ transform: `translateX(${parca.x - 3}px)`, width: parca.w }}
-        />
-      )}
+    <div className="seg" role="group" aria-label={ariaLabel} data-esit={esit || undefined}>
       {options.map((o) => (
         <button
           key={o.value}

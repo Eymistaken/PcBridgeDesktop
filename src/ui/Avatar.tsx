@@ -5,29 +5,32 @@ interface Props {
   tone: Tone;
   name: string;
   size?: number;
+  /** Rengi olmayan çip — "yeni bot", "PC'de açık değil". İçe halka çizer. */
+  bos?: boolean;
 }
 
 /**
- * Kimlik rengi. Hue addan türüyor, açıklık ve doygunluk temadan geliyor.
+ * Kimlik çipi. Hue addan türüyor (`types.ts::hueOf`), açıklık ve doygunluk
+ * temadan geliyor (`--av-l` / `--av-c`).
  *
- * Harfin kontrastı **hue'dan bağımsız garanti**: `--av-l` ve `--av-c` sabit
- * olduğu için 360 hue'nun hepsinde AA geçiyor (koyu en düşük 4,62; aydınlık
- * 4,88 — hesaplandı). Surat, resim, emoji yok.
+ * ⚠️ **Harf kalktı ve daire kare oldu.** Tasarımda kimlik 9px'lik düz bir
+ * kare; ad her zaman yanında duruyor, o yüzden harf ikinci kez aynı şeyi
+ * söylüyordu. Bununla birlikte "harfin kontrastı 360 hue'da AA geçiyor"
+ * ölçümü de konusuz kaldı — çipte artık metin yok. Rengin kendisi hâlâ
+ * sabit açıklıkta, yani zemine göre ağırlığı hue'dan bağımsız.
+ *
+ * Surat, resim, emoji yok.
  */
-export default function Avatar({ tone, name, size = 36 }: Props) {
-  const harf = (name.trim()[0] ?? "?").toLocaleUpperCase("tr-TR");
+export default function Avatar({ tone, name, size = 9, bos }: Props) {
   return (
     <span
-      className="av"
+      className={bos ? "av av--bos" : "av"}
       aria-hidden="true"
       style={{
         width: size,
         height: size,
-        background: avatarVar(hueFor(tone, name)),
-        fontSize: Math.round(size * 0.39),
+        background: bos ? undefined : avatarVar(hueFor(tone, name)),
       }}
-    >
-      {harf}
-    </span>
+    />
   );
 }

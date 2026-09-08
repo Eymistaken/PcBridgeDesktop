@@ -36,7 +36,10 @@ function palet() {
     // veriyordu — terminal okunmuyordu. `--well-text` tema değişse de sabit.
     foreground: v("--well-text"),
     cursor: v("--well-text"),
-    selectionBackground: v("--surface-2"),
+    // Kabuk artık yüzey kademesi kullanmıyor (ledger: kutu değil cetvel),
+    // o yüzden `--surface-2` diye bir token yok. Seçim zemini kuyunun kendi
+    // tokenı: `--well-sel`. Üstünde `--well-text` 9.79:1.
+    selectionBackground: v("--well-sel"),
     black: v("--well"),
     red: v("--fail"),
     green: v("--ok"),
@@ -92,8 +95,12 @@ export default function Term({ session, workdir, onExit, onOpened }: Props) {
 
     function kur(kap: HTMLDivElement) {
       const term = new Terminal({
+        // ⚠️ `--mono` DEĞİL. Arayüz IBM Plex Mono'ya geçti; terminalin içi
+        // kullanıcının kararıyla Geist Mono'da kaldı ve kendi tokenını
+        // okuyor. Böylece bu dosyadaki hücre genişliği / satır aralığı /
+        // sütun sayısı ölçümleri geçerliliğini koruyor.
         fontFamily: getComputedStyle(document.documentElement)
-          .getPropertyValue("--mono")
+          .getPropertyValue("--mono-term")
           .trim(),
         fontSize: PUNTO,
         lineHeight: SATIR,
