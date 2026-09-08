@@ -465,6 +465,25 @@ export interface TerminalsView {
   raw: string | null;
 }
 
+/**
+ * Bir bölmenin **o anki** durumu — `pty_info` komutundan.
+ *
+ * ⚠️ `TmuxSession` ile karıştırılmamalı. O liste pcbridge'in `tmux_list`
+ * aracından geliyor ve 10 saniyede bir tazeleniyor; bu **yerel** bir tmux
+ * sorgusu ve anlık. Bölme başlığı bunu yazıyor, klasör değiştirme akışı da
+ * `command`'a bakıp kabuğun boşta olup olmadığına karar veriyor.
+ */
+export interface PtyInfo {
+  /** Ön planda çalışan program — `bash`, `claude`, `node`… */
+  command: string;
+  path: string;
+  windowIndex: number;
+  windows: number;
+  windowName: string;
+  user: string;
+  host: string;
+}
+
 export interface PtyData {
   session: string;
   /** Ham baytlar base64'te. */

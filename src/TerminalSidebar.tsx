@@ -1,82 +1,42 @@
-import { useEffect, useRef, useState } from "react";
-
 import ConnStrip from "./ui/ConnStrip";
 import { IconTrash } from "./ui/Icon";
 import { t } from "./lib/i18n";
-import type { DesktopState, TerminalsView } from "./lib/types";
+import { kisaltEv } from "./lib/yol";
+import { KABUKLAR } from "./views/Terminals";
+import type { DesktopState, PtyInfo, TerminalsView } from "./lib/types";
 
 interface Props {
   view: TerminalsView;
+  /** Satırların canlı durumu — dizin ve ön plandaki program. */
+  infos: Record<string, PtyInfo>;
   panes: string[];
   desktop: DesktopState;
-  /** Ctrl+N: değer artınca yeni oturum alanı açılır. */
-  newSignal: number;
   onOpenSystem: () => void;
   /** Kilit rozeti — izni tek tıkla açar/kapatır. */
   onToggleDesktop: () => void;
   onOpen: (name: string) => void;
-  onNew: (name: string) => void;
   onKill: (name: string) => void;
 }
 
 export default function TerminalSidebar({
   view,
+  infos,
   panes,
   desktop,
-  newSignal,
   onOpenSystem,
   onToggleDesktop,
   onOpen,
-  onNew,
   onKill,
 }: Props) {
-  const [yeni, setYeni] = useState("");
-  const alan = useRef<HTMLInputElement>(null);
-
-  // ⚠️ Satır artık **hep görünür** (tasarımda öyle); `newSignal` onu açmıyor,
-  // yalnızca odaklıyor. İlk kuruluşta odak çalınmasın diye sayaç 0'ken hiçbir
-  // şey yapılmıyor.
-  useEffect(() => {
-    if (newSignal > 0) alan.current?.focus();
-  }, [newSignal]);
-
   const burada = view.sessions.filter((s) => panes.includes(s.name));
   const uzakta = view.sessions.filter((s) => !panes.includes(s.name));
 
   return (
     <>
-      <div className="side__search">
-        <form
-          className="field"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ad = yeni.trim();
-            if (ad) onNew(ad);
-            setYeni("");
-          }}
-        >
-          <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            +
-          </span>
-          <input
-            ref={alan}
-            className="mono"
-            spellCheck={false}
-            value={yeni}
-            placeholder={t("term.sessionName")}
-            aria-label={t("term.newSessionLabel")}
-            style={{ fontSize: 11.5 }}
-            onChange={(e) => setYeni(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setYeni("");
-                alan.current?.blur();
-              }
-            }}
-          />
-        </form>
-      </div>
-
+      {/* ⚠️ Burada bir zamanlar "oturum-adi" yazan bir metin alanı vardı ve
+       * kullanıcı her yeni terminal için tmux oturum adını **elle** yazmak
+       * zorundaydı. Ad artık sorulmuyor (Rust üretiyor), o yüzden alan da
+       * yok: başlıktaki artı doğrudan açıyor. */}
       <div className="side__list">
         {view.sessions.length === 0 && (
           <div className="side__empty">
@@ -92,7 +52,14 @@ export default function TerminalSidebar({
         )}
 
         {burada.map((s) => (
-          <SessionRow key={s.name} s={s} secili onOpen={onOpen} onKill={onKill} />
+          <SessionRow
+            key={s.name}
+            s={s}
+            info={infos[s.name]}
+            secili
+            onOpen={onOpen}
+            onKill={onKill}
+          />
         ))}
 
         {uzakta.length > 0 && burada.length > 0 && (
@@ -124,15 +91,30 @@ export default function TerminalSidebar({
 
 function SessionRow({
   s,
+  info,
   secili,
   onOpen,
   onKill,
 }: {
   s: { name: string; command: string; workdir: string; attached: boolean };
+  /** Yalnızca burada açık olan bölmelerde var — canlı dizin ve program. */
+  info?: PtyInfo;
   secili?: boolean;
   onOpen: (n: string) => void;
   onKill: (n: string) => void;
 }) {
+  const komut = info?.command ?? s.command;
+  /**
+   * Satırda **etiket** yazıyor, tmux adı ipucunda.
+   *
+   * Burada açık olmayan oturumlarda `info` yok (yerel sorgu yalnızca açık
+   * bölmeler için yapılıyor); orada `tmux_list`'ten gelen dizin kullanılıyor.
+   */
+  const etiket = info
+    ? `${info.user}@${info.host}: ${kisaltEv(info.path)}`
+    : s.workdir
+      ? kisaltEv(s.workdir)
+      : s.name;
   return (
     <div
       className="row"
@@ -156,14 +138,19 @@ function SessionRow({
           secili
             ? {
                 background:
-                  s.command && s.command !== "bash" ? "var(--run)" : "var(--ok)",
+                  komut && !KABUKLAR.includes(komut) ? "var(--run)" : "var(--ok)",
               }
             : undefined
         }
       />
-      <span className="row__name row__name--mono">{s.name}</span>
+      <span
+        className="row__name row__name--mono"
+        title={t("panes.tmuxName", { name: s.name })}
+      >
+        {etiket}
+      </span>
       <span className="row__mark">
-        {[s.command, s.attached ? t("term.alsoOnPc") : null]
+        {[komut, s.attached ? t("term.alsoOnPc") : null]
           .filter(Boolean)
           .join(" · ")}
       </span>

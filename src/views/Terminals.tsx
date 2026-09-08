@@ -29,7 +29,8 @@ import {
   type Kutu,
   type Yon,
 } from "../lib/agac";
-import type { TerminalsView, TmuxSession } from "../lib/types";
+import { kisaltEv } from "../lib/yol";
+import type { PtyInfo, TerminalsView, TmuxSession } from "../lib/types";
 
 const DUZENLER: Duzen[] = ["izgara", "sutunlar", "satirlar", "ana"];
 
@@ -43,8 +44,21 @@ const DUZENLER: Duzen[] = ["izgara", "sutunlar", "satirlar", "ana"];
  */
 const GECIS_MS = 340;
 
+/**
+ * Kabuk sayılan programlar.
+ *
+ * Başlıktaki nokta bunlarda `--ok`, ötekilerde `--run` yanıyor: "bir şey
+ * çalışıyor" bilgisi ancak kabuk boşta değilse anlamlı. Aynı liste klasör
+ * değiştirme akışında da kullanılacak — `cd` yalnızca boşta bir kabuğa
+ * gönderilebilir (ölçüldü: `#{pane_current_command}` `sleep 30` sürerken
+ * `sleep` döndürüyor).
+ */
+export const KABUKLAR = ["bash", "zsh", "sh", "fish", "dash", "ksh"];
+
 interface Props {
   view: TerminalsView;
+  /** Bölme başlığının canlı durumu — dizin ve ön plandaki program. */
+  infos: Record<string, PtyInfo>;
   /** Bölme ağacı — `null` ise hiç bölme yok. */
   agac: Dugum | null;
   onAgac: Dispatch<SetStateAction<Dugum | null>>;
@@ -60,7 +74,7 @@ interface Surukleme {
   ad: string;
 }
 
-export default function Terminals({ view, agac, onAgac, onReload }: Props) {
+export default function Terminals({ view, infos, agac, onAgac, onReload }: Props) {
   const byName = useMemo(
     () => Object.fromEntries(view.sessions.map((s) => [s.name, s])),
     [view.sessions],
@@ -356,6 +370,7 @@ export default function Terminals({ view, agac, onAgac, onReload }: Props) {
                 zoomlu={zoom === b.id}
                 gecis={gecis}
                 oturum={byName[b.session]}
+                info={infos[b.session]}
                 eklenecek={bosta[0]}
                 hedef={surukleme?.hedef === b.id}
                 kaynak={surukleme?.kaynak === b.id}
@@ -390,6 +405,7 @@ interface BolmeProps {
   zoomlu: boolean;
   gecis: boolean;
   oturum?: TmuxSession;
+  info?: PtyInfo;
   eklenecek?: string;
   hedef: boolean;
   kaynak: boolean;
@@ -407,6 +423,7 @@ function Bolme({
   zoomlu,
   gecis,
   oturum,
+  info,
   eklenecek,
   hedef,
   kaynak,
@@ -416,7 +433,19 @@ function Bolme({
   onTut,
   onOpened,
 }: BolmeProps) {
-  const calisiyor = oturum?.command && oturum.command !== "bash";
+  /**
+   * Ön planda ne çalışıyor. Kaynak **yerel** `pty_info`; `tmux_list`'ten
+   * gelen `oturum.command` 10 saniye eski olabiliyor ve yedek olarak duruyor.
+   */
+  const komut = info?.command ?? oturum?.command ?? "";
+  const calisiyor = komut !== "" && !KABUKLAR.includes(komut);
+
+  /**
+   * Başlıkta yazan şey **etiket**, tmux adı değil: `eymistaken@ZorinOS: ~yol`
+   * — GNOME Terminal'in biçimi, kullanıcının istediği. Teknik ad (`term1`)
+   * ipucunda ve erişilebilirlik etiketlerinde duruyor.
+   */
+  const etiket = info ? `${info.user}@${info.host}: ${kisaltEv(info.path)}` : session;
 
   return (
     <div
@@ -444,11 +473,20 @@ function Bolme({
             className="dot"
             style={{ background: calisiyor ? "var(--run)" : "var(--ok)" }}
           />
-          <span style={{ fontWeight: 500, flex: "none" }}>{session}</span>
+          {/* ⚠️ Kırpılan **etiket**, çalışan komut değil. İlk sürümde etiket
+           * `flex: none` idi ve uzun bir dizin komutu "clau…" diye kesiyordu
+           * (WebKitGTK görüntüsünde görüldü). Hangi CLI koştuğu kritik bilgi;
+           * dizinin kuyruğu değil. Tam yol ipucunda. */}
+          <span
+            className="phead__ad"
+            title={`${info?.path ?? ""}\n${t("panes.tmuxName", { name: session })}`.trim()}
+          >
+            {etiket}
+          </span>
           {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
            * Kuyunun içindeyiz: renk `--well-muted`, `--text-muted` burada
            * aydınlık temada 2.63:1 verirdi. */}
-          <span className="phead__alt">{oturum?.command ?? ""}</span>
+          <span className="phead__alt">{komut}</span>
           {oturum?.attached && (
             <span className="phead__uzak">{t("term.alsoOnPc")}</span>
           )}
@@ -492,7 +530,17 @@ function Bolme({
             <IconClose />
           </button>
         </div>
-        <Term session={session} dondur={gecis} onOpened={onOpened} />
+        {/* ⚠️ `onExit` bir yıl boyunca **bağlı değildi**: `pty://exit` olayı
+         * `ptybus`'a kadar geliyor ve orada düşüyordu, yani tmux oturumu
+         * ölünce bölme ekranda ölü olarak kalıyordu. Bölmeyi kapatmak olayı
+         * yaymıyor (`pty.rs` `dur` bayrağı), o yüzden buraya yalnızca gerçek
+         * ölüm düşüyor. */}
+        <Term
+          session={session}
+          dondur={gecis}
+          onOpened={onOpened}
+          onExit={() => void onKapat(bolmeId, session)}
+        />
       </div>
     </div>
   );

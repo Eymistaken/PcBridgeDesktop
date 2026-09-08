@@ -164,8 +164,6 @@ const en: Record<string, string> = {
   // ── terminal kenar çubuğu ──
   "term.newSession": "New session",
   "term.newSessionTitle": "New session (Ctrl+N)",
-  "term.sessionName": "session-name",
-  "term.newSessionLabel": "New session name",
   "term.noSessions": "No open sessions",
   "term.noSessionsHint": "Press the plus. The session lives in tmux, so it survives closing the app.",
   "term.elsewhere": "Open on the PC, not here",
@@ -177,11 +175,6 @@ const en: Record<string, string> = {
   "term.openHere": "{n} open here",
 
   // ── bölmeler ──
-  "panes.0": "No panes",
-  "panes.1": "One pane",
-  "panes.2": "Two panes",
-  "panes.3": "Three panes",
-  "panes.4": "Four panes",
   "panes.nOpen_one": "{n} pane",
   "panes.nOpen_other": "{n} panes",
   "panes.hint": "drag the header to move · drag a divider to resize",
@@ -194,8 +187,6 @@ const en: Record<string, string> = {
   "panes.satirlar": "Rows",
   "panes.ana": "Main + stack",
   "panes.layout": "Layout",
-  "panes.nPanes_one": "{n} pane",
-  "panes.nPanes_other": "{n} panes",
   "panes.empty": "No open panes",
   "panes.emptyHint":
     "Click a session in the list on the left, or press the plus to open a new one. Every pane is a real tmux session.",
@@ -204,6 +195,7 @@ const en: Record<string, string> = {
   "panes.zoom": "Expand (fills the canvas; the others keep their size)",
   "panes.zoomOut": "Shrink back",
   "panes.zoomNamed": "Expand pane {name}",
+  "panes.tmuxName": "tmux session: {name}",
 
   // ── sohbet ──
   "chat.empty": "No conversation yet",
@@ -634,8 +626,6 @@ const tr: Record<string, string> = {
 
   "term.newSession": "Yeni oturum",
   "term.newSessionTitle": "Yeni oturum (Ctrl+N)",
-  "term.sessionName": "oturum-adi",
-  "term.newSessionLabel": "Yeni oturum adı",
   "term.noSessions": "Açık oturum yok",
   "term.noSessionsHint": "Artıya bas. Oturum tmux'ta yaşar; uygulamayı kapatsan da durur.",
   "term.elsewhere": "PC'de açık, burada değil",
@@ -646,11 +636,6 @@ const tr: Record<string, string> = {
   "term.sessionCount_other": "{n} oturum",
   "term.openHere": "{n}'i burada açık",
 
-  "panes.0": "Bölme yok",
-  "panes.1": "Tek bölme",
-  "panes.2": "İki bölme",
-  "panes.3": "Üç bölme",
-  "panes.4": "Dört bölme",
   "panes.nOpen_one": "{n} bölme",
   "panes.nOpen_other": "{n} bölme",
   "panes.hint": "başlıktan tutup taşı · ayraçtan boyutlandır",
@@ -663,8 +648,6 @@ const tr: Record<string, string> = {
   "panes.satirlar": "Satırlar",
   "panes.ana": "Ana + yığın",
   "panes.layout": "Yerleşim",
-  "panes.nPanes_one": "{n} bölme",
-  "panes.nPanes_other": "{n} bölme",
   "panes.empty": "Açık bölme yok",
   "panes.emptyHint":
     "Soldaki listeden bir oturuma tıkla ya da artıya basıp yeni bir tane aç. Her bölme gerçek bir tmux oturumudur.",
@@ -673,6 +656,7 @@ const tr: Record<string, string> = {
   "panes.zoom": "Genişlet (tuvali kaplar; ötekiler ölçüsünü korur)",
   "panes.zoomOut": "Geri küçült",
   "panes.zoomNamed": "{name} bölmesini genişlet",
+  "panes.tmuxName": "tmux oturumu: {name}",
 
   "chat.empty": "Henüz konuşma yok",
   "chat.emptyHint":

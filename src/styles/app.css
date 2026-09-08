@@ -3065,16 +3065,31 @@ pre.well {
   cursor: grabbing;
 }
 
+/*
+ * Bölme etiketi — `eymistaken@ZorinOS: ~yol`.
+ *
+ * **Esneyen ve kırpılan taraf burası.** Uzun bir dizin başlığı doldurup
+ * çalışan komutu kesiyordu; hangi CLI koştuğu daha değerli bir bilgi.
+ */
+.phead__ad {
+  flex-grow: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Kuyunun içindeki ikincil metin kuyu tokenlarını kullanır: `--text-muted`
  * aydınlık temada kuyu üstünde 2.63:1 veriyor, yani görünmez. */
 .phead__alt {
-  flex-grow: 1;
-  min-width: 0;
+  flex: none;
   font-size: 10.5px;
   color: var(--well-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 40%;
 }
 
 .phead__uzak {

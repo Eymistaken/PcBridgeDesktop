@@ -15,6 +15,7 @@ import type {
   ModelConfig,
   ModelInfo,
   PendingPermission,
+  PtyInfo,
   RunCtx,
   Session,
   SessionSummary,
@@ -227,6 +228,24 @@ export const ptyResize = (session: string, cols: number, rows: number) =>
 
 /** Bölmeyi kapatır; **oturum yaşamaya devam eder.** */
 export const ptyClose = (session: string) => call<void>("pty_close", { session });
+
+/**
+ * Bölmenin **o anki** durumu: ön planda ne çalışıyor, hangi dizinde.
+ *
+ * **MCP'ye gitmiyor** — yerel `tmux display-message`. `terminals()`'in 10
+ * saniyelik tazelemesini beklemeden çağrılabiliyor; başlık `cd`'den hemen
+ * sonra güncelleniyor.
+ */
+export const ptyInfo = (session: string) => call<PtyInfo>("pty_info", { session });
+
+/**
+ * Kullanılmayan bir oturum adı. Artı düğmesi ad **sormuyor**.
+ *
+ * `taken` ağaçtaki adlar: tmux'ta henüz yaratılmamış ama bir bölmeye atanmış
+ * bir ad da çakışma sayılıyor.
+ */
+export const tmuxFreeName = (taken: string[]) =>
+  call<string>("tmux_free_name", { taken });
 
 /** Oturumu **sonlandırır** — geri dönüşü yok. */
 export const tmuxKill = (session: string) => call<string>("tmux_kill", { session });

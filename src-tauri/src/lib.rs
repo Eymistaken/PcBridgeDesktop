@@ -17,7 +17,7 @@ use jobs::{JobMeta, Watchers};
 use mcp::{AgentRunRequest, ConnError, ConnSnapshot, McpState, Shots, ToolDef};
 use model::{ModelConfig, ModelError, ModelInfo};
 use parse::Event;
-use pty::{PtyError, Ptys, TmuxSession};
+use pty::{PtyError, PtyInfo, Ptys, TmuxSession};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -583,7 +583,12 @@ async fn terminals(
     })
 }
 
-/// Bölmeyi açar: `tmux new-session -A -s <ad>` — varsa bağlanır, yoksa yaratır.
+/// Bölmeyi açar.
+///
+/// ⚠️ İki adım, **`-A` değil**: önce `tmux new-session -d -s <ad>` (ayrık),
+/// sonra PTY içinde `tmux attach-session`. Gerekçe `pty.rs:140-166`'da
+/// ölçülmüş — `-A` oturumu onu yaratan istemciye bağlıyor ve PTY düşünce
+/// oturum da ölüyordu. Bu yorum bir yıl boyunca `-A` diyordu.
 #[tauri::command]
 async fn pty_open(
     app: tauri::AppHandle,
@@ -620,6 +625,31 @@ async fn pty_resize(
 async fn pty_close(ptys: tauri::State<'_, Ptys>, session: String) -> Result<(), PtyError> {
     ptys.close(&session).await;
     Ok(())
+}
+
+/// Bölmenin **o anki** durumu: ön planda ne çalışıyor, hangi dizinde,
+/// kaçıncı pencerede. Başlık bunu yazıyor ve klasör değiştirme akışı buna
+/// bakıyor.
+///
+/// **MCP'ye gitmiyor** — yerel `tmux display-message`. Süreç çağrısı
+/// blokladığı için `spawn_blocking`'de.
+#[tauri::command]
+async fn pty_info(session: String) -> Result<PtyInfo, PtyError> {
+    tokio::task::spawn_blocking(move || pty::info(&session))
+        .await
+        .map_err(|e| PtyError::Io(e.to_string()))?
+}
+
+/// Kullanılmayan bir oturum adı. Artı düğmesi ad **sormuyor**; adı bu
+/// üretiyor ve kullanıcı isterse sonradan etiket veriyor.
+///
+/// `taken` ön yüzün ağacındaki adlar: tmux'ta henüz yaratılmamış ama bir
+/// bölmeye atanmış bir ad da çakışma sayılıyor.
+#[tauri::command]
+async fn tmux_free_name(taken: Vec<String>) -> Result<String, PtyError> {
+    tokio::task::spawn_blocking(move || pty::free_name(&taken))
+        .await
+        .map_err(|e| PtyError::Io(e.to_string()))
 }
 
 /// Oturumu **sonlandırır** — bölme kapatmaktan ayrı, geri dönüşü yok.
@@ -736,6 +766,8 @@ pub fn run() {
             pty_write,
             pty_resize,
             pty_close,
+            pty_info,
+            tmux_free_name,
             tmux_kill,
             desktop_state,
             desktop_unlock,

@@ -48,7 +48,9 @@ import {
   sendMessage,
   sessionCtx,
   sessionHistory,
+  ptyInfo,
   terminals as loadTerminals,
+  tmuxFreeName,
   tmuxKill,
   updateBot,
 } from "./lib/ipc";
@@ -68,6 +70,7 @@ import type {
   RunCtx,
   SessionSummary,
   StatusPayload,
+  PtyInfo,
   TerminalsView,
   Theme,
   Turn,
@@ -208,6 +211,9 @@ export default function Shell({
     if (mode === "terminals") setTerminalAcildi(true);
   }, [mode]);
   const [agac, setAgac] = useState<Dugum | null>(okuAgac);
+  // Kısayol dinleyicisi bir kez kuruluyor; ağacı ref'ten okuyor.
+  const agacRef = useRef<Dugum | null>(agac);
+  agacRef.current = agac;
 
   useEffect(() => {
     try {
@@ -220,6 +226,38 @@ export default function Shell({
 
   /** Açık bölmelerin oturum adları — kenar çubuğu bunu okuyor. */
   const panes = useMemo(() => oturumlar(agac), [agac]);
+
+  /**
+   * Bölme başlığının yazdığı **canlı** durum: `eymistaken@ZorinOS: ~yol` ve
+   * ön planda çalışan program.
+   *
+   * ⚠️ Kaynak `tview` **değil.** O liste pcbridge'in `tmux_list` aracından
+   * geliyor ve 10 saniyede bir tazeleniyor; kullanıcı klasör değiştirince
+   * başlığın on saniye eski dizini yazması kabul edilemez. Bu harita yerel
+   * `tmux display-message` çağrılarından doluyor ve `cd`'den hemen sonra
+   * elle tazelenebiliyor.
+   */
+  const [infos, setInfos] = useState<Record<string, PtyInfo>>({});
+
+  const infoTazele = useCallback(async (adlar: string[]) => {
+    if (adlar.length === 0) return;
+    const ciftler = await Promise.all(
+      adlar.map(async (ad) => {
+        try {
+          return [ad, await ptyInfo(ad)] as const;
+        } catch {
+          // Oturum henüz doğmamış ya da ölmüş olabilir; başlık o zaman
+          // oturum adına düşüyor. Hata gösterilmiyor: bu bir yoklama.
+          return null;
+        }
+      }),
+    );
+    setInfos((eski) => {
+      const yeni = { ...eski };
+      for (const c of ciftler) if (c) yeni[c[0]] = c[1];
+      return yeni;
+    });
+  }, []);
 
   /**
    * Masaüstü izni. Kaynak **disk**, MCP değil: süre kendiliğinden dolduğunda
@@ -256,8 +294,25 @@ export default function Shell({
     };
   }, []);
 
-  /** Ctrl+N kenar çubuğundaki "yeni oturum" alanını açsın diye artan sayaç. */
-  const [yeniSinyal, setYeniSinyal] = useState(0);
+  /**
+   * Yeni terminal — **ad sorulmuyor.**
+   *
+   * Adı Rust üretiyor (`term1`, `term2`…) ve o ad teknik kimlik: ağacın,
+   * `localStorage`'ın, PTY `HashMap`'inin ve olay yüklerinin anahtarı.
+   * Başlıkta görünen `eymistaken@ZorinOS: ~` ise **etiket** ve `pty_info`'dan
+   * geliyor. Elle ad vermek isteyen yol sağ tık menüsünde.
+   *
+   * Ağaçtaki adlar `taken` olarak gidiyor: bölme açılmış ama `pty_open` daha
+   * dönmemişse tmux'ta o oturum henüz yok ve ad iki kez seçilebilirdi.
+   */
+  const yeniTerminal = useCallback(async () => {
+    try {
+      const ad = await tmuxFreeName(oturumlar(agacRef.current));
+      setAgac((a) => ekle(a, ad));
+    } catch (e) {
+      setConnError(detailText(e));
+    }
+  }, []);
 
   /**
    * Kilit rozetinin eylemi: kapalıysa 15 dakika açar, açıksa kilitler.
@@ -296,6 +351,21 @@ export default function Shell({
     const t = setInterval(() => void terminalleriYukle(), 10000);
     return () => clearInterval(t);
   }, [mode, terminalleriYukle]);
+
+  /**
+   * Bölme başlıklarının canlı durumu.
+   *
+   * Bölme listesi değişince hemen, sonra 4 saniyede bir: `terminals()`'in 10
+   * saniyesinden sık, çünkü başlıktaki dizin ve çalışan program kullanıcının
+   * gözünün önünde. Çağrı yerel ve ucuz (ölçüldü: `tmux display-message`
+   * milisaniyeler), ama gereksiz sıklık da tmux sunucusunu meşgul eder.
+   */
+  useEffect(() => {
+    if (mode !== "terminals") return;
+    void infoTazele(panes);
+    const t = setInterval(() => void infoTazele(panes), 4000);
+    return () => clearInterval(t);
+  }, [mode, panes, infoTazele]);
 
   // Olay dinleyicileri seçili botu görebilsin diye ref'te tutuyoruz.
   const seciliRef = useRef<string | undefined>(undefined);
@@ -606,13 +676,13 @@ export default function Shell({
       } else if (e.key === "n" || e.key === "N") {
         if (yaziliyor(e.target)) return;
         e.preventDefault();
-        if (modeRef.current === "terminals") setYeniSinyal((n) => n + 1);
+        if (modeRef.current === "terminals") void yeniTerminal();
         else setForge({});
       }
     };
     window.addEventListener("keydown", tus);
     return () => window.removeEventListener("keydown", tus);
-  }, [setMode]);
+  }, [setMode, yeniTerminal]);
 
   async function tazele() {
     setBusyConn(true);
@@ -776,16 +846,19 @@ export default function Shell({
       <div className="side__head">
         <span className="side__title">pcbridge</span>
         {/* Artı yalnızca terminal kipinde: bot kipinde "yeni bot" listenin
-         * sonunda bir satır (tasarım başlıkta artı göstermiyor), terminalde
-         * ise yeni oturum adı bir forma yazılıyor ve o form Ctrl+N ile
-         * açılıyor — tetikleyecek bir yer gerekiyor. */}
+         * sonunda bir satır (tasarım başlıkta artı göstermiyor).
+         *
+         * ⚠️ Eskiden burası kenar çubuğundaki bir metin alanını odaklıyordu ve
+         * kullanıcı tmux oturum adını **elle** yazmak zorundaydı. Artık ad
+         * sorulmuyor: Rust boş bir ad üretiyor, başlık `user@host: ~dizin`
+         * yazıyor ve elle adlandırma sağ tık menüsünde. */}
         {mode === "terminals" && (
           <button
             className="ib"
             type="button"
             title={t("term.newSessionTitle")}
             aria-label={t("term.newSession")}
-            onClick={() => setYeniSinyal((n) => n + 1)}
+            onClick={() => void yeniTerminal()}
           >
             <IconPlus />
           </button>
@@ -828,9 +901,13 @@ export default function Shell({
       <div className="main">
         <Terminals
           view={tview}
+          infos={infos}
           agac={agac}
           onAgac={setAgac}
-          onReload={() => void terminalleriYukle()}
+          onReload={() => {
+            void terminalleriYukle();
+            void infoTazele(oturumlar(agacRef.current));
+          }}
         />
       </div>
     </div>
@@ -844,21 +921,15 @@ export default function Shell({
     >
       <TerminalSidebar
         view={tview}
+        infos={infos}
         panes={panes}
         desktop={desktop}
-        newSignal={yeniSinyal}
         onOpenSystem={() => {
           setSelectedId(undefined);
           setMode("agents");
         }}
         onToggleDesktop={() => void masaustuCevir()}
         onOpen={(name) => setAgac(ekle(agac, name))}
-        onNew={(name) => {
-          // Yeni oturum: bölmeyi açmak zaten tmux oturumunu yaratıyor,
-          // ayrıca bir `tmux_start`a gerek yok.
-          setAgac(ekle(agac, name));
-          void terminalleriYukle();
-        }}
         onKill={(name) => {
           void tmuxKill(name)
             .then(() => {

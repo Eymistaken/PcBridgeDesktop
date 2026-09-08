@@ -94,6 +94,9 @@ pub struct Ptys {
     inner: Mutex<HashMap<String, Pane>>,
 }
 
+/// Oturum adı kuralının tek metni — iki çağıran da bunu döndürüyor.
+pub const AD_KURALI: &str = "Oturum adı yalnızca harf, rakam, - _ . içerebilir.";
+
 /// tmux oturum adında yalnızca güvenli karakterler — ad kabuğa değil doğrudan
 /// `CommandBuilder`'a gidiyor ama tmux'un kendi ayrıştırması da var.
 fn ad_gecerli(s: &str) -> bool {
@@ -113,9 +116,7 @@ impl Ptys {
         workdir: Option<String>,
     ) -> Result<(), PtyError> {
         if !ad_gecerli(&session) {
-            return Err(PtyError::Gecersiz(
-                "Oturum adı yalnızca harf, rakam, - _ . içerebilir.".into(),
-            ));
+            return Err(PtyError::Gecersiz(AD_KURALI.into()));
         }
         let mut map = self.inner.lock().await;
         // Zaten açıksa **yeniden bağlan**. Bileşen yeniden kurulduğunda (kip
@@ -334,6 +335,125 @@ pub fn parse_tmux_list(text: &str) -> Vec<TmuxSession> {
     out
 }
 
+// ─────────────────── canlı oturum bilgisi (YEREL) ───────────────────
+//
+// ⚠️ Bu sorgular **MCP'ye gitmiyor.** `terminals()` pcbridge'in `tmux_list`
+// aracını çağırıyor ve markdown bir tablo ayrıştırıyor; oradan gelen liste 10
+// saniyede bir tazeleniyor. Bölme başlığındaki dizin ve "ön planda ne
+// çalışıyor" sorusu ise **anlık** olmak zorunda: kullanıcı klasör değiştirince
+// başlık o an güncellenmeli. `attached_counts()` bu deseni zaten taşıyor —
+// yerel `tmux` çağrısı ucuz ve pcbridge'in çıktı biçimine bağımlılık
+// eklemiyor.
+
+/// Bir bölmenin **o anki** durumu.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PtyInfo {
+    /// Bölmede **ön planda** çalışan program — `bash`, `claude`, `node`…
+    /// Klasör değiştirme akışı buna bakıyor: kabuk boştaysa `cd` gönderilir.
+    pub command: String,
+    pub path: String,
+    pub window_index: u32,
+    /// Oturumdaki pencere sayısı. CLI çalışırken açılan yeni pencere burada
+    /// görünür ve başlık `2/3` diye sayaç gösterir.
+    pub windows: u32,
+    pub window_name: String,
+    pub user: String,
+    pub host: String,
+}
+
+/// tmux'un biçim dizesi — alanlar sekmeyle ayrılıyor.
+///
+/// ⚠️ `#{session_name}` bir süs değil, **var olma sınaması.** Ölçüldü:
+/// `tmux display-message -p -t <olmayan oturum>` hata vermiyor — çıkış kodu
+/// **0** ve bütün alanlar **boş** basılıyor, stderr'e de bir şey yazılmıyor.
+/// Yalnızca `status.success()`'e bakan ilk sürüm bu yüzden boş bir `PtyInfo`
+/// döndürüyordu ve başlıkta `eymistaken@: ` yazacaktı. Oturum adı boş
+/// geliyorsa hedef bulunamamıştır.
+const INFO_FMT: &str = concat!(
+    "#{session_name}\t",
+    "#{pane_current_command}\t",
+    "#{pane_current_path}\t",
+    "#{window_index}\t",
+    "#{session_windows}\t",
+    "#{window_name}\t",
+    "#{host_short}",
+);
+
+/// Kabuğun kullanıcı adı. tmux bunu vermiyor; ortamdan okunuyor.
+fn kullanici() -> String {
+    std::env::var("USER")
+        .or_else(|_| std::env::var("LOGNAME"))
+        .unwrap_or_else(|_| "?".into())
+}
+
+pub fn info(session: &str) -> Result<PtyInfo, PtyError> {
+    if !ad_gecerli(session) {
+        return Err(PtyError::Gecersiz(AD_KURALI.into()));
+    }
+    // `<ad>:` oturumun **aktif** penceresini hedefliyor; `=` öneki tmux'un
+    // önek eşleşmesini kapatıyor ki `term1` sorgusu `term10`'a düşmesin.
+    let hedef = format!("={session}:");
+    let o = std::process::Command::new("tmux")
+        .args(["display-message", "-p", "-t", &hedef, INFO_FMT])
+        .output()
+        .map_err(|e| PtyError::Io(e.to_string()))?;
+    if !o.status.success() {
+        return Err(PtyError::Yok(session.to_string()));
+    }
+    let ham = String::from_utf8_lossy(&o.stdout);
+    let p: Vec<&str> = ham.trim_end().split('\t').collect();
+    if p.len() < 7 {
+        return Err(PtyError::Io(format!("tmux biçimi tanınmadı: {ham:?}")));
+    }
+    // Boş oturum adı = hedef bulunamadı (bkz. `INFO_FMT` yorumu).
+    if p[0].is_empty() {
+        return Err(PtyError::Yok(session.to_string()));
+    }
+    Ok(PtyInfo {
+        command: p[1].to_string(),
+        path: p[2].to_string(),
+        // Sayı okunamazsa 0: uydurma bir pencere numarası göstermek yerine
+        // arayüz sayacı hiç çizmiyor.
+        window_index: p[3].parse().unwrap_or(0),
+        windows: p[4].parse().unwrap_or(0),
+        window_name: p[5].to_string(),
+        user: kullanici(),
+        host: p[6].to_string(),
+    })
+}
+
+/**
+Kullanılmayan bir oturum adı üretir: `term1`, `term2`, …
+
+**Ad ile görünen etiket ayrı şeyler.** Bu ad ağacın, `localStorage`'ın, PTY
+`HashMap`'inin ve olay yüklerinin anahtarı; kullanıcının kendi `tmux ls`'inde
+de böyle görünüyor. Başlıkta yazan `eymistaken@ZorinOS: ~` ise **etiket** ve
+onu `pty_info` besliyor.
+
+`taken` ön yüzün ağacındaki adlar: tmux'ta henüz yaratılmamış ama bir bölmeye
+atanmış bir ad varsa (bölme açılıyor, `pty_open` daha dönmedi) o da çakışma
+sayılıyor.
+*/
+pub fn free_name(taken: &[String]) -> String {
+    for i in 1..1000u32 {
+        let ad = format!("term{i}");
+        if taken.iter().any(|t| t == &ad) {
+            continue;
+        }
+        let var = std::process::Command::new("tmux")
+            .args(["has-session", "-t", &format!("={ad}")])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if !var {
+            return ad;
+        }
+    }
+    // Bin oturum açıkken bile bir ad dönmek zorundayız; pid çakışmaz.
+    format!("term-{}", std::process::id())
+}
+
 /// Oturum başına **bağlı istemci sayısı**.
 ///
 /// `tmux_list` yalnızca "PC'de acik mi" diye bir boolean veriyor; biz bir
@@ -488,6 +608,85 @@ mod tests {
     fn oturum_yoksa_bos_doner() {
         assert!(parse_tmux_list("Acik tmux oturumu yok.").is_empty());
         assert!(parse_tmux_list("").is_empty());
+    }
+
+    /// `info` gerçek bir tmux oturumunu okuyor mu — ayrıştırıcı dahil.
+    ///
+    /// Biçim kabukta da doğrulanmıştı; bu test **kod yolunu** sabitliyor:
+    /// `INFO_FMT` altı alan veriyor, `split('\t')` altısını da buluyor ve
+    /// `window_index`/`session_windows` sayıya çevriliyor.
+    #[test]
+    #[ignore = "gerçek tmux oturumu yaratıp siliyor"]
+    fn info_gercek_oturumu_okur() {
+        let ad = format!("pcbridge-info-{}", std::process::id());
+        struct Guard(String);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                let _ = std::process::Command::new("tmux")
+                    .args(["kill-session", "-t", &format!("={}", self.0)])
+                    .output();
+            }
+        }
+        let _g = Guard(ad.clone());
+        assert!(std::process::Command::new("tmux")
+            .args(["new-session", "-d", "-s", &ad, "-c", "/tmp"])
+            .output()
+            .unwrap()
+            .status
+            .success());
+
+        let i = info(&ad).expect("info okunmalı");
+        assert!(
+            KABUK_ADLARI.contains(&i.command.as_str()),
+            "boşta bir kabuk beklenirdi, gelen: {}",
+            i.command
+        );
+        assert_eq!(i.path, "/tmp");
+        assert_eq!(i.windows, 1);
+        assert!(!i.user.is_empty(), "USER ortamdan okunmalı");
+        assert!(!i.host.is_empty(), "host_short tmux'tan gelmeli");
+        println!("{}@{}: {} · {}", i.user, i.host, i.path, i.command);
+
+        // Yeni pencere: sayaç artıyor ve dizin yeni pencerenin dizini.
+        let idx = std::process::Command::new("tmux")
+            .args([
+                "new-window", "-t", &format!("={ad}:"), "-c", "/etc", "-P", "-F",
+                "#{window_index}",
+            ])
+            .output()
+            .unwrap();
+        let idx: u32 = String::from_utf8_lossy(&idx.stdout).trim().parse().unwrap();
+        let i2 = info(&ad).expect("info okunmalı");
+        assert_eq!(i2.windows, 2, "pencere sayısı artmalı");
+        assert_eq!(i2.window_index, idx, "aktif pencere yeni olan");
+        assert_eq!(i2.path, "/etc", "dizin yeni pencerenin dizini");
+        println!("pencere {}/{} · {}", i2.window_index, i2.windows, i2.path);
+
+        // Olmayan oturum: hata, panik değil.
+        assert!(info("pcbridge-yok-boyle-bir-sey").is_err());
+        // Geçersiz ad ayrıştırıcıya hiç gitmiyor.
+        assert!(matches!(info("kötü ad"), Err(PtyError::Gecersiz(_))));
+    }
+
+    /// Test için kabuk adları — `info` hangi kabuğun altında koşuyorsa.
+    const KABUK_ADLARI: &[&str] = &["bash", "zsh", "sh", "fish", "dash", "ksh"];
+
+    /// `free_name` ne ağaçtaki ne tmux'taki bir adı döndürüyor.
+    #[test]
+    #[ignore = "tmux'a soruyor"]
+    fn free_name_cakismaz() {
+        let alinmis: Vec<String> = (1..=3).map(|i| format!("term{i}")).collect();
+        let ad = free_name(&alinmis);
+        assert!(!alinmis.contains(&ad), "ağaçtaki adı döndürmemeli: {ad}");
+        assert!(ad_gecerli(&ad), "üretilen ad tmux'ta geçerli olmalı: {ad}");
+        // tmux'ta da yok.
+        let var = std::process::Command::new("tmux")
+            .args(["has-session", "-t", &format!("={ad}")])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        assert!(!var, "tmux'ta var olan bir adı döndürmemeli: {ad}");
+        println!("üretilen ad: {ad}");
     }
 
     #[test]
