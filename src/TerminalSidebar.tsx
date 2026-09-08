@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useState } from "react";
 
+import AlanSekmeleri from "./ui/AlanSekmeleri";
 import ConnStrip from "./ui/ConnStrip";
 import Hayalet from "./ui/Hayalet";
+import InlineAd from "./ui/InlineAd";
 import SagMenu, { type MenuYer } from "./ui/SagMenu";
 import { IconTrash } from "./ui/Icon";
 import { useCikisIcerik } from "./lib/cikis";
@@ -9,6 +11,8 @@ import { bolmeyeSurukle } from "./lib/surukle";
 import { t } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
 import { KABUKLAR } from "./lib/kabuk";
+import { alanHaritasi, type Alan, type AlanDurum } from "./lib/alanlar";
+import { oturumlar } from "./lib/agac";
 import type { DesktopState, PtyInfo, TerminalsView } from "./lib/types";
 
 interface Props {
@@ -23,6 +27,14 @@ interface Props {
    * gelir, bölmedeki arka plana düşer.
    */
   onYerlestir: (session: string, bolmeId: string) => void;
+  /** Çalışma alanları — sekmeler ve "alana taşı" menüsü buradan besleniyor. */
+  alanlar: Alan[];
+  etkinAlan: string;
+  onAlanSec: (id: string) => void;
+  onAlanYeni: () => void;
+  onAlanAd: (id: string, ad: string) => void;
+  onAlanKapat: (id: string) => void;
+  onAlanaTasi: (session: string, hedef: string) => void;
   panes: string[];
   desktop: DesktopState;
   onOpenSystem: () => void;
@@ -38,6 +50,13 @@ export default function TerminalSidebar({
   etiketler,
   onEtiket,
   onYerlestir,
+  alanlar,
+  etkinAlan,
+  onAlanSec,
+  onAlanYeni,
+  onAlanAd,
+  onAlanKapat,
+  onAlanaTasi,
   panes,
   desktop,
   onOpenSystem,
@@ -60,6 +79,21 @@ export default function TerminalSidebar({
 
   const burada = view.sessions.filter((s) => panes.includes(s.name));
   const uzakta = view.sessions.filter((s) => !panes.includes(s.name));
+  /** `session` → alanın adı; başka bir alandaki oturum onu yazıyor. */
+  const alanAdi = alanHaritasi({ s: 2, alanlar, etkin: etkinAlan } as AlanDurum);
+  const sayilar: Record<string, number> = {};
+  for (const a of alanlar) sayilar[a.id] = oturumlar(a.agac).length;
+
+  /**
+   * "Burada değil" listesi **dizine göre** gruplanıyor.
+   *
+   * Kullanıcının istediği otomatik ayrım bu: *"varsayılan olarak dizine göre
+   * otomatik ayrılır."* Alan üyeliğini dizine bağlamak yerine listeyi
+   * gruplamak, *"o terminal orada kalır"* şartını da koruyor — bir terminal
+   * `cd` yapınca gruplar arasında **zıplamıyor**, yalnızca listedeki başlığı
+   * değişiyor.
+   */
+  const gruplar = grupla(uzakta, infos);
 
   return (
     <>
@@ -67,6 +101,16 @@ export default function TerminalSidebar({
        * kullanıcı her yeni terminal için tmux oturum adını **elle** yazmak
        * zorundaydı. Ad artık sorulmuyor (Rust üretiyor), o yüzden alan da
        * yok: başlıktaki artı doğrudan açıyor. */}
+      <AlanSekmeleri
+        alanlar={alanlar}
+        etkin={etkinAlan}
+        sayilar={sayilar}
+        onSec={onAlanSec}
+        onEkle={onAlanYeni}
+        onAdlandir={onAlanAd}
+        onSil={onAlanKapat}
+      />
+
       <div className="side__list">
         {view.sessions.length === 0 && (
           <div className="side__empty">
@@ -99,24 +143,30 @@ export default function TerminalSidebar({
           />
         ))}
 
-        {uzakta.length > 0 && burada.length > 0 && (
-          <span className="h" style={{ paddingTop: 12 }}>{t("term.elsewhere")}</span>
-        )}
-
-        {uzakta.map((s) => (
-          <SessionRow
-            key={s.name}
-            s={s}
-            etiket={etiketler[s.name]}
-            duzenleniyor={duzenlenen === s.name}
-            onOpen={onOpen}
-            onKill={onKill}
-            onDuzenle={setDuzenlenen}
-            onEtiket={onEtiket}
-            onMenu={(yer) => setMenu({ yer, ad: s.name })}
-            onSurukle={setSurukleme}
-            onYerlestir={onYerlestir}
-          />
+        {gruplar.map(([dizin, satirlar]) => (
+          <Fragment key={dizin}>
+            {/* Başlık **dizin**: bir tek grup varken de yazılıyor, yoksa
+             * "burada değil" listesinin neye göre ayrıldığı görünmezdi. */}
+            <span className="h" style={{ paddingTop: burada.length > 0 ? 12 : 0 }}>
+              {dizin}
+            </span>
+            {satirlar.map((s) => (
+              <SessionRow
+                key={s.name}
+                s={s}
+                etiket={etiketler[s.name]}
+                alan={alanAdi[s.name]}
+                duzenleniyor={duzenlenen === s.name}
+                onOpen={onOpen}
+                onKill={onKill}
+                onDuzenle={setDuzenlenen}
+                onEtiket={onEtiket}
+                onMenu={(yer) => setMenu({ yer, ad: s.name })}
+                onSurukle={setSurukleme}
+                onYerlestir={onYerlestir}
+              />
+            ))}
+          </Fragment>
         ))}
 
         {view.raw && (
@@ -146,6 +196,13 @@ export default function TerminalSidebar({
               kapali: panes.includes(menuIcerik.ad),
               onSec: () => onOpen(menuIcerik.ad),
             },
+            ...alanlar
+              .filter((a) => a.id !== etkinAlan || !panes.includes(menuIcerik.ad))
+              .map((a, i) => ({
+                ad: t("area.moveTo", { name: a.ad }),
+                ayrac: i === 0,
+                onSec: () => onAlanaTasi(menuIcerik.ad, a.id),
+              })),
             {
               ad: t("term.kill"),
               ayrac: true,
@@ -171,6 +228,7 @@ function SessionRow({
   s,
   info,
   etiket,
+  alan,
   duzenleniyor,
   secili,
   onOpen,
@@ -185,6 +243,8 @@ function SessionRow({
   /** Yalnızca burada açık olan bölmelerde var — canlı dizin ve program. */
   info?: PtyInfo;
   etiket?: string;
+  /** Başka bir çalışma alanında açıksa o alanın adı. */
+  alan?: string;
   duzenleniyor: boolean;
   secili?: boolean;
   onOpen: (n: string) => void;
@@ -259,10 +319,11 @@ function SessionRow({
         }
       />
       {duzenleniyor ? (
-        <SatirAlani
+        <InlineAd
           deger={etiket ?? ""}
-          session={s.name}
+          sinif="row__alan"
           ipucu={dinamik}
+          etiket={t("menu.renameLabel", { name: s.name })}
           onBitti={(v) => {
             onEtiket(s.name, v);
             onDuzenle(null);
@@ -300,9 +361,9 @@ function SessionRow({
       <span className="row__mark">
         {[
           komut,
-          // Dizin yalnızca burada açık OLMAYAN satırlarda: açık olanlarda
-          // etiketin kendisi zaten yolu yazıyor.
-          !info && s.workdir ? kisaltEv(s.workdir) : null,
+          // Dizin artık **grup başlığında**; satırda tekrar yazmak aynı şeyi
+          // iki kez söylerdi.
+          alan ? t("area.inArea", { name: alan }) : null,
           s.attached ? t("term.alsoOnPc") : null,
         ]
           .filter(Boolean)
@@ -327,55 +388,25 @@ function SessionRow({
   );
 }
 
+
 /**
- * Kenar çubuğu satırındaki etiket alanı.
+ * "Burada değil" oturumlarını **dizine göre** gruplar.
  *
- * `Terminals.tsx`'teki `EtiketAlani`'nın kardeşi; iki yerde iki alan var çünkü
- * kapları farklı (biri kuyunun içinde, biri kabukta) ve tek bir bileşene
- * indirmek iki sınıf adını da prop'a çevirmek olurdu. Davranış aynı: Enter
- * kaydeder, Escape iptal, boş bırakmak etiketi siler.
- *
- * ⚠️ `stopPropagation`: satırın kendisi tıklanınca oturumu bölmede açıyor ve
- * global kısayol dinleyicisi `window`'da.
+ * Dizin kaynağı ikili: burada açık olmayan oturumda yerel `pty_info` yok, o
+ * yüzden `tmux_list`'in dizini kullanılıyor; varsa taze olan tercih ediliyor.
+ * Gruplar dizin adına göre sıralı, dizinsizler sona düşüyor.
  */
-function SatirAlani({
-  deger,
-  session,
-  ipucu,
-  onBitti,
-  onIptal,
-}: {
-  deger: string;
-  session: string;
-  /** Alan boşken görünen — yani etiket silinirse satırda yazacak olan. */
-  ipucu: string;
-  onBitti: (v: string) => void;
-  onIptal: () => void;
-}) {
-  const [v, setV] = useState(deger);
-  const alan = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    alan.current?.select();
-  }, []);
-
-  return (
-    <input
-      ref={alan}
-      className="row__alan mono"
-      value={v}
-      spellCheck={false}
-      autoFocus
-      placeholder={ipucu}
-      aria-label={t("menu.renameLabel", { name: session })}
-      onChange={(e) => setV(e.target.value)}
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") onBitti(v);
-        else if (e.key === "Escape") onIptal();
-      }}
-      onBlur={() => onBitti(v)}
-    />
-  );
+function grupla(
+  sessions: { name: string; command: string; workdir: string; attached: boolean }[],
+  infos: Record<string, PtyInfo>,
+): [string, typeof sessions][] {
+  const h = new Map<string, typeof sessions>();
+  for (const s of sessions) {
+    const yol = infos[s.name]?.path ?? s.workdir;
+    const anahtar = yol ? kisaltEv(yol) : t("term.noDir");
+    const l = h.get(anahtar);
+    if (l) l.push(s);
+    else h.set(anahtar, [s]);
+  }
+  return [...h.entries()].sort(([a], [b]) => a.localeCompare(b, "tr"));
 }

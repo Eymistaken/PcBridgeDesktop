@@ -11,6 +11,7 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 
 import Term from "../ui/Term";
+import InlineAd from "../ui/InlineAd";
 import Picker from "../ui/Picker";
 import SagMenu, { type MenuYer } from "../ui/SagMenu";
 import {
@@ -51,6 +52,7 @@ import {
   type Kutu,
   type Yon,
 } from "../lib/agac";
+import type { Alan } from "../lib/alanlar";
 import { kisaltEv } from "../lib/yol";
 import type { PtyInfo, TerminalsView, TmuxSession } from "../lib/types";
 
@@ -90,6 +92,16 @@ interface Props {
   /** Bölme ağacı — `null` ise hiç bölme yok. */
   agac: Dugum | null;
   onAgac: Dispatch<SetStateAction<Dugum | null>>;
+  /**
+   * Çalışma alanları — yalnızca *"alana taşı"* menüsü için.
+   *
+   * ⚠️ Bu bileşen bir **ağaç** çiziyor ve hangi alanda olduğunu bilmiyor;
+   * alan katmanı `Shell`'de duruyor ve sekme değişince buraya yalnızca başka
+   * bir `agac` geliyor.
+   */
+  alanlar: Alan[];
+  etkinAlan: string;
+  onAlanaTasi: (session: string, hedef: string) => void;
   onReload: () => void;
 }
 
@@ -126,6 +138,9 @@ export default function Terminals({
   onHata,
   agac,
   onAgac,
+  alanlar,
+  etkinAlan,
+  onAlanaTasi,
   onReload,
 }: Props) {
   const byName = useMemo(
@@ -553,6 +568,15 @@ export default function Terminals({
               onSec: () =>
                 bosta[0] && bolmeBol(menuIcerik.bolmeId, "sutun", bosta[0]),
             },
+            // Başka alanlar — bölme buradan kalkıyor, oturum orada açılıyor.
+            // Tek alan varken hiçbir satır çıkmıyor: gidecek yer yok.
+            ...alanlar
+              .filter((a) => a.id !== etkinAlan)
+              .map((a, i) => ({
+                ad: t("area.moveTo", { name: a.ad }),
+                ayrac: i === 0,
+                onSec: () => onAlanaTasi(menuIcerik.session, a.id),
+              })),
             {
               ad: t("menu.closePane"),
               ayrac: true,
@@ -729,10 +753,11 @@ function Bolme({
            * (WebKitGTK görüntüsünde görüldü). Hangi CLI koştuğu kritik bilgi;
            * dizinin kuyruğu değil. Tam yol ipucunda. */}
           {duzenleniyor ? (
-            <EtiketAlani
+            <InlineAd
               deger={etiket ?? ""}
-              session={session}
+              sinif="phead__alan"
               ipucu={dinamik}
+              etiket={t("menu.renameLabel", { name: session })}
               onBitti={(v) => {
                 onEtiket(session, v);
                 onDuzenle(null);
@@ -851,57 +876,3 @@ function Bolme({
     </div>
   );
 }
-
-/**
- * Etiket düzenleme alanı.
- *
- * **Boş bırakmak etiketi siler** ve dinamik başlığı (`user@host: ~dizin`)
- * geri getirir — GNOME Terminal'in davranışı.
- *
- * ⚠️ `stopPropagation` şart: bu alan bölme başlığında duruyor ve uygulamanın
- * global kısayol dinleyicisi `window`'da. Onsuz `Ctrl+N` yazarken yeni bir
- * terminal açılırdı. (Dinleyici `INPUT`'u zaten süzüyor ama Escape'i
- * süzmüyor.)
- */
-function EtiketAlani({
-  deger,
-  session,
-  ipucu,
-  onBitti,
-  onIptal,
-}: {
-  deger: string;
-  session: string;
-  /** Alan boşken görünen — yani etiket silinirse başlıkta yazacak olan. */
-  ipucu: string;
-  onBitti: (v: string) => void;
-  onIptal: () => void;
-}) {
-  const [v, setV] = useState(deger);
-  const alan = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    alan.current?.select();
-  }, []);
-
-  return (
-    <input
-      ref={alan}
-      className="phead__alan mono"
-      value={v}
-      spellCheck={false}
-      autoFocus
-      placeholder={ipucu}
-      aria-label={t("menu.renameLabel", { name: session })}
-      onChange={(e) => setV(e.target.value)}
-      onPointerDown={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") onBitti(v);
-        else if (e.key === "Escape") onIptal();
-      }}
-      onBlur={() => onBitti(v)}
-    />
-  );
-}
-

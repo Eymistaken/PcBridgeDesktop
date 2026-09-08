@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 
@@ -17,15 +25,19 @@ import { IconPlus } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
 import { botDraft } from "./lib/types";
+import { ekle, oturumKoy, oturumlar, type Dugum } from "./lib/agac";
 import {
-  ekle,
-  kapat,
-  oku as okuAgacHam,
-  oturumaGore,
-  oturumKoy,
-  oturumlar,
-  type Dugum,
-} from "./lib/agac";
+  agacYaz,
+  alanAdlandir,
+  alanEkle,
+  alanSil,
+  etkinAgac,
+  etkinYap,
+  oku as okuAlanlarHam,
+  oturumDus,
+  oturumTasi,
+  type AlanDurum,
+} from "./lib/alanlar";
 import { useCikisIcerik } from "./lib/cikis";
 import {
   answerPermission,
@@ -109,11 +121,23 @@ function okuMode(): Mode {
  * doluyken kenar çubuğundan beşinci oturuma tıklamak **sessizce yutuluyordu**.
  * Eski düz dizi biçimi `agac.oku` içinde ızgaraya göç ediyor.
  */
-function okuAgac(): Dugum | null {
+/**
+ * Çalışma alanları — terminal kipinin sekmeleri, her biri kendi ağacıyla.
+ *
+ * Eski tek ağaç (`PANE_KEY`) buradan **göç ediyor**: ilk açılışta tek bir
+ * alana dönüşüyor, ilk kayıttan sonra eski anahtar diskten siliniyor.
+ */
+const ALAN_KEY = "pcbridge.terminal.alanlar";
+
+function okuAlanlar(): AlanDurum {
   try {
-    return okuAgacHam(localStorage.getItem(PANE_KEY));
+    return okuAlanlarHam(
+      localStorage.getItem(ALAN_KEY),
+      localStorage.getItem(PANE_KEY),
+      t("area.n", { n: 1 }),
+    );
   } catch {
-    return null;
+    return okuAlanlarHam(null, null, t("area.n", { n: 1 }));
   }
 }
 
@@ -236,19 +260,56 @@ export default function Shell({
   useEffect(() => {
     if (mode === "terminals") setTerminalAcildi(true);
   }, [mode]);
-  const [agac, setAgac] = useState<Dugum | null>(okuAgac);
+  const [durum, setDurum] = useState<AlanDurum>(okuAlanlar);
+  const durumRef = useRef(durum);
+  durumRef.current = durum;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ALAN_KEY, JSON.stringify(durum));
+      // Göç tamamlandı: eski tek ağaç bir daha okunmuyor, diskte de kalmasın.
+      localStorage.removeItem(PANE_KEY);
+    } catch {
+      // Persistence is optional; the in-memory layout remains usable.
+    }
+  }, [durum]);
+
+  /**
+   * Etkin alanın ağacı — arayüzün geri kalanı yalnızca bunu görüyor.
+   *
+   * Alan katmanı `Terminals`'a hiç sızmıyor: o bileşen bir ağaç çiziyor ve
+   * hangi alanda olduğunu bilmiyor. Sekme değişince ağaç değişiyor, o kadar.
+   */
+  const agac = etkinAgac(durum);
   // Kısayol dinleyicisi bir kez kuruluyor; ağacı ref'ten okuyor.
   const agacRef = useRef<Dugum | null>(agac);
   agacRef.current = agac;
 
+  const setAgac = useCallback<Dispatch<SetStateAction<Dugum | null>>>(
+    (v) =>
+      setDurum((d) =>
+        agacYaz(d, typeof v === "function" ? v(etkinAgac(d)) : v),
+      ),
+    [],
+  );
+
+  /**
+   * Alan değişince **eski alanın PTY'leri kapanır.**
+   *
+   * `Term` sökülürken PTY'yi bilerek kapatmıyor (bölme yeniden çizilirse aynı
+   * oturuma bağlı kalmalı), ama arka plandaki bir alanın okuma iş parçacıkları
+   * kimsenin dinlemediği olaylar yayardı ve alan sayısıyla birlikte artardı.
+   * Oturum **ölmüyor** — tmux'ta yaşıyor ve geri dönülünce `attach` tam
+   * yeniden çizim getiriyor (Aşama 6'da ölçüldü).
+   */
+  const oncekiAlan = useRef(durum.etkin);
   useEffect(() => {
-    try {
-      if (agac) localStorage.setItem(PANE_KEY, JSON.stringify(agac));
-      else localStorage.removeItem(PANE_KEY);
-    } catch {
-      // Persistence is optional; the in-memory layout remains usable.
-    }
-  }, [agac]);
+    if (oncekiAlan.current === durum.etkin) return;
+    const eski = durum.alanlar.find((a) => a.id === oncekiAlan.current);
+    oncekiAlan.current = durum.etkin;
+    for (const s of oturumlar(eski?.agac ?? null))
+      void ptyClose(s).catch(() => {});
+  }, [durum]);
 
   /** Açık bölmelerin oturum adları — kenar çubuğu bunu okuyor. */
   const panes = useMemo(() => oturumlar(agac), [agac]);
@@ -389,10 +450,10 @@ export default function Shell({
   const oturumSonlandir = useCallback((name: string) => {
     void tmuxKill(name)
       .then(() => {
-        // Oturum öldü: onu gösteren bölme de kalkmalı.
-        const mevcut = agacRef.current;
-        const yaprak = oturumaGore(mevcut, name);
-        if (yaprak && mevcut) setAgac(kapat(mevcut, yaprak.id));
+        // Oturum öldü: onu gösteren bölme de kalkmalı — hangi alanda olursa
+        // olsun. Arka plandaki bir alanda ölü bir bölme bırakmak, oraya
+        // dönene kadar görünmeyen bir hata olurdu.
+        setDurum((d) => oturumDus(d, name));
         return terminalleriYukleRef.current();
       })
       .catch((e) => setConnError(errorText(e as ConnError)));
@@ -414,6 +475,45 @@ export default function Shell({
     setAgac(yeni);
     if (dusen) void ptyClose(dusen).catch(() => {});
     void terminalleriYukleRef.current();
+  }, []);
+
+  // ─────────────────────── çalışma alanları ───────────────────────
+  //
+  // Hepsi `durumRef` üstünden okuyor, state güncelleyicinin **içinde** yan
+  // etki yapmıyor: StrictMode güncelleyiciyi iki kez çağırıyor ve `ptyClose`
+  // orada iki kez gönderilirdi.
+
+  const alanSec = useCallback((id: string) => {
+    setDurum((d) => etkinYap(d, id));
+  }, []);
+
+  /** Yeni alan sıradaki numarayla doğuyor; adı sekmede çift tıkla değişiyor. */
+  const alanYeni = useCallback(() => {
+    setDurum((d) => alanEkle(d, t("area.n", { n: d.alanlar.length + 1 })));
+  }, []);
+
+  const alanAdiYaz = useCallback((id: string, ad: string) => {
+    setDurum((d) => alanAdlandir(d, id, ad));
+  }, []);
+
+  /**
+   * Alanı kapatır. İçindeki oturumlar **ölmüyor** — PTY'leri kapanıyor,
+   * tmux'ta yaşamaya devam ediyorlar ve kenar çubuğunda "burada değil"
+   * listesinde görünüyorlar. Bu, bölme kapatmanın kuralının aynısı.
+   */
+  const alanKapat = useCallback((id: string) => {
+    const { durum: yeni, dusenler } = alanSil(durumRef.current, id);
+    if (yeni === durumRef.current) return;
+    // Kapanan alan etkin olansa `oncekiAlan` etkisi de tetiklenirdi ve aynı
+    // oturumlar iki kez kapatılırdı; kaydırmayı burada yapıyoruz.
+    oncekiAlan.current = yeni.etkin;
+    setDurum(yeni);
+    for (const s of dusenler) void ptyClose(s).catch(() => {});
+  }, []);
+
+  /** Oturumu başka bir alana taşır ve orayı etkin yapar. */
+  const oturumAlanaTasi = useCallback((session: string, hedef: string) => {
+    setDurum((d) => oturumTasi(d, session, hedef));
   }, []);
 
   const terminalleriYukle = useCallback(async () => {
@@ -995,6 +1095,9 @@ export default function Shell({
           onHata={setConnError}
           agac={agac}
           onAgac={setAgac}
+          alanlar={durum.alanlar}
+          etkinAlan={durum.etkin}
+          onAlanaTasi={oturumAlanaTasi}
           onReload={() => {
             void terminalleriYukle();
             void infoTazele(oturumlar(agacRef.current));
@@ -1016,6 +1119,13 @@ export default function Shell({
         etiketler={etiketler}
         onEtiket={etiketYaz}
         onYerlestir={oturumYerlestir}
+        alanlar={durum.alanlar}
+        etkinAlan={durum.etkin}
+        onAlanSec={alanSec}
+        onAlanYeni={alanYeni}
+        onAlanAd={alanAdiYaz}
+        onAlanKapat={alanKapat}
+        onAlanaTasi={oturumAlanaTasi}
         panes={panes}
         desktop={desktop}
         onOpenSystem={() => {

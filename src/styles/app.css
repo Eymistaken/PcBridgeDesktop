@@ -2839,6 +2839,134 @@ pre.well {
 }
 
 /*
+ * Çalışma alanı sekmeleri — kenar çubuğunun tepesinde.
+ *
+ * Ledger'da sekme bir kutu değil: etkin olan **altındaki cetvelle**
+ * işaretleniyor, tıpkı düzen ikonları sırası gibi. İkinci bir gösterge dili
+ * icat edilmedi.
+ *
+ * ⚠️ Etkinlik `--text-muted` → `--text` ile anlatılıyor, dolgu kademesiyle
+ * değil: `--text-muted` `--field-h` üstünde 4.44, `--field-a` üstünde 3.80 —
+ * ikisi de AA altında ve kanun bunu yasaklıyor.
+ */
+.sekmeler {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ⚠️ Kayan şey **yalnızca sekmeler.** İlk sürümde artı da içindeydi ve üç
+ * alanla bile şeridin dışına taşıyordu; yatay çubuk gizli olduğu için de
+ * erişilemez oluyordu (WebKitGTK görüntüsünde görüldü). */
+.sekmeler__kaydir {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  /* Yatay çubuk 30px'lik şeridin üçte birini yiyordu. */
+  scrollbar-width: none;
+  /* Sağ kenar soluğu: kırpılan sekme "başka bir kare" gibi değil "devamı var"
+   * gibi okunuyor. **Nötr** gradyan, yani yasağın dışında (kanun: iki uç da
+   * nötrse serbest). Sekme sığıyorsa maske boş alana düşüyor ve görünmüyor. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+}
+
+.sekmeler__kaydir::-webkit-scrollbar {
+  display: none;
+}
+
+.sekme {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  max-width: 148px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  /* Düğmelerin yarıçapı yoktur. */
+  border-radius: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: default;
+  box-shadow: inset 0 -1px 0 transparent;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-inout);
+}
+
+.sekme:hover {
+  color: var(--text-2);
+}
+
+.sekme[data-etkin] {
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--line-3);
+}
+
+/* Basma: dolgusuz öğe metnini bir kademe geri indiriyor. */
+.sekme:active {
+  color: var(--text-2);
+  transition-duration: var(--dur-tap);
+}
+
+.sekme__ad {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bölme sayısı — ikincil, ve etkin sekmede de ikincil kalıyor: sayı
+ * kimliğin bir parçası değil. Zemin `--bg-side`, orada 6.26. */
+.sekme__n {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.sekme__alan {
+  flex: none;
+  width: 120px;
+  height: 22px;
+  margin: 0 3px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--field);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+
+.sekme__alan::placeholder {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Artı sekmelerin sonunda kayar: kaydırılan şeridin içinde durması gerekiyor,
+ * yoksa çok alan varken erişilemez oluyor. */
+.sekme__arti {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+}
+
+/*
  * Düzen sırası — **ikonlar.** Etkin olan altı çizili; kayan parça ya da
  * dolgulu kutu yok.
  *
