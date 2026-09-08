@@ -358,7 +358,7 @@ export default function BotForge({
                   />
                   <button
                     type="button"
-                    className="toolset__hepsi"
+                    className="btn-fld btn-fld--kucuk"
                     disabled={draft.avatar === null}
                     onClick={() => setDraft({ ...draft, avatar: null })}
                   >
@@ -688,7 +688,7 @@ export default function BotForge({
                       </span>
                       <button
                         type="button"
-                        className="toolset__hepsi"
+                        className="btn-fld btn-fld--kucuk"
                         onClick={() =>
                           bosSerbest.forEach((g) => grupDegistir(g, true))
                         }

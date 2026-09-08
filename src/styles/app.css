@@ -133,14 +133,6 @@ input:focus {
   padding-top: 4px;
 }
 
-/* Durum oluğu — sohbet ve kenar çubuğundaki `ÇLS · TMM · HTA`.
- * Tasarımda 26px; Türkçe kısaltmalar için 34px'e çıkarıldı. */
-.oluk__et--dar {
-  width: var(--oluk-dar);
-  letter-spacing: 0.06em;
-  padding-top: 0;
-}
-
 .oluk__ic {
   flex-grow: 1;
   min-width: 0;
@@ -298,6 +290,13 @@ input:focus {
 .btn-fld:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Bir alanın yanında duran küçük eylem — hue şeridinin "ada göre"si,
+ * araç grubunun "hepsini aç"ı. Aynı biçim, daha az dolgu. */
+.btn-fld--kucuk {
+  padding: 4px 10px;
+  font-size: 10.5px;
 }
 
 /*
@@ -2772,16 +2771,6 @@ pre.well {
 .row:hover .row__ops,
 .row__ops:focus-within {
   opacity: 1;
-}
-
-/* Alt metin — bot satırının ikinci satırı yok artık; bu sınıf yalnızca
- * alt bilgi şeridinde ve terminal kutucuklarında kaldı. */
-.row__sub {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── terminaller ─────────────────────────────────────────────────── */
