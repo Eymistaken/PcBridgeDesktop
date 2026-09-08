@@ -423,9 +423,12 @@ input:focus {
 
 /* ── açılır liste ────────────────────────────────────────────────── */
 /*
- * Yerel `<select>` yerine kendi listemiz: GTK'nın çizdiği kutu köşeli, kendi
- * renkleriyle geliyor ve Nötr Kabuk'un üç köşe değerinin hiçbirine uymuyordu.
- * `--surface-2` kullanılmıyor — `note` metni `--text-muted` ve orada 4.07:1.
+ * Yerel `<select>` yerine kendi listemiz: GTK'nın çizdiği kutu kendi
+ * renkleriyle, kendi yazı tipiyle geliyor ve tasarımın hiçbir değerine
+ * uymuyor.
+ *
+ * ⚠️ Seçili satır `--field-a`'ya çıkmaz: `note` metni `--text-muted` ve
+ * orada 3.80 ile AA'nın altında. `--field` (5.17) geçiyor.
  */
 
 .picker {
@@ -544,7 +547,7 @@ input:focus {
 
 .picker__sec:hover,
 .picker__sec[aria-selected="true"] {
-  background: var(--surface);
+  background: var(--field);
   color: var(--text);
 }
 
@@ -1198,9 +1201,11 @@ button.btn-fld {
   flex: none;
 }
 
+/* ⚠️ Bu kuralın özgüllüğü `.btn-fld:hover`'ınkinden yüksek (element +
+ * sınıf) ve onu eziyordu. Dolgu merdiveni temel katmanda; burada yalnızca
+ * `.btn-fld`'in düğme olarak esnememesi kalıyor. */
 button.btn-fld:hover {
-  color: var(--text);
-  background: var(--surface);
+  background: var(--field-h);
 }
 
 /* Çok satırlı alan (BotForge'un yönergesi) — altı çizili, dolgusuz.
@@ -1641,10 +1646,12 @@ pre.well {
 
 /* ── izin kipi menüsü ────────────────────────────────────────────── */
 /*
- * Renk yok: seçim yükselen yüzeyle anlatılıyor. `--surface-2` bilinçli
- * olarak kullanılmıyor — satırın ipucu metni `--text-muted` ve orada
- * 4.07:1 ile AA'nın altında kalıyor. `--field` (5.64) ve `--surface`
- * (5.12) ikisi de geçiyor.
+ * Renk yok: seçim dolgu kademesiyle anlatılıyor.
+ *
+ * ⚠️ `--field-a` bilinçli olarak kullanılmıyor — satırın ipucu metni
+ * `--text-muted` ve orada 3.80 ile AA'nın altında kalıyor. `--field`
+ * (5.17) ve `--field-h` (4.44 muted / 8.09 `--text-2`) sınırda; seçili
+ * satırda ipucu `--text`'e yükseldiği için `--field-h` güvenli.
  */
 
 .permmenu {
@@ -1733,13 +1740,13 @@ pre.well {
 }
 
 .permmenu__sec:hover {
-  background: var(--surface);
+  background: var(--field);
 }
 
 /* Seçim hover'dan **bir kademe yukarıda**: ikisi aynı yüzeyde olsaydı fare
  * satırın üstündeyken hangisinin seçili olduğu görünmezdi. */
 .permmenu__sec[aria-checked="true"] {
-  background: var(--surface-2);
+  background: var(--field-h);
 }
 
 .permmenu__ikon {
@@ -1778,8 +1785,8 @@ pre.well {
   color: var(--text-muted);
 }
 
-/* `--text-muted` `--surface-2` üstünde 4.07:1 — AA'nın altında. Seçili
- * satırda ipucu `--text`'e yükseliyor (9.86:1). */
+/* `--text-muted` `--field-h` üstünde 4.44 — AA'nın altında. Seçili satırda
+ * ipucu `--text`'e yükseliyor (11.43). */
 .permmenu__sec[aria-checked="true"] .permmenu__ipucu {
   color: var(--text);
 }
@@ -1951,8 +1958,8 @@ pre.well {
 .md__tabloKap {
   margin-top: 9px;
   overflow-x: auto;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
+  border-radius: 0;
+  background: none;
 }
 
 .md__tablo {
@@ -1974,7 +1981,7 @@ pre.well {
 
 /* Satırlar çizgiyle değil **yüzey kademesiyle** ayrılıyor. */
 .md__tablo tbody tr {
-  background: var(--surface);
+  background: none;
 }
 
 .md__tablo tbody tr:nth-child(even) {
@@ -2116,7 +2123,7 @@ pre.well {
 /* ── model · bağlam düğmesi ──────────────────────────────────────── */
 /*
  * Model adı ve doluluk **tek düğmede**: ikisi de "bu koşum neye benziyor"
- * sorusunun parçası. Çubuk renksiz — dolu kısım `--text`, boş `--surface-2`.
+ * sorusunun parçası. Çubuk renksiz — dolu kısım `--text`, boş `--field-h`.
  * Renk yalnızca eşikte geliyor (%90 `--run`, %100 `--fail`) ve o bir aksan
  * değil **durum**: bağlam taşmak üzere.
  */
@@ -2138,12 +2145,13 @@ pre.well {
   white-space: nowrap;
 }
 
+/* Doluluk çubuğu — köşeli, ince. Ledger'da tek yuvarlak şey durum noktası. */
 .ctxbar {
   flex: none;
   width: 46px;
-  height: 5px;
-  border-radius: 9999px;
-  background: var(--surface-2);
+  height: 4px;
+  border-radius: 0;
+  background: var(--field-h);
   overflow: hidden;
 }
 
@@ -2219,8 +2227,8 @@ pre.well {
 .ctxmenu__rozet {
   flex: none;
   padding: 2px 8px;
-  border-radius: 9999px;
-  background: var(--surface);
+  border-radius: 0;
+  background: var(--field);
   color: var(--text-muted);
   font-size: 10.5px;
   letter-spacing: 0.02em;
@@ -2275,12 +2283,12 @@ pre.well {
   text-align: right;
 }
 
-/* Pay çubuğu `--field` üstünde: `--surface-2` orada ayırt edilebiliyor. */
+/* Pay çubuğu — dolusu `--text`, boşu `--field-h`. Renk yok. */
 .ctxmenu__pay {
   flex-grow: 1;
   height: 4px;
-  border-radius: 9999px;
-  background: var(--surface);
+  border-radius: 0;
+  background: var(--field-h);
   overflow: hidden;
 }
 
@@ -2303,7 +2311,7 @@ pre.well {
 }
 
 .ctxmenu__compact:disabled:hover {
-  background: var(--surface);
+  background: var(--field);
 }
 
 /* Bağlam %90'ı geçince bestecinin altında çıkan öneri. Kendi başına bir
@@ -2321,14 +2329,14 @@ pre.well {
 }
 
 .ctxoneri:hover {
-  background: var(--surface);
+  background: var(--field-h);
 }
 
 /* "Ben makinedeyken de çalışsın" anahtarı.
  *
  * Bir güvenlik kapısını kaldırıyor, o yüzden **kapalı başlıyor** ve ne yaptığı
- * satırın altında yazıyor. Kip satırlarıyla aynı kademede (`--surface`) değil
- * çünkü bir kip değil; filtre satırıyla aynı kademede duruyor. */
+ * satırın altında yazıyor. Kip satırlarıyla aynı yüzeyde değil çünkü bir kip
+ * değil: kuyuya alındı, tasarım da onu ayrı bir kutuya koyuyor. */
 /* Kutu **kuyu yüzeyinde**: bir güvenlik kapısını kaldıran anahtar, olağan
  * bir ayar satırı gibi görünmemeli. Tasarım da onu ayrı bir kutuya alıyor
  * ve oluk etiketini durum rengiyle yazıyor. */
@@ -2366,8 +2374,6 @@ pre.well {
   flex-grow: 1;
 }
 
-/* Anahtar — renksiz. Açık hâli `--text` dolgu, kapalı `--surface-2`:
- * durum yüzey kademesiyle anlatılıyor, aksan rengiyle değil. */
 /* Anahtar — köşeli ve renksiz, `.tgl` ile aynı dil. Kapalıyken dolgusuz,
  * içe halkalı: yokluk çizgiyle anlatılıyor. */
 .anahtar {
@@ -2415,15 +2421,15 @@ pre.well {
   align-items: baseline;
   gap: 10px;
   margin-top: 3px;
-  padding: 9px 11px;
-  border-radius: 9px;
-  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 0;
+  background: var(--field);
   text-align: left;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .permmenu__filtre:hover {
-  background: var(--surface-2);
+  background: var(--field-h);
 }
 
 .permmenu__sayac {
@@ -2479,11 +2485,37 @@ pre.well {
   max-width: 620px;
 }
 
-/* ⚠️ Kutunun tamamı kuyu olduğu için içindeki her metin kuyu tokenlarını
- * kullanmak zorunda: `--text` aydınlık temada burada 1.12:1 veriyor. */
+/*
+ * ⚠️ **Kutunun tamamı kuyu**, o yüzden içindeki HER renk kuyu sürümünden
+ * gelmek zorunda — metin de, durum da, düğme de. Aydınlık temada ölçüldü:
+ * `--text` burada 1.12, `--fail` 2.62, birincil düğmenin dolgusu 1.15.
+ * Üçü de görünmez.
+ */
 .permask__box,
 .permask__ust {
   color: var(--well-text);
+}
+
+/* Onay birincil eylem ama kuyunun içinde: dolgusu `--well-text`, metni
+ * kuyunun kendisi (16.43). */
+.permask .btn-primary,
+.jobstrip .btn-primary {
+  background: var(--well-text);
+  color: var(--well);
+}
+
+.permask .btn-quiet {
+  color: var(--well-muted);
+}
+
+.permask .btn-quiet:hover:not(:disabled) {
+  color: var(--well-text);
+}
+
+/* Ret kuyu kırmızısıyla (6.50); tema kırmızısı burada 2.62. */
+.permask .btn-quiet--fail,
+.permask .btn-quiet--fail:hover:not(:disabled) {
+  color: var(--well-fail);
 }
 
 .permask__ust {
@@ -2683,7 +2715,7 @@ pre.well {
 }
 
 .ek__sil:hover {
-  background: var(--surface-2);
+  background: var(--field-h);
 }
 
 /* ⚠️ Burada `width: 36px; height: 36px` duruyordu — ikon düğmesinin
@@ -3211,17 +3243,20 @@ pre.well {
  * hiç yoktu: basmadan önce `:active` sayısı **sıfırdı**, yalnızca hover
  * vardı. Tıklamak ekranda hiçbir iz bırakmıyordu.
  *
- * **Ölçeklenme değil yüzey kademesi.** `transform: scale()` bu arayüzün dili
- * değil ve kanunda açıkça yasak. Basma, öğenin **kendi hover yönünde bir
- * kademe daha** ilerler; hover zaten `--surface`'a çıkmışsa basma
- * `--field`'a **iner**. Merdiven: `--field` → `--surface` → `--surface-2`.
+ * **Ölçeklenme yok.** `transform: scale()` bu arayüzün dili değil ve kanunda
+ * açıkça yasak. Ledger'da geri bildirimin iki biçimi var:
  *
- * ⚠️ **`--text-muted` taşıyan hiçbir öğe `--surface-2`'ye çıkmaz** — orada
- * 4.07:1 ile AA'nın altında (CLAUDE.md kontrast tablosu). `.row` ikincil
- * satır taşıyor; o yüzden **seçili** satırın basması yukarı değil aşağı,
- * `--field`'a gidiyor. Aynı sebeple `.permmenu__anahtar` ve
- * `.permmenu__filtre` basılırken ikincil metinlerini `--text`'e yükseltiyor,
- * tıpkı hover'da yaptıkları gibi.
+ *   1. **Dolgu taşıyanlar** bir kademe ilerler: `--field` → `--field-h` →
+ *      `--field-a`.
+ *   2. **Dolgusuzlar** — ki ledger'da çoğunluk onlar — metinlerini bir
+ *      kademe parlatır (`--text-muted` → `--text-2` → `--text`), basmada
+ *      bir kademe geri iner. Kuralları kendi bloklarında; burada yalnızca
+ *      dolgu merdiveni var.
+ *
+ * ⚠️ **İkincil metin taşıyan hiçbir öğe dolgu kademesine çıkmaz.**
+ * `--text-muted` `--field-h` üstünde 4.44, `--field-a` üstünde 3.80 — ikisi
+ * de AA'nın altında (tokens.css'teki tabloda ölçüldü). Bu, eski paletteki
+ * "`--surface-2`'ye çıkma" kuralının aynısı; palet değişti, tuzak değişmedi.
  *
  * **Asimetri kasıtlı:** basma `--dur-tap` (70 ms) ile girer, bırakma
  * `--dur-fast` (120 ms) ile döner. Süre yalnızca `:active` kuralında
@@ -3235,109 +3270,70 @@ pre.well {
 /* Basma zemini olan ama hiç geçişi olmayan öğeler. */
 .row,
 .btn-quiet,
-.side__conn__ana,
-button.btn-fld {
+.side__conn__ana {
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
 
-/* Hover'ı `--field`'da ya da saydamda duran öğeler: basma `--surface`'a
- * çıkıyor. Hepsinin metni basılırken `--text` — muted orada 5.12:1. */
-.row:active,
-.picker__dugme--chip:active:not(:disabled),
-.permmenu__dugme:active:not(:disabled),
-.seg > button:active,
-.modesw > button:active {
-  background: var(--surface);
+/*
+ * Dolgulu öğeler — hover `--field-h`, basma `--field-a`. Dördünün de
+ * basma anındaki metni `--text` ya da `--text-2`: `--field-a` üstünde
+ * 9.79 ve 6.94, ikisi de AA üstünde.
+ */
+.ib:active,
+.ek__sil:active,
+.picker__sec:active,
+.permmenu__sec:active,
+.permmenu__filtre:active {
+  background: var(--field-a);
 }
 
-/* Hover'ı `--surface`; basma bir kademe daha yukarı. Dördünün de basma
- * anındaki metni `--text` — `--surface-2` bu yüzden serbest (9.86:1). */
-.ib:active,
-button.btn-fld:active,
-.toolset__arac:active {
-  background: var(--surface-2);
+/* Kuyunun içindekiler kuyu tokenlarıyla: `--field` orada görünmez. */
+.pb:active,
+.permmenu__anahtar:active {
+  background: var(--well-sel);
 }
 
 /*
- * ⚠️ **İkincil metin taşıyanlar yukarı çıkamaz.** `--text-muted`
- * `--surface-2` üstünde 4.07:1 — AA'nın altında (CLAUDE.md kontrast
- * tablosu). Bunlar hover'larından **aşağı** iniyor; fark hover ile basma
- * arasında olduğu için geri bildirim yine net.
- *
- * `.ctxoneri` ve `.dbadge--on` metnini `--run`'dan alıyor: aydınlık temada
- * `--run` `--surface-2` üstünde 4.05:1, o da altında. Aynı kapıdan
- * geçiyorlar.
+ * Dolgu taşıyan birincil eylem: yüzey kademesi yok, dolgunun kendisi
+ * koyulaşıyor. Hover 0.86, basma 0.72 — aynı merdivenin devamı.
  */
-.side__conn__ana:active,
-.btn-quiet:active,
-.picker__dugme:active:not(:disabled),
-.picker__sec:active,
-.permmenu__sec:active,
-.permmenu__anahtar:active,
-.permmenu__filtre:active,
-.ctxoneri:active,
-.dbadge:active:not(:disabled),
-.dusunce__baslik:active,
-.row[aria-selected="true"]:active {
-  background: var(--field);
-}
-
-.permmenu__anahtar:active .permmenu__ipucu,
-.permmenu__filtre:active .permmenu__sayac {
-  color: var(--text);
-}
-
-/* Zaten `--surface-2`'de duranlar: yukarısı yok, basma **dip** yapıyor. */
-.permmenu__sec[aria-checked="true"]:active,
-.toolset__arac[aria-pressed="true"]:active,
-.seg > button[aria-pressed="true"]:active,
-.toolset__hepsi:active,
-.ek__sil:active {
-  background: var(--surface);
-}
-
-/* Dolgu taşıyan birincil eylem: yüzey kademesi yok, dolgunun kendisi
- * koyulaşıyor. Hover 0.86, basma 0.72 — aynı merdivenin devamı. */
-.btn-primary:active:not(:disabled),
-.composer__send:active:not(:disabled) {
+.btn-primary:active:not(:disabled) {
   opacity: 0.72;
 }
 
-/* Anahtarın rayı. Kapalıyken `--surface-2`'den `--line`'a iner, açıkken
- * `--text` dolgusu bir tık zemine karışır — ikisi de renk katmıyor. */
-.tgl:active:not(:disabled) {
-  background: var(--line);
-}
-
-.tgl[data-on]:active:not(:disabled) {
-  background: color-mix(in srgb, var(--text) 86%, var(--bg));
-}
-
-/* Basma **hızlı** girer; bırakınca taban kuralın `--dur-fast`'ı geri gelir. */
-.ib:active,
+/*
+ * Süre **yalnızca basma anında** kısalıyor.
+ *
+ * ⚠️ `transition-duration` taban kuralda ezilirse bırakma da 70 ms olur ve
+ * asimetri kaybolur. O yüzden burada, `:active`'in kendi kuralında.
+ */
 .row:active,
-.side__conn__ana:active,
-.btn-quiet:active,
-button.btn-fld:active,
-.picker__sec:active,
-.picker__dugme:active,
-.permmenu__sec:active,
-.permmenu__dugme:active,
-.permmenu__anahtar:active,
-.permmenu__filtre:active,
-.ctxoneri:active,
-.dbadge:active,
-.seg > button:active,
-.modesw > button:active,
-.toolset__arac:active,
-.toolset__hepsi:active,
-.dusunce__baslik:active,
+.ib:active,
+.pb:active,
 .ek__sil:active,
+.btn-quiet:active,
+.btn-fld:active,
 .btn-primary:active,
-.composer__send:active,
-.tgl:active {
+.picker__dugme:active,
+.picker__sec:active,
+.permmenu__dugme:active,
+.permmenu__sec:active,
+.permmenu__filtre:active,
+.permmenu__anahtar:active,
+.seg > button:active,
+.side__modes > button:active,
+.sysnav > button:active,
+.sek > button:active,
+.layout > button:active,
+.side__conn__ana:active,
+.osat:active,
+.okart:active,
+.toolset__arac:active,
+.toolset__bas:active,
+.dusunce__baslik:active,
+.dbadge:active {
   transition-duration: var(--dur-tap);
 }
 

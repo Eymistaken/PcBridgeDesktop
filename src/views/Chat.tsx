@@ -305,7 +305,7 @@ export default function Chat({
         {kosumVar && kosum && (
           <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
             <div className="jobstrip__box">
-              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--run)", flex: "none" }}>
+              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--well-run)", flex: "none" }}>
                 {t("side.stRun")}
               </span>
               <span className="jobstrip__ad">{kosum.label}</span>
@@ -322,7 +322,7 @@ export default function Chat({
                 className="ib"
                 title={t("chat.stop")}
                 aria-label={t("chat.stop")}
-                style={{ width: 30, height: 30, background: "var(--surface)" }}
+                style={{ width: 26, height: 26, background: "var(--well-sel)" }}
                 onClick={() => onCancel(kosum.jobId)}
               >
                 <IconStop />
@@ -334,7 +334,7 @@ export default function Chat({
         {ozetVar && (
           <div className="jobstrip" data-cikis={ozetCikiyor || undefined}>
             <div className="jobstrip__box">
-              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--run)", flex: "none" }}>
+              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--well-run)", flex: "none" }}>
                 {t("side.stRun")}
               </span>
               <span className="jobstrip__ad">{t("ctx.compacting")}</span>

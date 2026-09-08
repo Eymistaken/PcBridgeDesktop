@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e8e6e1;font-family:"Public Sans",system-ui,sans-serif}
+a{color:#1a1a1a}a:hover{color:#5a5a5a}
+.sc{padding:34px 40px 30px;border-bottom:1px solid rgba(0,0,0,.09)}
+.sc-h{display:flex;align-items:baseline;gap:11px;margin:0 0 16px}
+.sc-n{font:500 10px ui-monospace,Menlo,monospace;letter-spacing:.16em;padding:3px 7px;background:#1a1a1a;color:#fff}
+.sc-t{font:600 13px/1.2 "Public Sans",system-ui,sans-serif;color:#1a1a1a}
+.sc-d{font:400 11.5px/1.2 "Public Sans",system-ui,sans-serif;color:rgba(0,0,0,.5)}
+.sc-row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+</style></helmet>
+<div class="sc-row" data-screen-label="07 Sidebar states">
+  <div style="width:252px;height:520px;display:flex;flex-direction:column;background:#0b0c0d;color:#e9e9ea;font-family:'Public Sans',sans-serif;padding:26px 0;overflow:hidden">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122"><span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span><span style="font-size:12.5px;color:#8f9296">Terminals</span></div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 26px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296">NO BOTS YET</span>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:#9b9ea2">A bot binds an agent, a model, an effort and a directory to a name.</p>
+      <span style="padding:7px 14px;background:#1f2122;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#c4c6c8">NEW BOT</span>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">empty</div>
+  </div>
+
+  <div style="width:252px;height:520px;display:flex;flex-direction:column;background:#0b0c0d;color:#e9e9ea;font-family:'Public Sans',sans-serif;padding:26px 0;overflow:hidden">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122"><span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span><span style="font-size:12.5px;color:#8f9296">Terminals</span></div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;padding:22px 26px 0;gap:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid #1f2122">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296;flex-grow:1">chan|</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296">2 HITS</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 250)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;flex-grow:1">Desktop Bot</span></div>
+      <div style="display:flex;flex-direction:column;gap:9px;padding-left:19px">
+        <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056;width:26px;flex:none">RUN</span><span style="font-size:12.5px"><span style="box-shadow:inset 0 -6px 0 #33383a">Chan</span>nel search in Chrome</span></div>
+        <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:12.5px;color:#8f9296"><span style="box-shadow:inset 0 -6px 0 #33383a">chan</span>nel list export</span></div>
+      </div>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">filtering 3 bots · 20 sessions</div>
+  </div>
+
+  <div style="width:252px;height:520px;display:flex;flex-direction:column;background:#0b0c0d;color:#e9e9ea;font-family:'Public Sans',sans-serif;padding:26px 0;overflow:hidden">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122"><span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span><span style="font-size:12.5px;color:#8f9296">Terminals</span></div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;padding:22px 26px 0;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:14px;border-bottom:1px solid #1f2122">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 30)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;font-weight:600;flex-grow:1">Report Bot</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">ASK</span></div>
+        <div style="padding-left:19px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c8cacc">fs_write · report-sep.md</span>
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#e9e9ea;border-bottom:1px solid #e9e9ea;padding-bottom:2px">ALLOW</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#e2726b">DENY</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 250)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Desktop Bot</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">RUN</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 150)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Code Assistant</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">12</span></div>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#d3a056">1 bot waiting on you</div>
+  </div>
+
+  <div style="width:252px;height:520px;display:flex;flex-direction:column;background:#0b0c0d;color:#e9e9ea;font-family:'Public Sans',sans-serif;padding:26px 0;overflow:hidden">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122"><span style="font-size:12.5px;color:#8f9296">Bots</span><span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Terminals</span></div>
+    <div style="flex-grow:1;display:flex;flex-direction:column;padding:22px 26px 0;gap:14px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296">DISCONNECTED</span>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:#9b9ea2">The keyring answered, the server did not. Sessions on the PC keep running; tmux does not need this window.</p>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e2726b">connection refused · 127.0.0.1:8765</span>
+      <span style="align-self:flex-start;padding:7px 14px;background:#1f2122;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#c4c6c8">RETRY</span>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296"><span style="width:6px;height:6px;border-radius:9999px;background:#e2726b"></span><span>offline · last seen 17:56</span></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

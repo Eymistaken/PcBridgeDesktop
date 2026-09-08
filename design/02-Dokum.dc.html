@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e8e6e1;font-family:"Public Sans",system-ui,sans-serif}
+a{color:#1a1a1a}a:hover{color:#5a5a5a}
+.sc{padding:34px 40px 30px;border-bottom:1px solid rgba(0,0,0,.09)}
+.sc-h{display:flex;align-items:baseline;gap:11px;margin:0 0 16px}
+.sc-n{font:500 10px ui-monospace,Menlo,monospace;letter-spacing:.16em;padding:3px 7px;background:#1a1a1a;color:#fff}
+.sc-t{font:600 13px/1.2 "Public Sans",system-ui,sans-serif;color:#1a1a1a}
+.sc-d{font:400 11.5px/1.2 "Public Sans",system-ui,sans-serif;color:rgba(0,0,0,.5)}
+.sc-row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+</style></helmet>
+<div data-screen-label="02 Transcript" style="width:1280px;height:860px;display:flex;background:#101112;color:#e9e9ea;font-family:'Public Sans',sans-serif;font-size:14px;overflow:hidden">
+
+  <div style="width:252px;flex:none;display:flex;flex-direction:column;background:#0b0c0d;padding:26px 0">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;letter-spacing:-.01em">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122">
+      <span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span>
+      <span style="font-size:12.5px;color:#8f9296">Terminals</span>
+    </div>
+    <div style="flex-grow:1;min-height:0;display:flex;flex-direction:column;padding:22px 26px 0;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 250)"></span>
+          <span style="font-family:'Source Serif 4',serif;font-size:15.5px;font-weight:600;flex-grow:1">Desktop Bot</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">7</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;padding-left:19px">
+          <div style="display:flex;align-items:baseline;gap:9px;padding-left:-0"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056;width:26px;flex:none">RUN</span><span style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px solid #3a3d3f;padding-bottom:1px">Channel search in Chrome</span></div>
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:12.5px;color:#8f9296">Collect desktop files</span></div>
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:12.5px;color:#8f9296">Screen resolution check</span></div>
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e2726b;width:26px;flex:none">ERR</span><span style="font-size:12.5px;color:#8f9296">Vesktop window attempt</span></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#8f9296;padding-left:35px">+3 MORE</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 150)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Code Assistant</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">12</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 30)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Report Bot</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">ASK</span></div>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;display:flex;flex-direction:column;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:9999px;background:#75b683"></span><span>127.0.0.1:8765</span></div>
+      <span style="padding-left:14px">33 tools · desktop unlocked 1:24</span>
+    </div>
+  </div>
+
+  <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid #1f2122">
+    <div style="flex:none;display:flex;align-items:baseline;gap:14px;padding:26px 44px 18px;border-bottom:1px solid #1f2122">
+      <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600">Channel search in Chrome</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296;flex-grow:1">session 07 · 18 turns · 3,410 / 8,192 tokens</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#d3a056">RUNNING 04:12</span>
+      <span style="font-size:12.5px;color:#c4c6c8">Stop</span>
+    </div>
+
+    <div style="flex-grow:1;min-height:0;overflow:hidden;padding:28px 44px 0;display:flex;flex-direction:column;gap:26px">
+      <div style="display:flex;gap:28px">
+        <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">YOU · 17:51</span>
+        <p style="margin:0;flex-grow:1;min-width:0;max-width:620px;font-size:15px;line-height:1.7">Open the channel on the right-hand monitor in Chrome and tell me the title of the newest video.</p>
+      </div>
+
+      <div style="display:flex;gap:28px">
+        <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">THOUGHT</span>
+        <div style="flex-grow:1;min-width:0;max-width:620px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">thought for 4.2 s · collapse</span>
+          <div style="font-size:13.5px;line-height:1.7;color:#9b9ea2;padding-left:14px;border-left:1px solid #2a2d2f;-webkit-mask-image:linear-gradient(to bottom,#000 62%,transparent);mask-image:linear-gradient(to bottom,#000 62%,transparent);max-height:74px;overflow:hidden">The right-hand screen is HDMI-1 at (1920,0), so global x = 1920 + image x. Capture monitor 2 first, then locate the channel tab before clicking anything.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:28px">
+        <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">TOOLS</span>
+        <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:baseline;gap:14px;padding:10px 0;border-bottom:1px solid #1f2122">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;width:132px;flex:none">screen_info</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9b9ea2;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">2 monitors · DP-2 (0,0) · HDMI-1 (1920,0)</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#75b683">OK 40ms</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:10px 0;border-bottom:1px solid #1f2122">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;width:132px;flex:none">screen_capture</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9b9ea2;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">monitor 2 · scale 0 · 1920×1080</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#75b683">OK 310ms</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:10px 0;border-bottom:1px solid #1f2122">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;width:132px;flex:none">window_focus</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9b9ea2;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">chrome — “YouTube — Chromium”</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#75b683">OK 88ms</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:10px 0;border-bottom:1px solid #1f2122">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;width:132px;flex:none">mouse</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9b9ea2;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">click (2028, 102) · monitor 2 (HDMI-1)</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:28px">
+        <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#d3a056;padding-top:4px">ASKING</span>
+        <div style="flex-grow:1;min-width:0;max-width:620px;display:flex;flex-direction:column;gap:12px;padding:16px 18px;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #2a2d2f">
+          <div style="display:flex;align-items:baseline;gap:12px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500;flex-grow:1">keyboard · type</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">23 chars</span>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#9b9ea2">Typing into the focused window on monitor 2. The bot may not type while you have touched the keyboard in the last 60 seconds.</p>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="padding:7px 16px;background:#e9e9ea;color:#101112;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;font-weight:500">ALLOW ONCE</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c4c6c8">ALLOW FOR SESSION</span>
+            <span style="flex-grow:1"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e2726b">DENY</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;padding:22px 44px 26px;border-top:1px solid #1f2122;display:flex;gap:28px">
+      <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:6px">PROMPT</span>
+      <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+        <div style="padding-bottom:14px;border-bottom:1px solid #2a2d2f;font-size:15px;color:#8f9296">Reply to Desktop Bot…</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c4c6c8;padding-bottom:2px;border-bottom:1px solid #3a3d3f">ASK FIRST</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">ATTACH</span>
+          <span style="flex-grow:1"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">3,410 · 42%</span>
+          <span style="padding:7px 18px;background:#1f2122;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#b6b9bc">SEND ⏎</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

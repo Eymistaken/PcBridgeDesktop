@@ -1250,6 +1250,95 @@ Before the fix, each of four movements reversed direction once. Afterward,
 all four had **0 reversals**. Actual bot reordering still animates. The seven
 UI regression scenarios and the production build passed. No model was run.
 
+## Aşama 22 — "Ledger" yeniden tasarımı ✅ BİTTİ
+
+Kullanıcı Claude Design'da yeni bir tasarım çizdi (proje
+`8794d0d1-189f-4c8b-ad90-732dcac791f6`, dosya `Pcbridge Redesign.dc.html`,
+sekiz ekran) ve uygulamanın görünümünün **tam fonksiyonel olarak** onunla
+değiştirilmesini istedi. Kararı açıktı: *"yeni tasarım kanun olsun."*
+
+**"Nötr Kabuk" kanunu yerini "Ledger"a bıraktı.** Eski artboard'lar
+`design/eski-notr-kabuk/` altında duruyor; yeni sözleşme `design/*.dc.html`.
+
+Tek cümlelik özet: **kutular gitti, yerine cetveller ve bir etiket oluğu
+geldi.** Her bölüm solda 104px'lik mono, büyük harf bir etiketle başlıyor;
+ayırıcı bir yüzey kademesi değil 1px'lik bir çizgi.
+
+### Değişenler
+
+- **Palet.** Dört metin seviyesi (eskiden iki), üç cetvel kademesi, iki
+  köşe değeri (0 ve 4px; düğmelerin yarıçapı yok). Durum renkleri
+  (`--run/--ok/--fail`) ve avatar formülü (`oklch`) **birebir korundu.**
+- **Aydınlık tema türetildi** — tasarım yalnızca koyu veriyor. Koyu rampanın
+  kontrast yapısı aynalandı: 15.57 / 11.10 / 7.07 / 6.05, üç zeminde de AA
+  üstünde.
+- **Yazı tipleri:** Public Sans + Source Serif 4 + IBM Plex Mono. Türkçe
+  kapsamı fontTools ile cmap okunarak ölçüldü, üçünde de tam.
+- **Sohbet baloncuksuz.** Rol zeminden değil oluktaki etiketten okunuyor;
+  kullanıcının ve botun metni aynı sütunda hizalı.
+- **Besteci tek hâlli:** altı çizili satır + mono eylem sırası.
+- **Terminal düzen sırası kelimelerle** ve beşinci öğe kondu: `SERBEST`.
+- **BotForge araç filtresi üç sütun** — 33 araç artık tek bakışta.
+- **On bir ikon öldü ve silindi:** ledger'da o yerlerde kelime var.
+
+### Ölçüldü
+
+| | |
+|---|---|
+| Yeni koyu rampa (`--bg` üstünde) | 15.58 / 11.03 / 7.03 / 6.05 |
+| Türetilen aydınlık rampa | 15.57 / 11.10 / 7.07 / 6.05 |
+| Türkçe glif kapsamı (4 aile) | eksik yok; `ı ç ö ü` latin, `ğ ş İ Ğ Ş` latin-ext |
+| Akış maskesi (kıta ızgarasında) | `--akis-x` 436px, 2 katman, etiket maskelenmiyor |
+| Araç grubu sayaçları | 6/6 dolu · 0/12 boş · 5/10 yarım |
+| `cargo test --lib` | 138 geçti, 0 düştü |
+| `npm run build` | i18n 421 anahtar denk, tsc temiz |
+
+### Yol boyunca bulunan hatalar
+
+1. ⚠️ **Terminalin ANSI renkleri aydınlık temada okunmuyordu — bir yıldır.**
+   `Term.tsx` kırmızıyı, yeşili ve sarıyı `--run/--ok/--fail`'den okuyordu;
+   bunlar tema tokenı ve aydınlıkta koyulaşıyorlar. Terminalin zemini ise
+   iki temada da koyu. Ölçüldü: **2.45–2.66**, yani görünmüyorlardı. Aynı
+   şey ANSI mavi/macenta/cyan (3.14–3.87), izin kutusundaki ret düğmesi
+   (2.62) ve kuyunun içindeki birincil düğmenin dolgusu (**1.15**) için de
+   geçerliydi.
+   `--well-text` / `--well-muted` bu tuzağı bir kez yakalamıştı ama kural
+   durum renklerine genişletilmemişti. Artık `--well-run` · `--well-ok` ·
+   `--well-fail` · `--well-line` · `--well-sel` var ve ANSI üçlüsünün teması
+   kaldırıldı (terminal her zaman kuyudadır).
+2. **`.h` ve `.muted` iki kez tanımlıydı** ve ikinci tanım temel katmandakini
+   eziyordu.
+3. **`.composer__send`'de eski ikon düğmesinin `width: 36px`'i duruyordu** ve
+   "GÖNDER ⏎" metnini kutunun dışına taşırıyordu.
+4. **`.permmenu__dugme`'nin büyük harf kuralı CtxMenu'ye de uyguyordu** ve
+   model kimliğini `ornith` → `ORNİTH` yapıyordu: Türkçe büyük harf kuralı
+   `i`'yi noktalı `İ`'ye çeviriyor ve ortaya var olmayan bir model adı
+   çıkıyor. **Kimlikler çevrilmez, büyültülmez.**
+5. **`.row__name--mono` `.row__name`'den önce yazılmıştı**; iki kuralın
+   özgüllüğü eşit ve o durumda kaynak sırası karar veriyor — tmux oturum
+   adları serif çıkıyordu.
+6. **Satır eylemleri görünmezken de yer kaplıyordu** ve 252px'lik sütunda
+   bot adı "Deskto…" diye kırpılıyordu.
+7. **`.layout > button[aria-pressed="true"]` kuralı ölüydü** — hiçbir düğme
+   o niteliği taşımıyordu. Düzen karşılaştırması (`agac.ts::bicim`) yazılınca
+   çalışır hâle geldi.
+
+### Silinen ölü kod
+
+`SessionHome`'un `bot` propu, `Seg`'in ölçülen kayan parçası, `.modesw` ve
+`.toolset__hepsi` kuralları, altı sistem bölümü ikonu ve beş eylem ikonu,
+`Chat`'teki yerel `Kita` ile `Connection`'daki `Kesit` (ikisi de
+`ui/Oluk.tsx`'e toplandı). `--surface` / `--surface-2` / `--r-lg` göç
+köprüsü Aşama H'de söküldü; `grep var(--surface)` → **0**.
+
+### Doğrulama
+
+Sekiz ekran da **WebKitGTK'da** (`scripts/goruntu-webkit.py`, bu aşamada
+eklendi) iki temada görüntülendi. `npm run tauri dev` ile uygulama gerçek
+IPC'yle derlendi ve **panik/hata olmadan açıldı** — bu depoda ilk kez.
+
+⛔ **Bot koşumu başlatılmadı**; yerel model yasağı yürürlükte.
+
 ## Riskler
 
 - **Kota.** Aşama 3'ün son doğrulaması gerçek bir ajan koşumu gerektiriyor.

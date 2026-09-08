@@ -40,18 +40,22 @@ function palet() {
     // o yüzden `--surface-2` diye bir token yok. Seçim zemini kuyunun kendi
     // tokenı: `--well-sel`. Üstünde `--well-text` 9.79:1.
     selectionBackground: v("--well-sel"),
+    // ⚠️ Durum renkleri **kuyu sürümünden** okunuyor. `--run/--ok/--fail`
+    // tema tokenı ve aydınlık temada koyulaşıyor; terminalin zemini ise iki
+    // temada da koyu. Ölçüldü: aydınlıkta eski değerler kuyu üstünde
+    // 2.45–2.66 veriyordu, yani kırmızı ve yeşil okunmuyordu.
     black: v("--well"),
-    red: v("--fail"),
-    green: v("--ok"),
-    yellow: v("--run"),
+    red: v("--well-fail"),
+    green: v("--well-ok"),
+    yellow: v("--well-run"),
     blue: v("--blue"),
     magenta: v("--magenta"),
     cyan: v("--cyan"),
     white: v("--well-text"),
     brightBlack: v("--well-muted"),
-    brightRed: v("--fail"),
-    brightGreen: v("--ok"),
-    brightYellow: v("--run"),
+    brightRed: v("--well-fail"),
+    brightGreen: v("--well-ok"),
+    brightYellow: v("--well-run"),
     brightBlue: v("--blue"),
     brightMagenta: v("--magenta"),
     brightCyan: v("--cyan"),

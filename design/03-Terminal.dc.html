@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e8e6e1;font-family:"Public Sans",system-ui,sans-serif}
+a{color:#1a1a1a}a:hover{color:#5a5a5a}
+.sc{padding:34px 40px 30px;border-bottom:1px solid rgba(0,0,0,.09)}
+.sc-h{display:flex;align-items:baseline;gap:11px;margin:0 0 16px}
+.sc-n{font:500 10px ui-monospace,Menlo,monospace;letter-spacing:.16em;padding:3px 7px;background:#1a1a1a;color:#fff}
+.sc-t{font:600 13px/1.2 "Public Sans",system-ui,sans-serif;color:#1a1a1a}
+.sc-d{font:400 11.5px/1.2 "Public Sans",system-ui,sans-serif;color:rgba(0,0,0,.5)}
+.sc-row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+</style></helmet>
+<div data-screen-label="03 Terminals" style="width:1280px;height:860px;display:flex;background:#101112;color:#e9e9ea;font-family:'Public Sans',sans-serif;font-size:14px;overflow:hidden">
+
+  <div style="width:252px;flex:none;display:flex;flex-direction:column;background:#0b0c0d;padding:26px 0">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;letter-spacing:-.01em">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122">
+      <span style="font-size:12.5px;color:#8f9296">Bots</span>
+      <span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Terminals</span>
+    </div>
+    <div style="padding:20px 26px 14px;border-bottom:1px solid #1f2122;display:flex;align-items:center;gap:10px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8f9296">+</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8f9296">new session name…</span>
+    </div>
+    <div style="flex-grow:1;min-height:0;display:flex;flex-direction:column;padding:18px 26px 0;gap:14px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296">OPEN HERE · 5</span>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;background:#d3a056;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;flex-grow:1">claude</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">~/app</span></div>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;background:#d3a056;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;flex-grow:1">agy</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">~/app</span></div>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;background:#d3a056;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;flex-grow:1">htop</span></div>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;background:#75b683;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;flex-grow:1">logs</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">journalctl</span></div>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;background:#75b683;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;flex-grow:1">build</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">cargo</span></div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:12px">ON THE PC, NOT HERE</span>
+      <div style="display:flex;align-items:baseline;gap:11px"><span style="width:9px;height:9px;flex:none;box-shadow:inset 0 0 0 1px #3a3d3f;margin-bottom:1px"></span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#8f9296;flex-grow:1">backup</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">rsync</span></div>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;display:flex;flex-direction:column;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:9999px;background:#75b683"></span><span>tmux 3.3a · 6 sessions</span></div>
+      <span style="padding-left:14px">closing a pane keeps the session</span>
+    </div>
+  </div>
+
+  <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid #1f2122">
+    <div style="flex:none;display:flex;align-items:baseline;gap:16px;padding:26px 32px 16px;border-bottom:1px solid #1f2122">
+      <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600">5 panes</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296;flex-grow:1">drag a header to move · pull a divider to resize</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#e9e9ea;padding-bottom:2px;border-bottom:1px solid #3a3d3f">FREE</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">GRID</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">COLUMNS</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">ROWS</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">MAIN + STACK</span>
+    </div>
+
+    <div style="flex-grow:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:18px 32px 32px">
+      <div style="flex:0 0 66%;display:flex;gap:10px;min-height:0">
+        <div style="flex:0 0 55%;display:flex;flex-direction:column;min-width:0;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #2a2d2f;overflow:hidden;position:relative">
+          <div style="height:32px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1f2122">
+            <span style="width:6px;height:6px;border-radius:9999px;background:#d3a056"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500">claude</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296;flex-grow:1">~/app</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">⋮</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">✕</span>
+          </div>
+          <div style="flex-grow:1;min-height:0;padding:10px 12px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5;color:#eaebed;white-space:pre"><span style="color:#75b683">eymistaken@ZorinOS</span>:<span style="color:#8f9296">~/app</span>$ claude
+<span style="color:#8f9296">╭──────────────────────────────────╮</span>
+<span style="color:#8f9296">│</span>  Claude Code                     <span style="color:#8f9296">│</span>
+<span style="color:#8f9296">╰──────────────────────────────────╯</span>
+
+<span style="color:#d3a056">●</span> Reading src-tauri/src/agent.rs…
+  <span style="color:#8f9296">└</span> 4118 lines read
+
+<span style="color:#d3a056">●</span> Editing bots.rs
+  <span style="color:#8f9296">└</span> added Session struct
+
+<span style="color:#75b683">eymistaken@ZorinOS</span>:<span style="color:#8f9296">~/app</span>$ <span style="background:#eaebed;color:#08090a"> </span></div>
+          <span style="position:absolute;left:36%;top:46%;display:flex;align-items:center;gap:9px;height:30px;padding:0 14px;background:#1f2122;box-shadow:0 8px 24px -6px rgb(0 0 0/.6);font-family:'IBM Plex Mono',monospace;font-size:12px">logs</span>
+        </div>
+        <div style="flex:0 0 45%;display:flex;flex-direction:column;gap:10px;min-width:0">
+          <div style="flex:0 0 46%;display:flex;flex-direction:column;min-height:0;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #1f2122;overflow:hidden">
+            <div style="height:32px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1f2122">
+              <span style="width:6px;height:6px;border-radius:9999px;background:#d3a056"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500">agy</span>
+              <span style="flex-grow:1"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296">ALSO ON PC</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">✕</span>
+            </div>
+            <div style="flex-grow:1;min-height:0;padding:10px 12px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5;color:#eaebed;white-space:pre"><span style="color:#75b683">eymistaken@ZorinOS</span>:<span style="color:#8f9296">~/app</span>$ agy
+<span style="color:#8f9296">Antigravity CLI 0.9.4</span>
+&gt; plan ready, 7 steps
+  <span style="color:#8f9296">1.</span> canvas
+  <span style="color:#8f9296">2.</span> session layer
+  <span style="color:#8f9296">3.</span> session interface</div>
+          </div>
+          <div style="flex:0 0 54%;display:flex;gap:10px;min-height:0">
+            <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #1f2122;overflow:hidden">
+              <div style="height:32px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1f2122">
+                <span style="width:6px;height:6px;border-radius:9999px;background:#d3a056"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500;flex-grow:1">htop</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">✕</span>
+              </div>
+              <div style="flex-grow:1;min-height:0;padding:10px 12px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5;color:#eaebed;white-space:pre"><span style="color:#d3a056">1</span>  <span style="color:#8f9296">[|||||    41%]</span>
+<span style="color:#d3a056">2</span>  <span style="color:#8f9296">[||       12%]</span>
+<span style="color:#d3a056">3</span>  <span style="color:#8f9296">[|||||||  68%]</span>
+<span style="color:#d3a056">4</span>  <span style="color:#8f9296">[|         4%]</span>
+Mem<span style="color:#8f9296">[|||||| 9.2G/32G]</span>
+
+ PID USER   CPU% CMD
+2841 eymi   34.0 cargo
+3190 eymi   11.2 node
+ 991 eymi    3.1 tmux</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #1f2122;overflow:hidden;opacity:.45">
+              <div style="height:32px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1f2122">
+                <span style="width:6px;height:6px;border-radius:9999px;background:#75b683"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500;flex-grow:1">logs</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">✕</span>
+              </div>
+              <div style="flex-grow:1;min-height:0;padding:10px 12px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5;color:#eaebed;white-space:pre"><span style="color:#8f9296">Sep 05 17:52</span> pcbridge
+  started, port 8765
+<span style="color:#8f9296">Sep 05 17:54</span> pcbridge
+  tool call: fs_list
+<span style="color:#8f9296">Sep 05 17:55</span> pcbridge
+  tool call: screen_info</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:0 0 34%;display:flex;flex-direction:column;min-height:0;background:#08090a;border-radius:4px;box-shadow:inset 0 0 0 1px #1f2122;overflow:hidden">
+        <div style="height:32px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1f2122">
+          <span style="width:6px;height:6px;border-radius:9999px;background:#75b683"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500">build</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296;flex-grow:1">cargo · ~/app</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">⋮</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">✕</span>
+        </div>
+        <div style="flex-grow:1;min-height:0;padding:10px 12px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5;color:#eaebed;white-space:pre"><span style="color:#75b683">eymistaken@ZorinOS</span>:<span style="color:#8f9296">~/app</span>$ cargo test --lib
+   <span style="color:#75b683">Compiling</span> pcbridge-desktop v0.1.0
+    <span style="color:#75b683">Finished</span> test profile in 12.41s
+     <span style="color:#75b683">Running</span> unittests src/lib.rs
+
+test bots::tests::goc_tek_session ... <span style="color:#75b683">ok</span>
+test agent::tests::gecmis_session_bazli ... <span style="color:#75b683">ok</span>
+test runs::tests::meta_disk_snake_case ... <span style="color:#75b683">ok</span>
+
+test result: <span style="color:#75b683">ok</span>. 47 passed; 0 failed</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

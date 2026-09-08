@@ -56,6 +56,32 @@
    * `--well-text` / `--well-muted` ile aynı gerekçe. */
   --well-line: #2a2d2f;
 
+  /*
+   * Kuyunun İÇİNDEKİ durum ve ANSI renkleri.
+   *
+   * ⚠️ **Ölçülmüş hata, ve yalnızca yeni koda ait değil.** `--run/--ok/--fail`
+   * ve ANSI üçlüsü tema tokenı; aydınlık temada koyulaşıyorlar (`#6f4700`,
+   * `#266034`, `#992d29`, `#0465af`…). Kuyu ise **iki temada da koyu.**
+   * Sonuç: aydınlık temada altısı da kuyunun üstünde 2.45–3.87 veriyordu,
+   * yani terminalin kırmızısı, yeşili ve sarısı okunmuyordu.
+   *
+   * `--well-text` / `--well-muted` bu tuzağı bir kez yakalamıştı; kural
+   * durum renklerine genişletilmemişti. Bunlar tema bloklarında
+   * **yeniden tanımlanmaz.**
+   *
+   *   --well-run 8.48 · --well-ok 8.33 · --well-fail 6.50
+   *   --blue 5.49 · --magenta 5.22 · --cyan 6.14
+   */
+  --well-run: #d3a056;
+  --well-ok: #75b683;
+  --well-fail: #e2726b;
+
+  /* ANSI — **yalnızca terminal paleti** ve terminal her zaman kuyudadır,
+   * o yüzden bunların da teması yok. */
+  --blue: #398ad6;
+  --magenta: #8d73d1;
+  --cyan: #009fa0;
+
   /* ── metin — DÖRT seviye ─────────────────────────────────────────────── */
   /* Eski palette iki seviye vardı ve "üçüncüsü yok" bir kuraldı; sebebi o
    * seviyenin iki denemede de AA altında kalmasıydı (3.7 ve 3.1). Bu rampa
@@ -84,11 +110,6 @@
   --run: #d3a056; /* 8.04 */
   --ok: #75b683; /* 7.90 */
   --fail: #e2726b; /* 6.17 */
-
-  /* ANSI — yalnızca terminal paleti. Kabukta kullanılmazlar. */
-  --blue: #398ad6;
-  --magenta: #8d73d1;
-  --cyan: #009fa0;
 
   /* ── kimlik ──────────────────────────────────────────────────────────── */
   /* Hue **addan türer** (0-359), açıklık ve doygunluk sabit. Sabit oldukları
@@ -157,19 +178,6 @@
    * `ui/Term.tsx` **bunu** okur, `--mono`'yu değil. */
   --mono-term: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
 
-  /* ── GÖÇ KÖPRÜSÜ — Aşama H'de SİLİNECEK ──────────────────────────────────
-   *
-   * `app.css` hâlâ eski paletin yüzey kademesini ve ikinci yarıçapını 120+
-   * yerde kullanıyor. Bunlar blok blok, ekran ekran gidiyor (Aşama B-G);
-   * o iş bitene kadar uygulamanın çalışır kalması için burada karşılıkları
-   * duruyor.
-   *
-   * Bu bir "ölü token" değil, **kaldırılmakta olan** bir token: Aşama H'nin
-   * ölçütü `grep -c -- "--surface\|--r-lg" src/styles/app.css` → 0 ve bu
-   * bloğun silinmiş olması. Kalırsa kanun ihlalidir. */
-  --surface: var(--field);
-  --surface-2: var(--field-h);
-  --r-lg: var(--r-sm);
 }
 
 /* ── aydınlık ──────────────────────────────────────────────────────────────
@@ -213,9 +221,6 @@
     --run: #6f4700;
     --ok: #266034;
     --fail: #992d29;
-    --blue: #0465af;
-    --magenta: #6a4fa9;
-    --cyan: #007a7c;
 
     --av-l: 0.5;
     --av-c: 0.14;
@@ -247,9 +252,6 @@
   --run: #6f4700;
   --ok: #266034;
   --fail: #992d29;
-  --blue: #0465af;
-  --magenta: #6a4fa9;
-  --cyan: #007a7c;
 
   --av-l: 0.5;
   --av-c: 0.14;

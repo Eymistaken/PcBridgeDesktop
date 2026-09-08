@@ -4,5 +4,6 @@ src-tauri/target/
 pcbridge-desktop-arayuzu.html
 cikti/
 pcbridge-arayuz-yenileme.html
-design/tuval/onizleme.html
+design/eski-notr-kabuk/tuval/onizleme.html
 /onizleme.html
+/onizleme.tsx

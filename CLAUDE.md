@@ -47,12 +47,28 @@ derse **başka bir şey sormadan** şunu yap:
    ⛔ **View Transition API** WebKitGTK'da **var** ama kullanılmadı;
    gerekçesi Aşama 12'de.
 
-5. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
+5. ✅ **Tasarım 2026-09-08'de baştan değişti — "Ledger" (Aşama 22).**
+   Kullanıcı Claude Design'da yeni bir tasarım çizdi ve *"yeni tasarım kanun
+   olsun"* dedi. **"Nötr Kabuk" kanunu artık yürürlükte değil**; yerine bu
+   dosyadaki *Tasarım kanunu — "Ledger"* geçti. Eski artboard'lar
+   `design/eski-notr-kabuk/` altında kayıt olarak duruyor.
+
+   Özet: kutular gitti, yerine **cetveller ve bir etiket oluğu** geldi. Dört
+   metin seviyesi, iki köşe değeri (düğmelerin yarıçapı yok), baloncuksuz
+   sohbet, altı çizili besteci. Durum renkleri ve avatar formülü korundu.
+
+   ⛔ **Terminalin İÇİ tasarım dışı** — kullanıcının kararı: arayüz IBM Plex
+   Mono'ya geçti, terminal Geist Mono'da kaldı (`--mono-term`).
+
+   ⚠️ **Aydınlık tema tasarımda yok, TÜRETİLDİ.** Kullanıcı onayladı ama
+   sayıları gören olmadı; ilk fırsatta gözle bakılmalı.
+
+6. ⛔ **Yerel modelle masaüstü testi yapma.** Kullanıcı 2026-09-04'te
    "ben gelene kadar modeli çalıştırıp test etme" dedi; sebebi o gün yaşanan
    veri kaybı (aşağıda, Aşama 10). Arayüz işleri ve pcbridge ile ölçüm
    serbest, **bot koşumu başlatmak değil.** Bu kısıt kullanıcı kaldırana
    kadar geçerli.
-6. **Açık kalan üç uç:**
+7. **Açık kalan dört uç:**
    - Tur içi özetleme **gerçek modelle sınanmadı** (Aşama 8'de LM Studio
      kapalıydı). İlk fırsatta bütçesi kasten küçük bir botla uzun bir koşum
      yapılıp `job://compacting` ve `Devam et.` yolu görülmeli.
@@ -62,10 +78,14 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-7. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **on dokuz aşama da
+   - **Uygulama 2026-09-08'de gerçek IPC'yle derlenip açıldı** (`npm run
+     tauri dev`, panik/hata yok) ama **pencerede gözle görülmedi**; görsel
+     doğrulama WebKitGTK'da, aynı motorda yapıldı. Yeni tasarımın gerçek
+     pencerede ilk kez görülmesi kullanıcıya kalıyor.
+8. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi iki aşama da
    bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
    yeni iş bitince oraya bir aşama olarak taşınır.
-8. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+9. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -141,82 +161,116 @@ gerçek terminal ızgarası.
   kullanıyor — dört kopya er geç ayrışırdı.
 - Ölçmediğini "çalışıyor" diye yazma. "Hata vermedi" kanıt değil.
 
-## Tasarım kanunu — "Nötr Kabuk"
+## Tasarım kanunu — "Ledger"
 
-Tuval sözleşmedir: **https://claude.ai/code/artifact/dd0430d2-3926-4ee4-a0e5-4cfec4ce8b1b**
-Kaynak artboard'lar `design/*.dc.html`. Kod bunlardan sapamaz.
+Tasarım: **Claude Design projesi `8794d0d1-189f-4c8b-ad90-732dcac791f6`**,
+dosya `Pcbridge Redesign.dc.html` — sekiz ekran, uygulamanın tamamı.
+Yerel kopyaları `design/*.dc.html`. Kod bunlardan sapamaz.
 
-**Tek ilke:** kabuk renksiz. Renk yalnızca **kimlikten** (bot avatarı) ve
-**durumdan** (çalışıyor/bitti/başarısız) gelir. Sistem aksan rengi **yoktur** —
-her yere serpiştirilmiş bir aksan, arayüzü jenerik yapan şeyin ta kendisidir.
+⚠️ **Bu kanun 2026-09-08'de "Nötr Kabuk"un yerine geçti.** Eskisi
+[ASAMALAR.md](ASAMALAR.md) Aşama 20'de kayıt olarak duruyor; oradaki
+ölçümler (özellikle kontrast tuzakları) hâlâ geçerli, yalnızca tokenların
+adları değişti.
+
+**Tek ilke: kutu yok, cetvel var.** Ayırıcı bir yüzey kademesi değil 1px'lik
+bir çizgi; her bölüm solda mono, büyük harf bir etiket oluğuyla başlıyor.
+Kabuk yine renksiz — renk yalnızca **kimlikten** (bot çipi) ve **durumdan**
+(çalışıyor/bitti/başarısız) gelir. Sistem aksan rengi **yoktur**.
+
+### Oluk — tasarımın imzası
+
+Sekiz ekranın da omurgası: solda 104px'lik mono büyük harf bir etiket
+(`.16em` aralık), sağda içerik. Sohbette rol (`SEN · 17:51` · `DÜŞÜNCE` ·
+`ARAÇLAR` · `YANIT` · `SORUYOR`), ayarlarda bölüm, ilk açılışta `SUNUCU`.
+
+**Tek yerde: `src/ui/Oluk.tsx`.** Dört dosyada dört kopyası vardı ve
+toplandı; bu depoda kopyalanan yardımcı er geç ayrışıyor (`yukseklik.ts`
+aynı sebeple toplanmıştı). Dar oluk (`--oluk-dar`, 34px) durum
+kısaltmalarını taşıyor: **ÇLS · TMM · HTA** (İngilizcede RUN · OK · ERR).
+Tasarımda 26px'ti; Türkçe kısaltmalar için genişletildi.
 
 ### Tokenlar
 
 ```css
 /* koyu — birincil */
---bg:#151618;      --bg-side:#0F0F11;   --field:#1F2023;
---surface:#26282A; --surface-2:#36383B; --line:#2F3033;  --well:#08090B;
---text:#EAEBED;    --text-muted:#96989C;
---run:#D3A056;     --ok:#75B683;        --fail:#E2726B;
+--bg:#101112;      --bg-side:#0b0c0d;   --well:#08090a;
+--field:#1f2122;   --field-h:#2a2d2f;   --field-a:#33383a;
+--line:#1f2122;    --line-2:#2a2d2f;    --line-3:#3a3d3f;
+--text:#e9e9ea;    --text-2:#c4c6c8;    --text-3:#9b9ea2;  --text-muted:#8f9296;
+--run:#d3a056;     --ok:#75b683;        --fail:#e2726b;
 --av-l:0.62;       --av-c:0.14;         /* hue ADDAN türer, 0-359 */
 
-/* aydınlık — varyant */
---bg:#F8F8FA;      --bg-side:#F1F2F4;   --field:#EBEDEF;
---surface:#E8E9EC; --surface-2:#D9DBDE; --line:#D9DBDD;  --well:#111213;
---text:#191B1D;    --text-muted:#56585D;
---run:#8D5E00;     --ok:#337344;        --fail:#AF3C3A;
+/* aydınlık — TÜRETİLDİ; tasarım yalnızca koyu veriyor */
+--bg:#f5f3ef;      --bg-side:#ebe8e2;   --field:#e1ddd5;
+--field-h:#d5d0c6; --field-a:#c6c0b5;
+--line:#dcd7ce;    --line-2:#c6c0b5;    --line-3:#aaa397;
+--text:#191b1e;    --text-2:#333538;    --text-3:#505255;  --text-muted:#5a5c5f;
+--run:#6f4700;     --ok:#266034;        --fail:#992d29;
 --av-l:0.50;       --av-c:0.14;
 
-/* iki temada da AYNI — kuyu aydınlıkta da koyu kalıyor */
---well-text:#EAEBED;  --well-muted:#96989C;
-/* ANSI, yalnızca terminal paleti — kabukta kullanılmazlar */
---blue:#398AD6 (ayd. #0465AF)  --magenta:#8D73D1 (#6A4FA9)  --cyan:#009FA0 (#007A7C)
+/* İKİ TEMADA DA AYNI — kuyu aydınlıkta da koyu kalıyor */
+--well-text:#e9e9ea   --well-muted:#9b9ea2   --well-sel:#33383a
+--well-line:#2a2d2f   --well-run:#d3a056     --well-ok:#75b683   --well-fail:#e2726b
+/* ANSI, yalnızca terminal — terminal her zaman kuyudadır, teması yok */
+--blue:#398ad6   --magenta:#8d73d1   --cyan:#009fa0
 ```
 
-Hepsi oklch'ten üretildi, hue 265 (hafif soğuk), ve **kontrastı hesaplandı**:
-`--text` 15.2:1, `--text-muted` 6.3:1, durum renkleri 5.9–7.7:1. Yeni renk
-eklerken oranı hesapla, tahmin etme.
+**Metin DÖRT seviye.** Eski kanunda "üçüncüsü yok" bir kuraldı; sebebi o
+seviyenin iki denemede de AA altında kalmasıydı (3.7 ve 3.1). Bu rampa
+düşmüyor — koyu temada 15.58 / 11.03 / 7.03 / 6.05, aydınlıkta 15.57 /
+11.10 / 7.07 / 6.05. Tam tablo aşağıda.
 
-**Kimlik rengi hue'dan.** Altı sabit ton kalktı; `Bot.avatar` bir hue sayısı
-(`Option<u16>`, `None` → addan türetilir) ve renk
-`oklch(var(--av-l) var(--av-c) <hue>)` ile çözülüyor. Açıklık ve doygunluk
-sabit olduğu için avatardaki harfin kontrastı hue'dan **bağımsız garanti**:
-360 hue için hesaplandı, koyu temada en düşük **4.62**, aydınlıkta **4.88**.
-Karma **yalnızca TypeScript'te** (`types.ts::hueOf`) — iki dilde iki karma
-ayrışırdı.
+**Kimlik rengi hue'dan.** `Bot.avatar` bir hue sayısı (`Option<u16>`, `None`
+→ addan türetilir), renk `oklch(var(--av-l) var(--av-c) <hue>)`. Karma
+**yalnızca TypeScript'te** (`types.ts::hueOf`) — iki dilde iki karma
+ayrışırdı. ⚠️ **Çip artık daire ve harfli değil, 9px kare ve harfsiz:** ad
+her zaman yanında duruyor, harf ikinci kez aynı şeyi söylüyordu. Bununla
+birlikte "harfin kontrastı 360 hue'da AA geçiyor" ölçümü de konusuz kaldı.
 
-**Kuyunun metni tema değiştirmez.** `--well` aydınlık temada da koyu; metni
-`--text`'ten almak orada **1.09:1** veriyordu (`--text-muted` 2.63) ve
-terminal dahil her şey okunmuyordu. `--well-text` (15.72) ve `--well-muted`
-(6.49) tema bloklarında **yeniden tanımlanmaz**.
+**Kuyunun rengi tema değiştirmez.** Kuyu (terminal, ham çıktı, izin kutusu,
+kod bloğu) aydınlık temada da koyu; içindeki **hiçbir renk** tema
+tokenından alınmaz — metin de, çizgi de, durum da, düğme de. Ölçüldü:
+aydınlıkta `--text` kuyuda **1.12**, `--fail` **2.62**, birincil düğmenin
+dolgusu **1.15**; ANSI üçlüsü 3.14–3.87. Bu yüzden `--well-*` ailesi var ve
+tema bloklarında **yeniden tanımlanmaz.**
 
-**Üçüncü bir metin seviyesi YOK.** İki denemede de AA'nın altında kaldı
-(3.7 ve 3.1). Hiyerarşi boyut ve ağırlıkla kurulur.
-`--text-muted` **`--surface-2` üstünde kullanılmaz** (4.08:1).
+⚠️ **Bu bir yıllık bir hatayı da kapattı:** `Term.tsx` ANSI renklerini
+`--run/--ok/--fail`'den okuyordu, yani aydınlık temada terminalin kırmızısı
+ve yeşili kendi koyu zemininde **2.5:1** ile çiziliyordu.
 
-### Köşeler — üç değer
+### Köşeler — iki değer
 
-`12px` satır/alan/düğme · `20px` baloncuk/kuyu/panel · `9999px` besteci/avatar.
-(Kullanıcının 2026-09-03 isteğiyle 10 → 12 yumuşatıldı.)
-
-İç içe yüzeyde yarıçap **dış − dolgu**'dur (12 − 3 = 9). 30px altındaki ikon
-çizimleri bu ölçekte **değildir**, orantılı çizilir.
+`0` düğme · `4px` kuyu, panel, bölme, örtü · `9999px` yalnızca 6px'lik durum
+noktası. ⚠️ **Düğmelerin yarıçapı yoktur** — tasarımda tek bir yuvarlatılmış
+düğme yok.
 
 ### Yazı
 
-**Geist** (arayüz + mesajlar) · **Geist Mono** (terminal, job id, yol).
-Hepsine gerçek fallback yığını. Serif yok.
+**Public Sans** (arayüz) · **Source Serif 4** (ad ve başlık) ·
+**IBM Plex Mono** (etiket, düğme, tablo, kimlik) · **Geist Mono**
+(**yalnızca terminalin içi** — `--mono-term`).
 
-Artboard'lar Google Fonts `<link>`'i kullanır çünkü onlar web sayfası.
-**Uygulama kullanmaz:** `@fontsource/geist-sans` + `@fontsource/geist-mono`
-paketten gelir — açılışta ağa bağlanılmaz ve Tauri CSP'sinde
-`fonts.googleapis.com` deliği açılmaz. CSS aile adları paketin ilan ettiği
-adlardır: **`"Geist Sans"`** ve `"Geist Mono"` (`"Geist"` değil).
+Serif yalnızca **ad ve başlık** için; gövde metni serif olmaz. Tasarımda tek
+bir serif paragraf yok.
 
-### Devinim — Aşama 12'de kuruldu
+Türkçe kapsamı **ölçüldü** (fontTools ile cmap okundu): dördünde de
+`ı ç ö ü Ç Ö Ü â î û` → latin, `ğ ş İ Ğ Ş` → latin-ext; yedek yığına düşen
+karakter yok.
 
-Süre ve easing **role göre** adlandırılır, sayıya göre değil; elle yazılmış
-süre kalmadı (`grep`'le sabitleniyor).
+⚠️ **Google Fonts `<link>` KULLANILMAZ.** Tauri CSP'si `font-src 'self'
+data:` ve açılışta ağa bağlanılmıyor; hepsi `@fontsource` paketlerinden
+gelir. Tasarımın artboard'u o linki kullanıyor çünkü o bir web sayfası.
+
+⛔ **Terminalin İÇİ kapsam dışı** — kullanıcının kararı (2026-09-08). Arayüz
+IBM Plex Mono'ya geçti, terminal Geist Mono'da kaldı; böylece CLAUDE.md'deki
+hücre genişliği, satır aralığı (1.15), punto (13) ve 222x45 ölçümleri
+geçerliliğini koruyor. `.pane *` / `.xterm *` dokunulmuyor.
+
+### Devinim
+
+**Hiç değişmedi.** Aşama 12'de ölçülerek kurulmuştu ve tasarım devinim
+hakkında bir şey söylemiyor; çalışan sistem korundu. Süre ve easing role
+göre adlandırılır:
 
 ```css
 --dur-tap: 70ms    /* basma */      --ease-out: cubic-bezier(0.22,0.61,0.36,1)
@@ -226,81 +280,76 @@ süre kalmadı (`grep`'le sabitleniyor).
 --dur-pulse: 1.6s  /* durum ritmi */
 ```
 
-**Basma yüzey kademesidir**, ölçeklenme değil: `:active`'te öğe kendi hover
-yönünde bir kademe daha ilerler, hover tavandaysa bir kademe iner. Basma
-`--dur-tap` ile girer, bırakma `--dur-fast` ile döner — asimetri kasıtlı.
-⚠️ **İkincil metin taşıyan öğe `--surface-2`'ye çıkmaz** (orada
-`--text-muted` 4.07:1); onlar yukarı değil aşağı gider.
+**Basmanın iki biçimi var.** Dolgu taşıyan öğe bir kademe ilerler
+(`--field` → `--field-h` → `--field-a`); dolgusuz olan — ledger'da çoğunluk
+onlar — metnini bir kademe parlatır ve basmada bir kademe geri iner.
+Basma `--dur-tap` ile girer, bırakma `--dur-fast` ile döner; asimetri
+kasıtlı.
 
-**Çıkış devinimi kütüphanesiz.** `src/lib/cikis.ts` sökümü geciktiriyor
-(`useCikis` · `useCikisIcerik` · `useCikisListesi`), kök öğeye `data-cikis`
-konuyor, CSS çıkış karelerini oradan tetikliyor. Kareler **çiftler hâlinde**
-ve ad gidiş yönünü söylüyor: `girisYukari` ↔ `cikisAsagi`.
+⚠️ **İkincil metin taşıyan öğe dolgu kademesine çıkmaz.** `--text-muted`
+`--field-h` üstünde **4.44**, `--field-a` üstünde **3.80** — ikisi de AA
+altında. Bu, eski paletteki "`--text-muted` `--surface-2` üstünde
+kullanılmaz" kuralının aynısı: **palet değişti, tuzak değişmedi.**
 
-**Düzen devinimi** `src/lib/flip.ts` (FLIP, yalnızca `.side__list`) ve
-`Thinking.tsx`'te JS ölçümlü yükseklik geçişi.
+**Çıkış devinimi kütüphanesiz** (`src/lib/cikis.ts`), **düzen devinimi**
+`src/lib/flip.ts`, **akan metnin ucu maskeyle soluk** (`src/lib/akis.ts`).
+Maske **kıtanın içine** konur — `.oluk` üstünde oluk etiketini de
+maskelerdi. Ölçüldü: kıta ızgarasında `--akis-x` 436px, iki katmanlı maske,
+etiket maskelenmiyor.
 
-**Akan metnin ucu maskeyle soluk** (`src/lib/akis.ts`): son metin düğümünün
-ucu bir `Range` ile ölçülüp iki CSS değişkeni yazılıyor, maske iki katman ve
-`add` ile birleşiyor. Maske **balonun içine** konur — `.bub` üstünde zemini
-de maskeler ve baloncukta saydam bir çentik açar.
-
-**Tema ve dil kısa ömürlü sınıfla geçer** (`.tema-gecis`, `.dil-gecis`,
-`App.tsx`). Kalıcı bir `*` kuralı yasak; 180 ms yaşayan bir kural değil.
+**Tema ve dil kısa ömürlü sınıfla geçer** (`.tema-gecis`, `.dil-gecis`).
 ⛔ Terminal tema geçişinin dışında (`.pane *`, `.xterm *`).
 
 ### Yasak
 
 Sistem aksan rengi · **renkli gradyan** (aşağıda) · cam/blur · neon ·
-**renkli birincil düğme** (birincil eylem `--text` dolgu, `--bg` metin) ·
-karışık köşe yarıçapı · üçüncü metin seviyesi · emoji ve dingbat ikon
-(ikonlar 20px ızgarada inline SVG) · hover'da zıplama veya ölçeklenme ·
-**sahte pencere düğmeleri** (GNOME kendi çiziyor) · shadcn/MUI/Chakra ·
-Inter/Roboto/Arial/Fraunces · işe yaramayan sayı ve rozet.
+**renkli birincil düğme** (birincil eylem `--text` dolgu, `--bg` metin;
+kuyunun içindeyse `--well-text` dolgu, `--well` metin) · **yuvarlatılmış
+düğme** · **kutu ve yüzey kademesiyle ayırma** (ayırıcı çizgidir) ·
+emoji ve dingbat ikon · hover'da zıplama veya ölçeklenme · **sahte pencere
+düğmeleri** (GNOME kendi çiziyor) · shadcn/MUI/Chakra · Inter/Roboto/Arial.
 
 **"Gradyan yok" ne demek — kullanıcının netleştirmesi (2026-09-04).** Yasak
-olan **renkli, dekoratif** gradyan: mavi-mor-neon geçişler, yani "AI slop"un
-imzası. **Nötr (siyah-beyaz) gradyan yasak değil** ve kullanıcının kendi
-sözüyle *"ChatGPT, Claude, Grok'ta standart, slop değil"*. Yani zeminde
-renkli bir geçiş **hâlâ yok**, ama işlevsel ve renksiz bir geçiş — metnin
-kenarını soluklaştıran `mask-image`, kaydırılabilir bir alanın kenar
-soluğu — **serbest.**
+olan **renkli, dekoratif** gradyan. **Nötr (siyah-beyaz) gradyan yasak
+değil**: metnin kenarını soluklaştıran `mask-image`, kaydırılabilir bir
+alanın kenar soluğu serbest. Ölçüt renk: iki uç da nötrse sorun yok, hue
+değişiyorsa yasak.
 
-Ölçüt renk: gradyanın iki ucu da nötrse (aynı hue, yalnızca açıklık ya da
-opaklık değişiyorsa) sorun yok; hue değişiyorsa yasak.
+⚠️ **Tek bilinçli istisna: hue şeridi** (`.huesecim`, BotForge → Kimlik).
+Renkli bir gradyan ama **dekoratif değil, denetimin kendisi** — kullanıcı
+oradan bir hue seçiyor. Tasarım hue seçici göstermiyor; bu uygulamanın
+kendi işlevi ve kalıyor.
 
-Ayırıcı olarak çizgi değil **yüzey kademesi** kullanılır. Seçim yükselen
-yüzeyle anlatılır, renkli çubukla değil.
+**İkonlar azaldı.** Ledger'da eylemler kelime: `EKLE` · `GÖNDER ⏎` ·
+`DIŞA AKTAR` · `SERBEST · IZGARA · SÜTUNLAR`. On bir ikon bu yüzden öldü ve
+silindi. Kalan ikonlar 20px ızgarada inline SVG.
 
-**Markdown kendi kütüphanesini getirmez.** `src/lib/markdown.ts` modelin
-yazdıklarını çözümlüyor ve `src/ui/Markdown.tsx` **React öğesi** üretiyor —
-HTML dizgesi değil, yani `dangerouslySetInnerHTML` hiç yok ve modelin metni
-işaretlemeye dönüşemiyor. Kapsam: başlık · kod · alıntı · liste · GFM
-tablosu · çizgi; satır içinde kalın, eğik, kod, üstü çizili, bağlantı.
-**Bağlantılar gezinmiyor** — uygulamanın dış bağlantı açacak eklentisi yok
-ve webview'ı başka adrese götürmek uygulamayı kaybettirir.
+**Markdown kendi kütüphanesini getirmez.** `src/lib/markdown.ts` çözümlüyor,
+`src/ui/Markdown.tsx` **React öğesi** üretiyor — HTML dizgesi değil, yani
+`dangerouslySetInnerHTML` hiç yok. Başlıkları serif, satır içi kodu `--field`
+zeminde. **Bağlantılar gezinmiyor.**
 
-**Yerel açılır liste (`<select>`) kullanılmaz.** GTK kendi kutusunu çiziyor:
-köşeli, kendi renkleri, kendi yazı tipi — üç köşe değerinin hiçbirine uymuyor.
-Yerine `src/ui/Picker.tsx`. Aynı gerekçeyle menüler de kendi bileşenimiz
-(`PermMenu`). Menü ve liste yüzeyleri `--field` → `--surface` kademesini
-kullanır; **`--surface-2`'ye ikincil metin taşıyan satırda çıkılmaz**
-(`--text-muted` orada 4.07:1).
+**Yerel açılır liste (`<select>`) kullanılmaz** — GTK kendi kutusunu çiziyor.
+Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
 
-### Tuvalden bilinçli üç sapma
+### Tuvalden bilinçli sapmalar
 
-Kullanıcının isteğiyle; artboard'a geri çevrilmez.
-
-1. **Kip anahtarı kenar çubuğunun tepesinde.** Artboard ana panelin sağ
-   üstüne iki ikon düğme koyuyordu; şimdi uygulama adının altında tek bir
-   `Botlar | Terminal` anahtarı var (kayan parça, `--surface-2`).
-2. **Besteci ipucu `Ctrl ↵`.** Artboard `⌘↵` yazıyor — o bir macOS işareti,
-   bu makine Linux. `↵` duruyor: tuş adı, ikon değil.
-3. **Kimlik rengi altı ton değil hue çemberi** (2026-09-03). Artboard'lar altı
-   sabit renk gösteriyor; renk artık addan türeyen bir hue. Kanunun **asıl**
-   maddesi korundu: açıklık ve doygunluk sabit, o yüzden harf her hue'da
-   okunuyor (360 hue hesaplandı). `design/*.dc.html` eski altı tonu taşımaya
-   devam ediyor; **artboard'lar bu noktada koddan geride.**
+1. **Kip anahtarı kenar çubuğunun tepesinde** (Botlar | Terminal), tasarımın
+   gösterdiği gibi — ama artıyı yalnızca terminal kipinde tutuyoruz: bot
+   kipinde "yeni bot" listenin sonunda bir satır.
+2. **Besteci ipucu `Ctrl ↵`.** Tasarım `⌘↵` yazmıyor ama artboard macOS
+   alışkanlığı taşıyor; bu makine Linux.
+3. **Aydınlık tema tasarımda YOK ve türetildi.** Koyu rampanın kontrast
+   yapısı aynalandı; zemin ailesi nötr-sıcak, çünkü tasarımın kendi tuval
+   kâğıdı (#e8e6e1) o yönü gösteriyor.
+4. **`RTT 6 ms` ve `pcbridge 0.4.2` çizilmiyor** — uygulamada o veri yok.
+   Tasarımın kendi ilkesi bunu söylüyor: *"the app does not draw what it has
+   not measured."*
+5. **Masaüstü panelinde "LOCK NOW" düğmesi yok.** Anahtar zaten kilitliyor
+   ve bu depoda aynı işi yapan iki denetimden biri bir kez ölü kaldı.
+6. **Kenar çubuğunda satır eylemleri var** (düzenle · sil · katla), tasarımda
+   yok. Çalışan işlevler; akışın dışında, satırın üstüne binerek duruyorlar —
+   yer kapladıklarında 252px'lik sütunda bot adı "Deskto…" diye kırpılıyordu.
 
 ## Ölçülmüş gerçekler
 
@@ -984,34 +1033,53 @@ Yol boyunca elenen katmanlar — hepsi temiz çıktı:
 Metin renginin her yüzey üstündeki oranı. `✓` AA metin (4.5), `~` yalnızca
 büyük metin/grafik (3.0):
 
-| | `--bg` | `--bg-side` | `--field` | `--surface` | `--surface-2` |
+| | `--bg` | `--bg-side` | `--field` | `--field-h` | `--field-a` |
 |---|---|---|---|---|---|
-| **koyu** `--text` | 15.18✓ | 16.05✓ | 13.66✓ | 12.40✓ | 9.86✓ |
-| **koyu** `--text-muted` | 6.27✓ | 6.63✓ | 5.64✓ | 5.12✓ | **4.07~** |
-| **koyu** `--run` / `--ok` | 7.70 / 7.57✓ | 8.14 / 8.00✓ | 6.93 / 6.81✓ | 6.29 / 6.18✓ | 5.00 / 4.91✓ |
-| **koyu** `--fail` | 5.91✓ | 6.25✓ | 5.32✓ | 4.83✓ | **3.84~** |
-| **aydınlık** `--text` | 16.28✓ | 15.42✓ | 14.72✓ | 14.23✓ | 12.45✓ |
-| **aydınlık** `--text-muted` | 6.71✓ | 6.36✓ | 6.07✓ | 5.86✓ | 5.13✓ |
-| **aydınlık** `--run` / `--ok` | 5.30 / 5.39✓ | 5.02 / 5.10✓ | 4.79 / 4.87✓ | 4.63 / 4.70✓ | **4.05 / 4.12~** |
-| **aydınlık** `--fail` | 5.61✓ | 5.31✓ | 5.07✓ | 4.90✓ | **4.29~** |
+| **koyu** `--text` | 15.58✓ | 16.14✓ | 13.33✓ | 11.43✓ | 9.79✓ |
+| **koyu** `--text-2` | 11.03✓ | 11.43✓ | 9.44✓ | 8.09✓ | 6.94✓ |
+| **koyu** `--text-3` | 7.03✓ | 7.28✓ | 6.01✓ | 5.15✓ | **4.42~** |
+| **koyu** `--text-muted` | 6.05✓ | 6.26✓ | 5.17✓ | **4.44~** | **3.80~** |
+| **koyu** `--run` / `--ok` | 8.04 / 7.90✓ | 8.33 / 8.18✓ | 6.88 / 6.76✓ | — | — |
+| **koyu** `--fail` | 6.17✓ | 6.39✓ | 5.28✓ | — | — |
+| **aydınlık** `--text` | 15.57✓ | 14.11✓ | 12.74✓ | 11.23✓ | 9.54✓ |
+| **aydınlık** `--text-2` | 11.10✓ | 10.06✓ | 9.08✓ | 8.01✓ | 6.80✓ |
+| **aydınlık** `--text-3` | 7.07✓ | 6.41✓ | 5.79✓ | 5.10✓ | **4.33~** |
+| **aydınlık** `--text-muted` | 6.05✓ | 5.49✓ | 4.95✓ | **4.37~** | **3.71~** |
+| **aydınlık** `--run` / `--ok` | 7.35 / 6.76✓ | — | 6.02 / 5.53✓ | — | — |
+| **aydınlık** `--fail` | 6.86✓ | — | 5.61✓ | — | — |
 
-Kalın olanlar AA'nın altında: koyu temada `--text-muted` ve `--fail`,
-aydınlık temada üç durum rengi — hiçbiri **`--surface-2` üstünde kullanılmaz.**
-`--text-muted` `--surface` üstünde geçiyor (5.12 / 5.86), orada serbest.
+Kalın olanlar AA'nın altında: **`--text-3` ve `--text-muted` `--field-h` ve
+`--field-a` üstünde kullanılmaz.** İkincil metin taşıyan bir denetim
+hover'da dolguya değil **metnine** biner. Bu, eski paletteki
+"`--text-muted` `--surface-2` üstünde kullanılmaz" kuralının aynısı —
+palet değişti, tuzak değişmedi.
 
-**Kuyu ayrı bir yüzey** ve iki temada da koyu; metni tema tokenlarından
-**alınmaz**:
+**Kuyu ayrı bir yüzey** ve iki temada da koyu; içindeki **hiçbir renk** tema
+tokenlarından alınmaz:
 
-| `--well` üstünde | koyu (#08090B) | aydınlık (#111213) |
+| `--well` (#08090a) üstünde | tema tokenı | kuyu tokenı |
 |---|---|---|
-| `--text` | 16.70✓ | **1.09** ✗ |
-| `--text-muted` | 6.89✓ | **2.63** ✗ |
-| **`--well-text`** | 16.70✓ | **15.72✓** |
-| **`--well-muted`** | 6.89✓ | **6.49✓** |
+| metin | koyu 16.70✓ · **aydınlık 1.12** ✗ | **`--well-text` 16.43✓** |
+| ikincil metin | **aydınlık 2.63** ✗ | **`--well-muted` 7.41✓** |
+| çalışıyor | **aydınlık 2.45** ✗ | **`--well-run` 8.48✓** |
+| bitti | **aydınlık 2.66** ✗ | **`--well-ok` 8.33✓** |
+| başarısız | **aydınlık 2.62** ✗ | **`--well-fail` 6.50✓** |
+| birincil düğme dolgusu | **aydınlık 1.15** ✗ | `--well-text` 16.43✓ |
+| ANSI mavi / macenta / cyan | **aydınlık 3.31 / 3.14 / 3.87** ✗ | 5.49 / 5.22 / 6.14✓ |
 
-**Avatar harfi** (`--bg` rengiyle, hue'dan bağımsız): 360 hue'nun hepsi
-hesaplandı — koyu temada en düşük **4.62**, aydınlıkta **4.88**, AA altına
-düşen hue yok.
+⚠️ Alt üç satır **bir yıllık bir hatayı** kayda geçiriyor: `Term.tsx` ANSI
+ve durum renklerini tema tokenlarından okuyordu, yani aydınlık temada
+terminalin kırmızısı ve yeşili kendi koyu zemininde ~2.5:1 ile çiziliyordu.
+2026-09-08'de `--well-*` ailesine geçirildi.
+
+**Cetveller dekoratif** (WCAG 1.4.11 kapsam dışı) ama yine de ölçüldü:
+`--line` zemin üstünde koyu temada 1.17, aydınlıkta 1.29; `--line-2` 1.44
+ve 1.63; `--well-line` kuyu üstünde 1.44.
+
+**Kimlik çipinde metin yok** — 9px kare, yalnızca renk. Eski "avatar harfi
+360 hue'da AA geçiyor" ölçümü (koyu en düşük 4.62, aydınlık 4.88) artık
+konusuz; renk sabit açıklıkta olduğu için zemine göre ağırlığı hue'dan
+bağımsız kalıyor.
 
 ## Nasıl ölçülür — bu depoda işe yarayan dört yöntem
 
@@ -1053,6 +1121,16 @@ gibi görünüyor. O gün bu yüzden bestecinin `transition: border-radius, padd
 kuralı "kuralı iptal ediyor" diye yanlış tanılandı ve kaldırıldı; asıl motorda
 ölçülünce geçişin **oynadığı** görüldü (9999px → 1049px → 20px) ve kural geri
 kondu.
+
+**İki betik var ve ikisi de asıl motorda koşuyor:** `scripts/olc-webkit.py`
+**sayıyı** verir (JS sonucunu JSON'a çevirip basar), `scripts/goruntu-webkit.py`
+**resmi** (`WebKit2.WebView.get_snapshot` → PNG). Yazı tipinin gerçekten
+yüklendiği, bir çizicinin gerçekten çizdiği, kutu-çizim karakterlerinin
+hücreye oturduğu yalnızca ikincisinde görülür.
+
+```bash
+python3 scripts/goruntu-webkit.py http://localhost:1420/sayfa.html cikti.png 2500 1280 800
+```
 
 **Ölçmeden önce `tabs_context` ile bölmenin görünür olduğunu doğrula**, ya da
 doğrudan `scripts/olc-webkit.py` kullan. Betik `document.timeline.currentTime`

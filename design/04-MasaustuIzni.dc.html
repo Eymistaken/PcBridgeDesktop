@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e8e6e1;font-family:"Public Sans",system-ui,sans-serif}
+a{color:#1a1a1a}a:hover{color:#5a5a5a}
+.sc{padding:34px 40px 30px;border-bottom:1px solid rgba(0,0,0,.09)}
+.sc-h{display:flex;align-items:baseline;gap:11px;margin:0 0 16px}
+.sc-n{font:500 10px ui-monospace,Menlo,monospace;letter-spacing:.16em;padding:3px 7px;background:#1a1a1a;color:#fff}
+.sc-t{font:600 13px/1.2 "Public Sans",system-ui,sans-serif;color:#1a1a1a}
+.sc-d{font:400 11.5px/1.2 "Public Sans",system-ui,sans-serif;color:rgba(0,0,0,.5)}
+.sc-row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+</style></helmet>
+<div data-screen-label="04 Desktop permission" style="width:1280px;height:860px;display:flex;background:#101112;color:#e9e9ea;font-family:'Public Sans',sans-serif;font-size:14px;overflow:hidden">
+
+  <div style="width:252px;flex:none;display:flex;flex-direction:column;background:#0b0c0d;padding:26px 0">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;letter-spacing:-.01em">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122">
+      <span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span>
+      <span style="font-size:12.5px;color:#8f9296">Terminals</span>
+    </div>
+    <div style="flex-grow:1;min-height:0;display:flex;flex-direction:column;padding:22px 26px 0;gap:18px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 250)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Desktop Bot</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">7</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 150)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Code Assistant</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">12</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 30)"></span><span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Report Bot</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">ASK</span></div>
+    </div>
+    <div style="margin:0 26px;padding:14px 0;border-top:1px solid #1f2122;display:flex;align-items:center;gap:10px">
+      <span style="width:9px;height:9px;flex:none;background:#e9e9ea"></span>
+      <span style="font-family:'Source Serif 4',serif;font-size:15.5px;font-weight:600;flex-grow:1">System</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">Ctrl 0</span>
+    </div>
+  </div>
+
+  <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid #1f2122">
+    <div style="flex:none;display:flex;align-items:baseline;gap:14px;padding:26px 44px 18px;border-bottom:1px solid #1f2122">
+      <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600">System</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296;flex-grow:1">33 tools · 2 agents · pcbridge 0.4.2</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c4c6c8">RELOAD</span>
+    </div>
+
+    <div style="flex-grow:1;min-height:0;overflow:hidden;display:flex">
+      <div style="width:196px;flex:none;display:flex;flex-direction:column;gap:14px;padding:30px 0 0 44px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296">SECTIONS</span>
+        <span style="font-size:13.5px;color:#c4c6c8">Connection</span>
+        <span style="font-size:13.5px;color:#c4c6c8">Model server</span>
+        <span style="font-size:13.5px;color:#c4c6c8">Agents</span>
+        <span style="font-size:13.5px;font-weight:600;align-self:flex-start;border-bottom:1px solid #e9e9ea;padding-bottom:2px">Desktop permission</span>
+        <span style="font-size:13.5px;color:#c4c6c8">Appearance</span>
+        <span style="font-size:13.5px;color:#c4c6c8">Shortcuts</span>
+      </div>
+
+      <div style="flex-grow:1;min-width:0;padding:30px 44px 0 40px;border-left:1px solid #1f2122;display:flex;flex-direction:column;gap:30px;overflow:hidden">
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:5px">CONTROL</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;align-items:flex-start;gap:20px">
+              <div style="flex-grow:1;min-width:0">
+                <div style="font-family:'Source Serif 4',serif;font-size:20px;font-weight:600">Desktop control is open</div>
+                <p style="margin:8px 0 0;max-width:480px;font-size:13.5px;line-height:1.7;color:#9b9ea2">The bot can move the pointer, type and see the screen. While closed, every desktop tool — <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">screen_capture</span> included — refuses.</p>
+              </div>
+              <span style="flex:none;display:flex;align-items:center;gap:10px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8f9296">OPEN</span>
+                <span style="width:44px;height:22px;flex:none;background:#e9e9ea;position:relative"><i style="position:absolute;top:3px;left:25px;width:16px;height:16px;background:#101112"></i></span>
+              </span>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:26px;padding:16px 0;border-top:1px solid #1f2122;border-bottom:1px solid #1f2122">
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">IDLE LEASE</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;letter-spacing:-.02em;color:#d3a056;line-height:1">1:24</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">HARD CEILING</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;letter-spacing:-.02em;line-height:1">48:07</span>
+              </div>
+              <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;color:#9b9ea2">Every desktop action pushes the lease back to 90 s. Otherwise it decays and locks itself.</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">reason: “Channel search in Chrome”</span>
+              </div>
+              <span style="flex:none;padding:7px 16px;background:#1f2122;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#c4c6c8">LOCK NOW</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:20px">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8f9296">WINDOW</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8f9296">15 MIN</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#e9e9ea;border-bottom:1px solid #e9e9ea;padding-bottom:2px">60 MIN</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8f9296">2 H</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8f9296">4 H</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">SCREEN</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:9px">
+            <div style="height:104px;background:#08090a;border-radius:4px;display:flex;align-items:center;justify-content:center;background-image:repeating-linear-gradient(135deg,#0e0f10 0 6px,#08090a 6px 12px)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#96989c">last screen_capture · 2 monitors · 3840×1080 · 17:52:14</span>
+            </div>
+            <span style="font-size:12.5px;color:#9b9ea2">Nothing is written to disk; only the preview of the last call is held in memory.</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">AUDIT LOG</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column">
+            <div style="display:grid;grid-template-columns:78px 132px 1fr;gap:0 16px;font-family:'IBM Plex Mono',monospace;font-size:11.5px">
+              <span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#8f9296">17:52:14</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;font-weight:500">screen_capture</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#9b9ea2">monitor 2 · scale 0</span>
+              <span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#8f9296">17:52:19</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;font-weight:500">mouse</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#9b9ea2">click (2028, 102) · monitor 2 (HDMI-1)</span>
+              <span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#8f9296">17:52:21</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;font-weight:500">keyboard</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#9b9ea2">type · chars: 23</span>
+              <span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#8f9296">17:52:26</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;font-weight:500;color:#e2726b">keyboard</span><span style="padding:9px 0;border-bottom:1px solid #1f2122;color:#9b9ea2">key delete — refused, focus was on the desktop</span>
+            </div>
+            <span style="margin-top:10px;font-size:12.5px;color:#9b9ea2">Typed text is not recorded, only the character count — which is why the log can be shown as it is.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

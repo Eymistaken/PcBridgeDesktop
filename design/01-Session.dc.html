@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e8e6e1;font-family:"Public Sans",system-ui,sans-serif}
+a{color:#1a1a1a}a:hover{color:#5a5a5a}
+.sc{padding:34px 40px 30px;border-bottom:1px solid rgba(0,0,0,.09)}
+.sc-h{display:flex;align-items:baseline;gap:11px;margin:0 0 16px}
+.sc-n{font:500 10px ui-monospace,Menlo,monospace;letter-spacing:.16em;padding:3px 7px;background:#1a1a1a;color:#fff}
+.sc-t{font:600 13px/1.2 "Public Sans",system-ui,sans-serif;color:#1a1a1a}
+.sc-d{font:400 11.5px/1.2 "Public Sans",system-ui,sans-serif;color:rgba(0,0,0,.5)}
+.sc-row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+</style></helmet>
+<div data-screen-label="01 Session home" style="width:1280px;height:860px;display:flex;background:#101112;color:#e9e9ea;font-family:'Public Sans',sans-serif;font-size:14px;overflow:hidden">
+
+  <div style="width:252px;flex:none;display:flex;flex-direction:column;background:#0b0c0d;padding:26px 0">
+    <div style="padding:0 26px 24px"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;letter-spacing:-.01em">pcbridge</div></div>
+    <div style="padding:0 26px 14px;display:flex;gap:18px;border-bottom:1px solid #1f2122">
+      <span style="font-size:12.5px;font-weight:600;padding-bottom:2px;border-bottom:2px solid #e9e9ea">Bots</span>
+      <span style="font-size:12.5px;color:#8f9296">Terminals</span>
+    </div>
+    <div style="flex-grow:1;min-height:0;display:flex;flex-direction:column;padding:22px 26px 0;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 250)"></span>
+          <span style="font-family:'Source Serif 4',serif;font-size:15.5px;font-weight:600;flex-grow:1">Desktop Bot</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">7</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;padding-left:19px">
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056;width:26px;flex:none">RUN</span><span style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Channel search in Chrome</span></div>
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:12.5px;color:#8f9296;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Collect desktop files</span></div>
+          <div style="display:flex;align-items:baseline;gap:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:12.5px;color:#8f9296;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Screen resolution check</span></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#8f9296;padding-left:35px">+4 MORE</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 150)"></span>
+        <span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Code Assistant</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">12</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;flex:none;background:oklch(0.62 0.14 30)"></span>
+        <span style="font-family:'Source Serif 4',serif;font-size:15.5px;color:#c4c6c8;flex-grow:1">Report Bot</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d3a056">ASK</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding-top:2px">
+        <span style="width:9px;height:9px;flex:none;box-shadow:inset 0 0 0 1px #3a3d3f"></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#8f9296">NEW BOT</span>
+      </div>
+    </div>
+    <div style="padding:18px 26px 0;border-top:1px solid #1f2122;display:flex;flex-direction:column;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8f9296">
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:9999px;background:#75b683"></span><span>127.0.0.1:8765</span></div>
+      <span style="padding-left:14px">33 tools · desktop locked</span>
+    </div>
+  </div>
+
+  <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid #1f2122">
+    <div style="flex:none;display:flex;align-items:baseline;gap:14px;padding:26px 44px 18px;border-bottom:1px solid #1f2122">
+      <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600">Desktop Bot</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296;flex-grow:1">ornith-1.5-35b-a3b · 11 tools · ~/Desktop/app</span>
+      <span style="font-size:12.5px;color:#c4c6c8">Edit</span>
+      <span style="font-size:12.5px;color:#c4c6c8">History</span>
+    </div>
+    <div style="flex-grow:1;min-height:0;overflow:hidden;padding:0 44px;display:flex;flex-direction:column;justify-content:center">
+      <div style="width:100%;max-width:800px;margin-inline:auto;display:flex;flex-direction:column;gap:34px">
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:12px">SESSION 08</span>
+          <div style="flex-grow:1;min-width:0">
+            <h1 style="margin:0;font-family:'Source Serif 4',serif;font-size:36px;font-weight:600;letter-spacing:-.015em;line-height:1.2">A session is one job's worth of memory.</h1>
+            <p style="margin:12px 0 0;max-width:520px;font-size:14px;line-height:1.75;color:#9b9ea2">Context, summary checkpoint and token budget are kept per session. Nothing carries over unless you carry it.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:6px">PROMPT</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+            <div style="padding-bottom:16px;border-bottom:1px solid #2a2d2f;font-size:16px;color:#8f9296">Message Desktop Bot…</div>
+            <div style="display:flex;align-items:center;gap:16px">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c4c6c8;padding-bottom:2px;border-bottom:1px solid #3a3d3f">ASK FIRST</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">ATTACH</span>
+              <span style="flex-grow:1"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">8,192 · 0%</span>
+              <span style="padding:7px 18px;background:#1f2122;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#b6b9bc">SEND ⏎</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">RUNNING</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:baseline;gap:12px">
+              <span style="font-family:'Source Serif 4',serif;font-size:16px;font-weight:600;flex-grow:1">Channel search in Chrome</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#d3a056">18 turns · 04:12</span>
+            </div>
+            <div style="padding:14px 16px;background:#08090a;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;color:#c8cacc">
+              <div style="color:#8f9296">$ ui_dump --window chrome</div>
+              <div>video page opened · reading latest title</div>
+              <div style="color:#d3a056">→ screenshot pending</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:28px">
+          <span style="width:104px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#8f9296;padding-top:4px">EARLIER</span>
+          <div style="flex-grow:1;min-width:0;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid #1f2122"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:13.5px;flex-grow:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Collect desktop files</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">6 turns · 2h</span></div>
+            <div style="display:flex;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid #1f2122"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8f9296;width:26px;flex:none">OK</span><span style="font-size:13.5px;flex-grow:1;color:#c4c6c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Screen resolution check</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">3 turns · yesterday</span></div>
+            <div style="display:flex;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid #1f2122"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e2726b;width:26px;flex:none">ERR</span><span style="font-size:13.5px;flex-grow:1;color:#c4c6c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Vesktop window attempt</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8f9296">9 turns · yesterday</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

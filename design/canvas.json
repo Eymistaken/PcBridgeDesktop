@@ -1,27 +1,94 @@
 {
   "artboards": [
-    { "file": "Main.dc.html",      "x": 0,    "y": 0,    "w": 1440, "h": 900 },
-    { "file": "Light.dc.html",     "x": 1560, "y": 0,    "w": 1440, "h": 900 },
-    { "file": "Terminals.dc.html", "x": 3120, "y": 0,    "w": 1440, "h": 900 },
-    { "file": "Tokens.dc.html",    "x": 0,    "y": 1100, "w": 1180, "h": 940 },
-    { "file": "BotForge.dc.html",  "x": 1300, "y": 1100, "w": 880,  "h": 770 }
+    {
+      "file": "01-Session.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 860,
+      "title": "01 Session home"
+    },
+    {
+      "file": "02-Dokum.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 1280,
+      "h": 860,
+      "title": "02 Session transcript"
+    },
+    {
+      "file": "03-Terminal.dc.html",
+      "x": 2880,
+      "y": 0,
+      "w": 1280,
+      "h": 860,
+      "title": "03 Terminal grid"
+    },
+    {
+      "file": "04-MasaustuIzni.dc.html",
+      "x": 0,
+      "y": 980,
+      "w": 1280,
+      "h": 860,
+      "title": "04 System · desktop permission"
+    },
+    {
+      "file": "05-Baglanti.dc.html",
+      "x": 1440,
+      "y": 980,
+      "w": 1280,
+      "h": 860,
+      "title": "05 System · connection &amp; agents"
+    },
+    {
+      "file": "06-BotForge.dc.html",
+      "x": 2880,
+      "y": 980,
+      "w": 1280,
+      "h": 860,
+      "title": "06 Bot editor · tools &amp; permission"
+    },
+    {
+      "file": "07-KenarDurumlari.dc.html",
+      "x": 0,
+      "y": 1960,
+      "w": 1120,
+      "h": 600,
+      "title": "07 Sidebar states"
+    },
+    {
+      "file": "08-IlkAcilis.dc.html",
+      "x": 1440,
+      "y": 1960,
+      "w": 1280,
+      "h": 640,
+      "title": "08 First launch"
+    }
   ],
   "annotations": [
     {
-      "id": "yon-2",
-      "x": 0, "y": -250, "w": 640,
-      "text": "AJAN KİPİ — koyu birincil, aydınlık varyant yanında\n\nGrok Bot referansına göre yeniden: iki panel, baloncuklu sohbet, nötr gri kabuk.\n\nSistem aksan rengi KALDIRILDI. Renk yalnızca bot avatarlarından ve iş durumundan geliyor. Köşeler üç değere indi: 10 / 20 / tam."
+      "id": "kanun",
+      "x": 0,
+      "y": -260,
+      "w": 640,
+      "text": "LEDGER — kodun sözleşmesi.\n\nKaynak: Claude Design projesi 8794d0d1-189f-4c8b-ad90-732dcac791f6, dosya \"Pcbridge Redesign.dc.html\". Bu dizindeki dosyalar onun ekran ekran ayrılmış hâli.\n\nTek ilke: kutu yok, cetvel var. Ayırıcı bir yüzey kademesi değil 1px'lik bir çizgi; her bölüm solda mono, büyük harf bir etiket oluğuyla başlıyor. Kabuk renksiz — renk yalnızca kimlikten (bot çipi) ve durumdan geliyor."
     },
     {
-      "id": "kuyu-2",
-      "x": 3120, "y": -250, "w": 640,
-      "text": "TERMİNAL KİPİ — aynı kabuk, kenar çubuğu oturum listesi\n\nOturum kutucukları daire değil köşeli: bakışta bot olmadığı anlaşılsın.\n\nHer bölme gerçek bir tmux oturumu. Çıktılar kaynaktan doğrulandı — PASS satırları ve istem gerçek biçimleri."
+      "id": "aydinlik",
+      "x": 1440,
+      "y": -260,
+      "w": 640,
+      "text": "AYDINLIK TEMA BURADA YOK — sekiz ekran da koyu.\n\nUygulamadaki aydınlık palet TÜRETİLDİ: koyu rampanın kontrast yapısı aynalandı (15.57 / 11.10 / 7.07 / 6.05), zemin ailesi nötr-sıcak. Sayılar CLAUDE.md'deki kontrast tablosunda.\n\nKuyu (terminal, ham çıktı, izin kutusu) aydınlıkta da KOYU kalıyor ve içindeki hiçbir renk tema tokenından gelmiyor."
     },
     {
-      "id": "sozlesme-2",
-      "x": 1300, "y": 1950, "w": 880,
-      "text": "Soldaki künye kodun sözleşmesi. Yasak listesi ilk turdaki geri bildirimden büyüdü: sistem aksanı, renkli birincil düğme ve karışık köşe yarıçapı artık açıkça yasak.\n\nBot formunda birincil eylem beyaz dolgu — renksiz. Bağırmıyor ama en yüksek kontrasta sahip, yani yine de birincil."
+      "id": "sapma",
+      "x": 2880,
+      "y": -260,
+      "w": 640,
+      "text": "KODUN TUVALDEN BİLİNÇLİ SAPMALARI\n\n· Terminalin İÇİ tasarım dışı: arayüz IBM Plex Mono'ya geçti, terminal Geist Mono'da kaldı (kullanıcının kararı).\n· \"RTT 6 ms\" ve \"pcbridge 0.4.2\" çizilmiyor — uygulamada o veri yok.\n· Masaüstü panelinde \"LOCK NOW\" yok; anahtar zaten kilitliyor.\n· Kenar çubuğunda satır eylemleri var (düzenle · sil · katla).\n\nAyrıntı: CLAUDE.md → Tasarım kanunu → \"Tuvalden bilinçli sapmalar\"."
     }
   ],
-  "launch": { "view": "canvas" }
+  "launch": {
+    "view": "canvas"
+  }
 }
