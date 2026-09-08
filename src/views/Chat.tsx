@@ -10,7 +10,7 @@ import { useAkisMaskesi } from "../lib/akis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
-import { IconCheck, IconCross, IconExport, IconStop } from "../ui/Icon";
+import { IconStop } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
@@ -242,12 +242,8 @@ export default function Chat({
     <>
       <div className="main__head">
         <Avatar tone={bot.avatar} name={bot.name} size={11} />
-        <span
-          style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}
-        >
-          {bot.name}
-        </span>
-        <span className="mono muted" style={{ fontSize: 12 }}>
+        <span className="main__head__ad">{bot.name}</span>
+        <span className="main__head__kunye">
           {[
             bot.model,
             // Yerel botta effort yok; onun yerinde kaç araç gördüğü duruyor.
@@ -260,26 +256,22 @@ export default function Chat({
             .filter(Boolean)
             .join(" · ")}
         </span>
-        <div style={{ flexGrow: 1 }} />
         <button
           type="button"
-          className="ib"
+          className="btn-quiet"
           title={t("chat.export")}
-          aria-label={t("chat.export")}
           disabled={turns.length === 0}
           onClick={onExport}
         >
-          <IconExport />
+          {t("chat.exportShort")}
         </button>
       </div>
 
       <div className="chat" ref={kaydiran}>
         {turns.length === 0 && !running && (
           <div className="chat__bos">
-            <span style={{ fontSize: 14, fontWeight: 500 }}>
-              {t("chat.empty")}
-            </span>
-            <span className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+            <span className="h">{t("chat.empty")}</span>
+            <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)", maxWidth: 420 }}>
               {t("chat.emptyHint")}
             </span>
           </div>
@@ -312,24 +304,13 @@ export default function Chat({
         {kosumVar && kosum && (
           <div className="jobstrip" data-cikis={kosumCikiyor || undefined}>
             <div className="jobstrip__box">
-              <span
-                className="dot dot--pulse"
-                style={{ background: "var(--run)" }}
-              />
-              <span
-                style={{
-                  fontSize: 13.5,
-                  fontWeight: 500,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {kosum.label}
+              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--run)", flex: "none" }}>
+                {t("side.stRun")}
               </span>
+              <span className="jobstrip__ad">{kosum.label}</span>
               <span
-                className="mono muted"
-                style={{ fontSize: 12, flex: "none" }}
+                className="mono"
+                style={{ fontSize: 10.5, flex: "none", color: "var(--well-muted)" }}
               >
                 {kosum.jobId}
               </span>
@@ -352,13 +333,10 @@ export default function Chat({
         {ozetVar && (
           <div className="jobstrip" data-cikis={ozetCikiyor || undefined}>
             <div className="jobstrip__box">
-              <span
-                className="dot dot--pulse"
-                style={{ background: "var(--run)" }}
-              />
-              <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-                {t("ctx.compacting")}
+              <span className="mono nabiz" style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--run)", flex: "none" }}>
+                {t("side.stRun")}
               </span>
+              <span className="jobstrip__ad">{t("ctx.compacting")}</span>
             </div>
           </div>
         )}
@@ -457,6 +435,35 @@ function durduruldu(turn: Turn): boolean {
 }
 
 /**
+ * Bir döküm kıtası: solda rol/bölüm etiketi, sağda içerik.
+ *
+ * Tasarımın imzası bu ızgara. Baloncuk yok — rol zeminden değil oluktaki
+ * etiketten okunuyor, o yüzden kullanıcının ve botun metni aynı sütunda
+ * hizalı duruyor ve okuma satırı bir yerden ötekine zıplamıyor.
+ */
+function Kita({
+  et,
+  ton,
+  yeni,
+  children,
+}: {
+  et: string;
+  /** Etiketin rengi durumdan geliyorsa — `SORUYOR` bekliyor demektir. */
+  ton?: string;
+  yeni?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="oluk" data-yeni={yeni || undefined}>
+      <span className="oluk__et" style={ton ? { color: ton } : undefined}>
+        {et}
+      </span>
+      <div className="oluk__ic">{children}</div>
+    </div>
+  );
+}
+
+/**
  * ⚠️ **`memo`** — `Markdown`'la aynı gerekçe. Akıştaki her parça `turns`
  * dizisini yeniliyor ama **yalnızca bir turun** nesnesi değişiyor; ötekiler
  * kimliklerini koruyor. Memo olmadan hepsi yeniden çiziliyordu.
@@ -480,22 +487,20 @@ function TurnViewIc({
   const y = yeni || undefined;
   return (
     <>
-      {turn.meta.startedAt && (
-        <span className="ts" data-yeni={y}>
-          {saat(turn.meta.startedAt)}
-        </span>
-      )}
-
       {turn.prompt && (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div
-            className="bub"
-            data-yeni={y}
-            style={{ background: "var(--surface-2)", whiteSpace: "pre-wrap" }}
-          >
-            {turn.prompt}
-          </div>
-        </div>
+        // Saat kendi satırında değil, rolün yanında: tasarım "YOU · 17:51"
+        // diyor. Eskiden ortalanmış ayrı bir `.ts` satırıydı ve her tur
+        // arasına boş bir bant koyuyordu.
+        <Kita
+          et={
+            turn.meta.startedAt
+              ? `${t("chat.gYou")} · ${saat(turn.meta.startedAt)}`
+              : t("chat.gYou")
+          }
+          yeni={yeni}
+        >
+          <div className="kita kita--sen">{turn.prompt}</div>
+        </Kita>
       )}
 
       {blocks.map((b, i) => (
@@ -509,21 +514,19 @@ function TurnViewIc({
       ))}
 
       {kesildi ? (
-        <span className="ts" data-yeni={y}>
-          {t("chat.stopped")}
-        </span>
+        <Kita et={t("chat.gError")} yeni={yeni}>
+          <span className="ts" data-yeni={y}>
+            {t("chat.stopped")}
+          </span>
+        </Kita>
       ) : (
         bitis &&
         !bitis.ok && (
-          <div style={{ display: "flex" }}>
-            <div
-              className="bub"
-              data-yeni={y}
-              style={{ background: "var(--surface)", color: "var(--fail)" }}
-            >
+          <Kita et={t("chat.gError")} ton="var(--fail)" yeni={yeni}>
+            <div className="kita kita--hata">
               {bitis.error ?? t("chat.failed")}
             </div>
-          </div>
+          </Kita>
         )
       )}
     </>
@@ -535,8 +538,8 @@ function TurnViewIc({
  * tablo kurmaya çalışıyor ve ham `**` ekranda duruyordu.
  *
  * Akış sürerken metnin ucu maskeyle soluk kalıyor — `useAkisMaskesi`.
- * Sarmalayıcı `<div>` **balonun içinde**: maske `.bub`'a konsaydı zemini de
- * maskelerdi ve baloncukta saydam bir çentik açılırdı.
+ * ⚠️ Sarmalayıcı `<div>` kıtanın **içinde**, kıtanın kendisi değil: maske
+ * dış öğeye konsaydı oluk etiketini de maskelerdi.
  */
 function MetinBloku({
   text,
@@ -550,17 +553,13 @@ function MetinBloku({
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (
-    <div style={{ display: "flex" }}>
-      <div
-        className="bub"
-        data-yeni={yeni || undefined}
-        style={{ background: "var(--surface)" }}
-      >
+    <Kita et={t("chat.gReply")} yeni={yeni}>
+      <div className="kita">
         <div ref={kap} className={live ? "akis--canli" : undefined}>
           <Markdown text={text} />
         </div>
       </div>
-    </div>
+    </Kita>
   );
 }
 
@@ -573,7 +572,6 @@ function BlockView({
   live: boolean;
   yeni: boolean;
 }) {
-  const y = yeni || undefined;
   if (block.t === "text") {
     return <MetinBloku text={block.text} live={live} yeni={yeni} />;
   }
@@ -584,11 +582,9 @@ function BlockView({
 
   if (block.t === "raw") {
     return (
-      <div style={{ display: "flex" }}>
-        <pre className="bub mono well" data-yeni={y}>
-          {block.text}
-        </pre>
-      </div>
+      <Kita et={t("chat.gRaw")} yeni={yeni}>
+        <pre className="mono well">{block.text}</pre>
+      </Kita>
     );
   }
 
@@ -598,19 +594,8 @@ function BlockView({
     // İki durum da metin değil **kod** taşır ve `err.*` sözlüğünden çözülür.
     const basarisiz = block.text.startsWith("#");
     return (
-      <div style={{ display: "flex" }}>
-        <div
-          className="bub muted"
-          data-yeni={y}
-          style={{
-            background: "var(--surface)",
-            whiteSpace: "pre-wrap",
-            fontSize: 13,
-            borderLeft: "2px solid var(--line)",
-            borderTopLeftRadius: 6,
-            borderBottomLeftRadius: 6,
-          }}
-        >
+      <Kita et={t("chat.gSummary")} yeni={yeni}>
+        <div className="kita kita--ozet">
           {block.dropped > 0 && (
             <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
               {t("chat.summarized", { n: block.dropped })}
@@ -623,39 +608,43 @@ function BlockView({
             </div>
           )}
         </div>
-      </div>
+      </Kita>
     );
   }
 
-  // Döküm baloncuğu — referansın imza hamlesi.
+  // Araç satırları — cetvelli bir tablo: ad · ayrıntı · durum.
   return (
-    <div style={{ display: "flex" }}>
-      <div className="bub bub--dokum" data-yeni={y}>
+    <Kita et={t("chat.gTools")} yeni={yeni}>
+      <div className="dokum">
         {block.rows.map((r, i) => (
           <div key={r.id + i} className="dokum__row">
-            {r.state === "ok" && <IconCheck />}
-            {r.state === "fail" && <IconCross />}
-            {r.state === "run" && (
-              <span
-                className="dot dot--pulse"
-                style={{ background: "var(--run)", margin: "0 3.5px" }}
-              />
-            )}
-            <span
-              style={{
-                fontWeight: 600,
-                width: 78,
-                flex: "none",
-                color: r.state === "run" ? "var(--run)" : undefined,
-              }}
-            >
-              {r.state === "run" ? t("chat.runningVerb") : toolVerb(r.tool)}
+            {/* Görünen ad **ham araç kimliği**: tasarım öyle gösteriyor ve
+             * denetim kaydıyla (`screen_capture`, `mouse`) aynı ad olması
+             * gerekiyor — kullanıcı ikisini yan yana okuyor. Çevrilmiş fiil
+             * ipucunda duruyor, yani `tool.*` sözlüğü ölü kalmıyor. */}
+            <span className="dokum__ad" title={toolVerb(r.tool)}>
+              {r.tool}
             </span>
-            <span className="mono muted dokum__detail">{r.detail}</span>
+            <span className="dokum__detail">{r.detail}</span>
+            <span
+              className={
+                r.state === "run"
+                  ? "dokum__st dokum__st--run nabiz"
+                  : r.state === "fail"
+                    ? "dokum__st dokum__st--fail"
+                    : "dokum__st"
+              }
+            >
+              {r.state === "run"
+                ? t("side.stRun")
+                : r.state === "fail"
+                  ? t("chat.stErr")
+                  : t("chat.stOk")}
+            </span>
           </div>
         ))}
       </div>
-    </div>
+    </Kita>
   );
 }
 

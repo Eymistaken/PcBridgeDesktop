@@ -105,8 +105,12 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
   if (!metin) return null;
 
   return (
-    <div style={{ display: "flex" }}>
-      <div className="dusunce" data-yeni={yeni || undefined}>
+    // Kıta ızgarası: etiket solda, kutu sağda. Sarmalayıcı `.oluk`,
+    // `Chat.tsx::Kita` ile aynı yapı — burada elle kuruluyor çünkü bu
+    // bileşenin kendi `data-yeni` kapısı var.
+    <div className="oluk" data-yeni={yeni || undefined}>
+      <span className="oluk__et">{t("chat.gThought")}</span>
+      <div className="oluk__ic dusunce">
         <button
           type="button"
           className="dusunce__baslik"
@@ -115,13 +119,15 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
             setAcik((a) => !a);
           }}
         >
-          <IconChevron acik={acik} />
           <span>
             {live
               ? t("think.live")
               : ms === undefined
                 ? t("think.plain")
                 : t("think.took", { s: sure(ms) })}
+          </span>
+          <span className="dusunce__ac">
+            · {acik ? t("think.collapse") : t("think.expand")}
           </span>
         </button>
 
@@ -147,27 +153,6 @@ function sure(ms: number): string {
   if (sn < 60) return sn < 10 ? sn.toFixed(1).replace(".", ",") : String(Math.round(sn));
   const dk = Math.floor(sn / 60);
   return `${dk}:${String(Math.round(sn % 60)).padStart(2, "0")}`;
-}
-
-function IconChevron({ acik }: { acik: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-      style={{ transform: acik ? undefined : "rotate(-90deg)" }}
-    >
-      <path
-        d="m6 8 4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 export { SATIR };

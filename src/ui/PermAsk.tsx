@@ -28,16 +28,21 @@ interface Props {
 export default function PermAsk({ istek, botName, onAnswer, cikiyor }: Props) {
   const tur = istek.kind === "tur";
   return (
-    <div className="permask" data-cikis={cikiyor || undefined}>
-      <div className="permask__box">
+    <div className="permask oluk" data-cikis={cikiyor || undefined}>
+      {/* Etiket durum rengiyle: bekleyen bir soru, olağan bir kıta değil. */}
+      <span className="oluk__et" style={{ color: "var(--run)" }}>
+        {t("chat.gAsking")}
+      </span>
+      <div className="permask__box oluk__ic">
         <div className="permask__ust">
-          <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-            {tur
-              ? t("perm.ask.turns.title", { name: botName })
-              : t("perm.ask.title", { name: botName })}
+          {/* Ham araç kimliği — denetim kaydıyla aynı ad. Çevrilmiş fiil
+           * ipucunda: kullanıcı neyi onayladığını hem tam adıyla hem
+           * kendi dilinde görebiliyor. */}
+          <span className="mono permask__arac" title={tur ? undefined : toolVerb(istek.tool)}>
+            {tur ? t("perm.ask.turns.title", { name: botName }) : istek.tool}
           </span>
           {istek.group && (
-            <span className="muted" style={{ fontSize: 11.5 }}>
+            <span className="mono muted" style={{ fontSize: 10.5 }}>
               {t(`perm.ask.group.${istek.group}`)}
             </span>
           )}
@@ -53,25 +58,30 @@ export default function PermAsk({ istek, botName, onAnswer, cikiyor }: Props) {
             </span>
           ) : (
             <>
-              <span className="mono permask__arac">
-                {toolVerb(istek.tool)}
-                {istek.detail && <span className="muted"> · {istek.detail}</span>}
-              </span>
+              {istek.detail && (
+                <span className="mono muted" style={{ fontSize: 11.5 }}>
+                  {istek.detail}
+                </span>
+              )}
               <span className="mono muted permask__args">{istek.args}</span>
             </>
           )}
         </div>
 
         <div className="permask__alt">
-          <span className="muted" style={{ fontSize: 11.5 }}>
+          <button type="button" className="btn-primary" onClick={() => onAnswer(true)}>
+            {tur ? t("perm.ask.turns.allow") : t("perm.ask.allow")}
+          </button>
+          <span className="mono muted" style={{ fontSize: 10.5 }}>
             {t("perm.ask.waiting")}
           </span>
           <div style={{ flexGrow: 1 }} />
-          <button type="button" className="btn-quiet" onClick={() => onAnswer(false)}>
+          <button
+            type="button"
+            className="btn-quiet btn-quiet--fail"
+            onClick={() => onAnswer(false)}
+          >
             {tur ? t("perm.ask.turns.deny") : t("perm.ask.deny")}
-          </button>
-          <button type="button" className="btn-primary" onClick={() => onAnswer(true)}>
-            {tur ? t("perm.ask.turns.allow") : t("perm.ask.allow")}
           </button>
         </div>
       </div>

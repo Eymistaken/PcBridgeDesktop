@@ -14,9 +14,17 @@ import "./src/styles/tokens.css";
 import "./src/styles/app.css";
 
 import Sidebar from "./src/Sidebar";
+import Chat from "./src/views/Chat";
 import ModeSwitch from "./src/ui/ModeSwitch";
+import type { Turn, JobEvent, PendingPermission } from "./src/lib/types";
 import { setActiveLang } from "./src/lib/i18n";
 import type { Bot, BotSummary, ConnSnapshot, DesktopState, SessionSummary } from "./src/lib/types";
+
+// PermMenu/Composer gibi bileşenler IPC'ye uzanıyor; önizlemede taklit yeter.
+(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+  invoke: () => Promise.resolve(null),
+  transformCallback: (f: unknown) => f,
+};
 
 setActiveLang("tr");
 document.documentElement.setAttribute("lang", "tr");
@@ -59,6 +67,34 @@ const snap: ConnSnapshot = {
 const kilitli: DesktopState = { unlocked: false, remaining: 0, hardRemaining: 0, reason: null, grantedAt: null, known: true };
 const acik: DesktopState = { unlocked: true, remaining: 84, hardRemaining: 2887, reason: "Chrome'da kanal araması", grantedAt: 0, known: true };
 
+
+const ev = (e: JobEvent) => e;
+const simdi = Math.floor(Date.now() / 1000) - 252;
+const turlar: Turn[] = [
+  {
+    jobId: "j1",
+    prompt: "Chrome'da sağdaki ekranda kanalı aç ve en yeni videonun başlığını söyle.",
+    events: [
+      ev({ kind: "thinking", text: "Sağdaki ekran HDMI-1 ve ofseti (1920,0), yani global x = 1920 + görüntü x. Önce monitör 2'yi yakalayıp kanal sekmesini bulmalıyım; tıklamadan önce ekranın hangi bölgesinde olduğunu doğrulayacağım.", ms: 4200, delta: false }),
+      ev({ kind: "toolStart", id: "1", tool: "screen_info", detail: "2 monitör · DP-2 (0,0) · HDMI-1 (1920,0)" }),
+      ev({ kind: "toolEnd", id: "1", ok: true }),
+      ev({ kind: "toolStart", id: "2", tool: "screen_capture", detail: "monitör 2 · ölçek 0 · 1920×1080" }),
+      ev({ kind: "toolEnd", id: "2", ok: true }),
+      ev({ kind: "toolStart", id: "3", tool: "window_focus", detail: "chrome — “YouTube — Chromium”" }),
+      ev({ kind: "toolEnd", id: "3", ok: true }),
+      ev({ kind: "toolStart", id: "4", tool: "mouse", detail: "tıklama (2028, 102) · monitör 2 (HDMI-1)" }),
+      ev({ kind: "text", text: "Kanal sayfası açıldı. En yeni video **“Aşama 19 — terminal bölme ağacı”**, 2 gün önce yüklenmiş.\n\nİki not:\n\n- Adres çubuğuna `ctrl+l` ile gittim; tıklama üçüncü denemede kapıya takılıyordu.\n- `ui_dump` Chrome'da boş döndü, ekran görüntüsüne düştüm.", delta: false }),
+    ] as JobEvent[],
+    meta: { jobId: "j1", status: null, exitCode: null, startedAt: simdi, finishedAt: null } as never,
+  },
+];
+
+const izin: PendingPermission = {
+  runId: "r1", botId: "b1", sessionId: "o1", kind: "arac",
+  tool: "keyboard", detail: "type · 23 karakter", group: "desktop",
+  args: '{"action":"type","text":"pcbridge-desktop"}',
+} as never;
+
 const bos = () => {};
 
 function Kolon({ baslik, cocuk }: { baslik: string; cocuk: React.ReactNode }) {
@@ -94,11 +130,22 @@ function Yan(p: Partial<React.ComponentProps<typeof Sidebar>>) {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <div style={{ display: "flex", gap: 26, padding: 26, background: "var(--bg)", minHeight: "100vh", alignItems: "flex-start" }}>
-      <Kolon baslik="olağan · session açık" cocuk={<Yan desktop={acik} />} />
-      <Kolon baslik="izin bekliyor" cocuk={<Yan waiting={["b3"]} selectedId="b3" sessions={[]} />} />
-      <Kolon baslik="bot yok" cocuk={<Yan bots={[]} selectedId={undefined} sessions={[]} />} />
-      <Kolon baslik="bağlantı yok" cocuk={<Yan connError="connection refused · 127.0.0.1:8765" bots={[]} selectedId={undefined} sessions={[]} />} />
+    <div className="shell" style={{ height: "100vh" }}>
+      <div className="side">
+        <div className="side__head"><span className="side__title">pcbridge</span></div>
+        <Yan desktop={acik} />
+      </div>
+      <div className="main">
+        <Chat
+          bot={bots[0]} turns={turlar}
+          running={{ jobId: "j1", startedAt: simdi, label: "Chrome'da kanal araması" }}
+          busy sessionId="o1" sessionCount={7}
+          onSend={bos} onCancel={bos} pending={izin} onAnswer={bos}
+          onPermission={bos} onForce={bos} ctx={null} tps={null}
+          baseUrl="http://127.0.0.1:1234/v1" compacting={false} onCompact={bos}
+          efforts={[]} onEffort={bos} onEditBot={bos} onExport={bos}
+        />
+      </div>
     </div>
   </React.StrictMode>,
 );

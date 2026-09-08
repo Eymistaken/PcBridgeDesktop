@@ -1202,14 +1202,14 @@ input::placeholder {
 }
 
 /* ── sohbet ──────────────────────────────────────────────────────── */
-
-/* Sohbetin ve bestecinin **ortak ölçüsü**.
+/*
+ * Döküm **kıtalardan** oluşuyor: solda rol/bölüm etiketi (oluk), sağda
+ * içerik. Baloncuk yok — ne kullanıcının ne botun. Rol artık zeminden
+ * değil, oluktaki etiketten okunuyor.
  *
- * Besteci pencere kadar geniyordu, baloncuklar 640'ta duruyordu; iki ayrı
- * genişlik aynı sütunda durmuyordu. Artık ikisi de aynı sütuna oturuyor. */
-.main {
-  --olcu: 860px;
-}
+ * ⚠️ Ölçü tek yerde: `--olcu` `.main`'de tanımlı (800px). Burada ikinci kez
+ * tanımlıydı (860px) ve iki değer birbirini eziyordu.
+ */
 
 /*
  * Sohbet **bestecinin altından akıyor.**
@@ -1227,9 +1227,9 @@ input::placeholder {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 8px 32px 0;
-  padding-bottom: calc(var(--besteci-h, 96px) + 14px);
+  gap: 26px;
+  padding: 28px 44px 0;
+  padding-bottom: calc(var(--besteci-h, 96px) + 20px);
   overflow-y: auto;
   min-height: 0;
   /*
@@ -1266,8 +1266,8 @@ input::placeholder {
 .composer__box,
 .composer__foot,
 .ekler,
-.jobstrip__box,
-.permask__box {
+.jobstrip,
+.permask {
   width: 100%;
   max-width: var(--olcu);
   margin-inline: auto;
@@ -1277,41 +1277,97 @@ input::placeholder {
   margin: auto 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  align-items: center;
-  text-align: center;
-  padding: 0 40px;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 0;
 }
 
-.bub {
-  border-radius: var(--r-lg);
-  padding: 11px 16px;
-  font-size: 14px;
-  line-height: 1.5;
-  max-width: 640px;
+/*
+ * Kıtanın gövdesi. Okuma satırı 620px'te duruyor — oluğun sağındaki alan
+ * daha geniş ama metin orada kalıyor; tasarım öyle gösteriyor ve uzun satır
+ * zaten okunmuyor.
+ */
+.kita {
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 620px;
   overflow-wrap: anywhere;
 }
 
-.bub--dokum {
-  background: var(--surface);
+/* Kullanıcının kendi cümlesi — satır sonları korunuyor. */
+.kita--sen {
+  white-space: pre-wrap;
+}
+
+/* Başarısız koşumun sebebi. Renk durumdan geliyor. */
+.kita--hata {
+  color: var(--fail);
+  font-size: 14px;
+}
+
+/* Bağlam özeti. Sessizce olmaz: özetleme fazladan bir model koşumu ve
+ * geçmişin bir kısmının atılması demek — ikisi de görünür olmalı. */
+.kita--ozet {
+  font-size: 13px;
+  color: var(--text-3);
+  white-space: pre-wrap;
+  padding-left: 14px;
+  border-left: 1px solid var(--line-2);
+}
+
+/* ── araç satırları ──────────────────────────────────────────────── */
+/*
+ * `TOOLS` kıtası. Baloncuk değil, cetvelli bir tablo: ad · ayrıntı · durum.
+ * Ad sütunu sabit genişlikte, ayrıntı kırpılıyor, durum sağa yaslı.
+ */
+.dokum {
   display: flex;
   flex-direction: column;
-  gap: 9px;
 }
 
 .dokum__row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.dokum__ad {
+  width: 132px;
+  flex: none;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dokum__detail {
-  font-size: 12.5px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  flex-grow: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Durum — üç harf ve varsa süre. Renk yalnızca durumdan. */
+.dokum__st {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ok);
+}
+
+.dokum__st--run {
+  color: var(--run);
+}
+
+.dokum__st--fail {
+  color: var(--fail);
 }
 
 /* ham çıktı — `plain` koşumları ve tanınmayan satırlar.
@@ -1319,35 +1375,52 @@ input::placeholder {
  * özgü olan var. İki yerde tanımlanan bir yüzey er geç ayrışır. */
 pre.well {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.55;
+  padding: 14px 16px;
+  font-size: 11.5px;
+  line-height: 1.7;
   white-space: pre-wrap;
   max-height: 340px;
   overflow: auto;
 }
 
+/* "durduruldu" gibi tek satırlık notlar — oluğun sağında, sessiz. */
 .ts {
-  align-self: center;
-  font-size: 11.5px;
+  font-family: var(--mono);
+  font-size: 11px;
   color: var(--text-muted);
-  padding: 2px 0;
 }
 
 /* ── çalışan iş şeridi ───────────────────────────────────────────── */
 
+/*
+ * Süren iş — bestecinin üstünde yüzen tek satır. Tasarımda böyle bir şerit
+ * yok (orada koşum `RUNNING` kıtasında), ama burada kaydırılan sohbetin
+ * üstünde durması gerekiyor: kullanıcı geçmişe bakarken de işin sürdüğünü
+ * görmeli. Kuyu yüzeyini kullanıyor — `.permask` ile aynı, çünkü ikisi de
+ * aynı yerde yüzüyor ve iki farklı kutu iki farklı şey söylerdi.
+ */
 .jobstrip {
   flex: none;
-  padding: 12px 32px 0;
+  padding: 12px 0 0;
 }
 
 .jobstrip__box {
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 6px 18px -8px rgb(0 0 0 / 0.18);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 14px 11px 16px;
-  border-radius: var(--r-lg);
-  background: var(--field);
+  padding: 11px 16px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  color: var(--well-text);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  min-width: 0;
+}
+
+.jobstrip__ad {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 
@@ -1555,7 +1628,9 @@ pre.well {
   margin-top: 9px;
 }
 
+/* Modelin başlıkları da serif: kabuğun başlıklarıyla aynı ses. */
 .md__baslik {
+  font-family: var(--serif);
   font-weight: 600;
   letter-spacing: -0.01em;
   margin-top: 4px;
@@ -1569,19 +1644,21 @@ pre.well {
   font-weight: 600;
 }
 
-/* Kod yüzeyi baloncuğun bir kademe üstünde; kuyu (`--well`) burada fazla
- * sert dururdu — baloncuk zaten bir yüzey. */
+/* Satır içi kod — baloncuk kalktığı için artık düz zeminin üstünde.
+ * `--field` yeterli kontrastı veriyor ve kuyu (`--well`) bir cümlenin
+ * ortasında fazla sert dururdu. */
 .md__satirKod {
   padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--surface-2);
-  font-size: 0.9em;
+  border-radius: 3px;
+  background: var(--field);
+  font-family: var(--mono);
+  font-size: 0.88em;
 }
 
 .md__kod {
   position: relative;
   margin: 9px 0 0;
-  padding: 11px 13px;
+  padding: 14px 16px;
   border-radius: var(--r-sm);
   background: var(--well);
   color: var(--well-text);
@@ -1685,14 +1762,16 @@ pre.well {
  * Kapalıyken son üç satır sabit yükseklikte bir pencereden akıyor: tamamen
  * gizlemek "bir şey oluyor mu" sorusunu doğuruyordu. Yükseklik sabit olduğu
  * için akış sırasında sohbet düzeni oynamıyor.
+ *
+ * Ledger'da kutunun zemini yok; düşünce **soldan bir çizgiyle** ayrılıyor
+ * ve metni bir kademe soluk (`--text-3`). Alıntı gibi okunuyor, ki zaten o.
  */
 .dusunce {
-  width: 74%;
-  max-width: 74%;
+  max-width: 620px;
   min-width: 0;
-  padding-bottom: 11px;
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -1704,30 +1783,38 @@ pre.well {
 
 .dusunce__baslik {
   display: flex;
-  align-items: center;
-  gap: 7px;
+  align-items: baseline;
+  gap: 10px;
   width: 100%;
-  padding: 9px 16px 5px;
-  font-size: 11.5px;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 11px;
   color: var(--text-muted);
   text-align: left;
   transition: color var(--dur-fast) var(--ease-out);
 }
 
 .dusunce__baslik:hover {
-  color: var(--text);
+  color: var(--text-2);
 }
 
-.dusunce__baslik svg {
-  flex: none;
-  transition: transform var(--dur-fast) var(--ease-out);
+/* "kapat" / "aç" — ok yerine kelime. Ledger'da yön ikonu yok; başlığın
+ * kendisi zaten bir düğme ve ne yapacağını yazıyor. */
+.dusunce__ac {
+  color: var(--text-3);
 }
 
-/* Height is measured by Thinking: content height capped at 60px when
- * collapsed, 40vh when expanded. CSS must not clamp the intermediate frames
- * of a closing transition. Padding stays horizontal for tail positioning. */
+.dusunce__baslik:hover .dusunce__ac {
+  color: var(--text-2);
+}
+
+/* Yükseklik `Thinking` tarafından ölçülüyor: kapalıyken içerik 60px'e,
+ * açıkken 40vh'ye kırpılıyor. CSS kapanış geçişinin ara karelerini
+ * sıkıştırmamalı. Sol çizgi ve dolgu kuyunun kendisinde: kapanırken
+ * çizginin de kısalması gerekiyor. */
 .dusunce__kuyu {
-  padding: 0 16px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line-2);
   overflow: hidden;
 }
 
@@ -1742,6 +1829,13 @@ pre.well {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
 }
 
+/* Açık düşünce kendi ölçülen penceresi içinde kayıyor. */
+.dusunce__kuyu--acik {
+  overflow-y: auto;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
 /* Expanded thoughts scroll inside their measured viewport. */
 .dusunce__kuyu--acik {
   overflow-y: auto;
@@ -1750,9 +1844,10 @@ pre.well {
 }
 
 .dusunce__metin {
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.7;
+  /* Gövde metni `--text-3`: düşünce bir alıntı, künye değil. */
+  color: var(--text-3);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   /* Kapalı kutuda son satırlar buraya kayıyor. */
@@ -2103,20 +2198,35 @@ pre.well {
 
 /* ── bekleyen izin isteği ────────────────────────────────────────── */
 
+/*
+ * Bekleyen izin — kıta ızgarasında, etiketi durum renginde (`SORUYOR`).
+ * İki yerde görünüyor: dökümün içinde (soru sırası gelince) ve bestecinin
+ * üstünde (koşum sürerken). İkisinde de aynı kutu.
+ */
 .permask {
   flex: none;
-  padding: 12px 32px 0;
+  padding: 12px 0 0;
 }
 
+/* Kutu kuyunun kendisi: zemin `--well`, 4px köşe, içe halka. Tasarımda
+ * gölge yok — yükseklik halkayla anlatılıyor. */
 .permask__box {
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 6px 18px -8px rgb(0 0 0 / 0.22);
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: 14px 16px;
-  border-radius: var(--r-lg);
-  background: var(--field);
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line-2);
   min-width: 0;
+  max-width: 620px;
+}
+
+/* ⚠️ Kutunun tamamı kuyu olduğu için içindeki her metin kuyu tokenlarını
+ * kullanmak zorunda: `--text` aydınlık temada burada 1.12:1 veriyor. */
+.permask__box,
+.permask__ust {
+  color: var(--well-text);
 }
 
 .permask__ust {
@@ -2126,20 +2236,23 @@ pre.well {
   flex-wrap: wrap;
 }
 
-/* Onaylanan şeyin kendisi — kuyuda, tam metin olarak. */
+/* Onaylanan şeyin kendisi — tam metin olarak. Kutunun kendisi zaten kuyu,
+ * o yüzden burada ikinci bir zemin yok. */
 .permask__kuyu {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 10px 12px;
-  border-radius: var(--r-sm);
-  background: var(--well);
-  color: var(--well-text);
   min-width: 0;
 }
 
 .permask__arac {
   font-size: 12.5px;
+  font-weight: 500;
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* `.muted` kuyunun içinde geçersiz: `--text-muted` aydınlık temada kuyu
@@ -3015,13 +3128,10 @@ button.btn-fld:active,
  * `data-yeni`'yi `Chat.tsx::TurnView` koyuyor: mount'ta gelen geçmiş
  * animasyonsuz oturuyor, ondan sonra eklenen tur belirerek geliyor.
  */
-.bub[data-yeni],
-.ts[data-yeni] {
-  animation: girisYukari var(--dur-base) var(--ease-out) both;
-}
-
-/* Düşünce ve döküm baloncukları turun içinde; onlar da yalnızca yeni turda
- * oynasın diye aynı kapıdan geçiyorlar. */
+/* Baloncuk kalktı; devinimi taşıyan şey artık **kıtanın kendisi** —
+ * yani `.oluk`. Düşünce kutusu turun içinde ve o da aynı kapıdan geçiyor. */
+.oluk[data-yeni],
+.ts[data-yeni],
 .dusunce[data-yeni] {
   animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
