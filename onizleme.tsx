@@ -15,6 +15,9 @@ import "./src/styles/app.css";
 
 import Sidebar from "./src/Sidebar";
 import Chat from "./src/views/Chat";
+import SessionHome from "./src/views/SessionHome";
+import Composer from "./src/ui/Composer";
+import PermMenu from "./src/ui/PermMenu";
 import ModeSwitch from "./src/ui/ModeSwitch";
 import type { Turn, JobEvent, PendingPermission } from "./src/lib/types";
 import { setActiveLang } from "./src/lib/i18n";
@@ -136,6 +139,26 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Yan desktop={acik} />
       </div>
       <div className="main">
+        {new URLSearchParams(location.search).get("ekran") === "home" ? (
+          <>
+            <div className="main__head">
+              <span className="av" style={{ width: 11, height: 11, background: "oklch(var(--av-l) var(--av-c) 250)" }} />
+              <span className="main__head__ad">Desktop Bot</span>
+              <span className="main__head__kunye">ornith-1.5-35b-a3b · 11 araç · ~/Masaüstü/app</span>
+              <button className="btn-quiet">Düzenle</button>
+            </div>
+            <SessionHome
+              sessions={sessions} onOpen={bos} onDelete={bos}
+              composer={
+                <Composer
+                  botName="Desktop Bot" workdir="/home/eymistaken" busy={false}
+                  resetKey="x" onSend={bos}
+                  foot={<><PermMenu value="sor" botName="Desktop Bot" tools={bots[0].tools} force={false} onChange={bos} onForce={bos} onEditTools={bos} /><div style={{ flexGrow: 1 }} /></>}
+                />
+              }
+            />
+          </>
+        ) : (
         <Chat
           bot={bots[0]} turns={turlar}
           running={{ jobId: "j1", startedAt: simdi, label: "Chrome'da kanal araması" }}
@@ -145,6 +168,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           baseUrl="http://127.0.0.1:1234/v1" compacting={false} onCompact={bos}
           efforts={[]} onEffort={bos} onEditBot={bos} onExport={bos}
         />
+        )}
       </div>
     </div>
   </React.StrictMode>,

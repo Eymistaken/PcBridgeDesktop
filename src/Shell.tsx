@@ -952,7 +952,6 @@ export default function Shell({
                   </button>
                 </div>
                 <SessionHome
-                  bot={secili}
                   sessions={sessions}
                   onOpen={setSelectedSession}
                   onDelete={(sid) => void oturumSil(secili.id, sid)}

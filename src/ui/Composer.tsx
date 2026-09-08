@@ -7,7 +7,7 @@ import {
 } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import { IconAttach, IconClose, IconSend } from "./Icon";
+import { IconAttach, IconClose } from "./Icon";
 import { useCikisListesi } from "../lib/cikis";
 import { yukseklikAyarla } from "../lib/yukseklik";
 import { t } from "../lib/i18n";
@@ -126,27 +126,27 @@ export default function Composer({
   }
 
   const gonderilemez = busy || !text.trim();
+  // Ledger'da eylemler ikon değil **kelime**: sıra mono, büyük harf ve
+  // hepsi aynı satırda. Gönder tek dolgulu olan — birincil eylem o.
   const gonderDugmesi = (
     <button
       type="button"
-      className="ib composer__send"
+      className="btn-fld composer__send"
       title={t("chat.send")}
-      aria-label={t("chat.send")}
       disabled={gonderilemez}
       onClick={gonder}
     >
-      <IconSend />
+      {t("chat.sendShort")} ⏎
     </button>
   );
   const ekDugmesi = (
     <button
       type="button"
-      className="ib composer__ek"
+      className="btn-quiet"
       title={t("chat.attach")}
-      aria-label={t("chat.attach")}
       onClick={() => void dosyaSec()}
     >
-      <IconAttach color="var(--text-muted)" />
+      {t("chat.attachShort")}
     </button>
   );
 
@@ -177,8 +177,15 @@ export default function Composer({
         </div>
       )}
 
-      <div className="composer__box" data-cok={cokSatir || undefined}>
-        {!cokSatir && ekDugmesi}
+      {/*
+        ⚠️ Kutunun **iki hâli kalktı.** Kullanıcının 2026-09-05'te seçtiği
+        "Seçenek B" (tek satırda stadyum, ikinci satırda kart) yerine
+        tasarım tek bir hâl veriyor: altı çizili bir satır ve altında mono
+        eylem sırası. B'nin çözdüğü sorun — düğmelerin yuvarlak köşenin
+        içine inmesi — burada zaten yok, çünkü ne yuvarlak köşe var ne de
+        satır içinde düğme.
+      */}
+      <div className="composer__box">
         <textarea
           ref={alan}
           className="composer__text"
@@ -195,20 +202,18 @@ export default function Composer({
             }
           }}
         />
-        {!cokSatir && gonderDugmesi}
-        {cokSatir && (
-          <div className="composer__sira">
-            {ekDugmesi}
-            <span className="mono muted composer__ipucu">
-              {t("chat.enterHint")}
-            </span>
-            <div style={{ flexGrow: 1 }} />
-            {gonderDugmesi}
-          </div>
-        )}
       </div>
 
-      {foot && <div className="composer__foot">{foot}</div>}
+      <div className="composer__foot">
+        {ekDugmesi}
+        {foot}
+        {cokSatir && (
+          <span className="mono muted composer__ipucu">
+            {t("chat.enterHint")}
+          </span>
+        )}
+        {gonderDugmesi}
+      </div>
     </div>
   );
 }

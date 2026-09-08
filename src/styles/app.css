@@ -269,6 +269,8 @@ input:focus {
  * 9.44, `--field-h` üstünde 8.09. İkisi de AA üstünde, yani bu düğme
  * dolgu kademesine güvenle çıkabiliyor. */
 .btn-fld {
+  flex: none;
+  white-space: nowrap;
   padding: 7px 16px;
   border-radius: 0;
   background: var(--field);
@@ -307,6 +309,8 @@ input:focus {
  * üstünde kullanılmaz" kuralının ledger dilindeki karşılığı.
  */
 .btn-quiet {
+  flex: none;
+  white-space: nowrap;
   padding: 0;
   color: var(--text-2);
   font-family: var(--mono);
@@ -428,23 +432,43 @@ input:focus {
   position: relative;
 }
 
+/* Açılır liste tetikleyicisi. Kutu değil, altı çizili bir satır —
+ * `.field` ile aynı biçim, çünkü ikisi de "burada bir değer var" diyor. */
 .picker__dugme {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  padding: 0 0 10px;
+  border-radius: 0;
+  background: none;
+  border-bottom: 1px solid var(--line-2);
   font-size: 13.5px;
   color: var(--text);
   text-align: left;
-  transition: background-color var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .picker__dugme:hover:not(:disabled) {
-  background: var(--surface);
+  border-color: var(--text-3);
+}
+
+/* Bestecinin eylem sırasındaki hâli: çizgisiz, mono, sıraya karışıyor. */
+.composer__foot .picker__dugme {
+  width: auto;
+  flex: none;
+  padding: 0;
+  border-bottom: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.composer__foot .picker__dugme:hover:not(:disabled) {
+  color: var(--text-2);
+  background: none;
 }
 
 .picker__dugme:disabled {
@@ -1437,21 +1461,41 @@ pre.well {
   align-self: flex-start;
 }
 
+/* Besteci sırasında her şey aynı hizada: `flex-start` orada tetikleyiciyi
+ * ötekilerden yukarı kaldırıyordu. */
+.composer__foot .permmenu {
+  align-self: center;
+}
+
+/* Tetikleyici besteci sırasının bir parçası: mono, büyük harf, dolgusuz.
+ * ⚠️ Hover dolguya değil **metne** biniyor — `--text-muted` dolgu
+ * kademesinde AA'nın altına düşüyor. Açıkken altı çiziliyor. */
 .permmenu__dugme {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 10px;
-  border-radius: 9px;
-  font-size: 12px;
-  color: var(--text-muted);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  flex: none;
+  white-space: nowrap;
+  padding: 0 0 2px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  box-shadow: inset 0 -1px 0 transparent;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
-.permmenu__dugme:hover:not(:disabled),
-.permmenu__dugme[aria-expanded="true"] {
-  background: var(--field);
+.permmenu__dugme:hover:not(:disabled) {
   color: var(--text);
+}
+
+.permmenu__dugme[aria-expanded="true"] {
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--line-3);
 }
 
 .permmenu__dugme:disabled {
@@ -1885,9 +1929,15 @@ pre.well {
  * Renk yalnızca eşikte geliyor (%90 `--run`, %100 `--fail`) ve o bir aksan
  * değil **durum**: bağlam taşmak üzere.
  */
+/* ⚠️ **Büyük harf yok.** Bu düğme model kimliği ve sayı taşıyor;
+ * `.permmenu__dugme`'nin büyük harf kuralı `ornith` → `ORNİTH` yapıyordu —
+ * Türkçe büyük harf kuralı `i`'yi noktalı `İ`'ye çeviriyor ve ortaya var
+ * olmayan bir model adı çıkıyor. Kimlikler çevrilmez, büyültülmez. */
 .ctxmenu__dugme {
   gap: 8px;
   max-width: 320px;
+  text-transform: none;
+  letter-spacing: -0.01em;
 }
 
 .ctxmenu__model {
@@ -2313,74 +2363,44 @@ pre.well {
 }
 
 /*
- * **Kutu iki hâlli** — kullanıcının 2026-09-05 seçimi (Seçenek B).
+ * **Kutu artık tek hâlli.** Zemin yok, yarıçap yok: altı çizili bir satır.
  *
- * Tek satırda stadyum (`9999px`), düğmeler satır içinde. İkinci satıra
- * geçince `--r-lg`'ye (20px) dönüşüyor ve düğmeler kendi sırasına iniyor.
- *
- * ⚠️ Eskiden kutu **her yükseklikte** stadyumdu ve `align-items: flex-end`
- * yüzünden düğmeler dibe inip yuvarlak köşenin içine giriyordu — kullanıcı
- * bunu "çirkin şekilde altta kalıyor" diye bildirdi. İki yarıçap da kanunun
- * üç değerinden; karışık yarıçap yok, **duruma göre biri.**
+ * ⚠️ Burada bir zamanlar iki hâl vardı (kullanıcının 2026-09-05'te seçtiği
+ * "Seçenek B": tek satırda stadyum, ikinci satırda 20px kart) ve aralarında
+ * `border-radius` + `padding` geçişi koşuyordu. O seçimin çözdüğü sorun —
+ * düğmelerin yuvarlak köşenin içine inmesi — ledger'da doğmuyor: ne
+ * yuvarlak köşe var ne de satır içinde düğme. Geçiş de onunla birlikte
+ * kalktı; geçirilecek bir şey kalmadı.
  */
 .composer__box {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 8px;
-  border-radius: 9999px;
-  background: var(--field);
-  /* Kutu iki hâl arasında yumuşak geçiyor; metin alanının kendi yükseklik
-   * geçişiyle (`lib/yukseklik.ts`) aynı ritimde. */
-  transition:
-    border-radius var(--dur-base) var(--ease-inout),
-    padding var(--dur-base) var(--ease-inout);
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--line-2);
+  background: none;
+  border-radius: 0;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
-.composer__box[data-cok] {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  border-radius: var(--r-lg);
-  padding: 14px 16px 10px;
-}
-
-/* İkinci sıra: ek · ipucu · gönder. */
-.composer__sira {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.composer__box:focus-within {
+  border-color: var(--text-3);
 }
 
 .composer__ipucu {
-  font-size: 11px;
-}
-
-.composer__ek {
-  width: 36px;
-  height: 36px;
-  background: var(--surface);
-}
-
-.composer__box[data-cok] .composer__ek,
-.composer__box[data-cok] .composer__send {
-  width: 32px;
-  height: 32px;
+  font-size: 10.5px;
 }
 
 .composer__text {
   flex-grow: 1;
   min-width: 0;
+  padding: 0;
   /* Genel `textarea` kuralı 76px min-height veriyor (BotForge'un yönerge
    * alanı için). Besteci tek satır başlamalı; açıkça sıfırlanıyor. */
   min-height: 0;
   font: inherit;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 15px;
+  line-height: 22px;
   color: inherit;
   border: 0;
-  padding: 8px 0;
   margin: 0;
   background: none;
   resize: none;
@@ -2398,11 +2418,23 @@ pre.well {
   outline: none;
 }
 
+/*
+ * Eylem sırası — tasarımın bestecideki imzası. Hepsi mono, büyük harf,
+ * aynı satırda: EKLE · izin kipi · ---- · model · token · GÖNDER ⏎.
+ * Yalnızca gönder dolgulu; birincil eylem o.
+ */
 .composer__foot {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 6px 0;
+  gap: 16px;
+  padding: 12px 0 0;
+}
+
+/* Boşluk foot'un içinden geliyor (`PermMenu`'den sonraki esneyen öğe),
+ * gönder her zaman en sağda. */
+.composer__send {
+  flex: none;
+  margin-left: auto;
 }
 
 /* ek listesi — dosya kopyalanmıyor, YOLU gönderiliyor */
@@ -2447,21 +2479,9 @@ pre.well {
   background: var(--surface-2);
 }
 
-.composer__send {
-  width: 36px;
-  height: 36px;
-  background: var(--text);
-}
-
-.composer__send:hover:not(:disabled) {
-  background: var(--text);
-  opacity: 0.86;
-}
-
-.composer__send:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+/* ⚠️ Burada `width: 36px; height: 36px` duruyordu — ikon düğmesinin
+ * ölçüsü. Gönder artık kelime taşıyor ve o sabit genişlik metni kutunun
+ * dışına taşırıyordu. Biçimi `.btn-fld`'den geliyor. */
 
 /* ── kenar çubuğu satır ayrıntıları ──────────────────────────────── */
 
@@ -3431,6 +3451,8 @@ button.btn-fld:active,
  * bot satırına tıklamak son sohbete dönmüyor, boş bir ekran açıyor. Session
  * ilk mesajla doğuyor, o yüzden düğmeye basıp yazmayan kullanıcı arkasında
  * boş bir kayıt bırakmıyor.
+ *
+ * Üç kıta, hepsi aynı oluk ızgarasında: açılış sözü · besteci · öncekiler.
  */
 .home {
   flex-grow: 1;
@@ -3439,7 +3461,7 @@ button.btn-fld:active,
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 12px 32px 26px;
+  padding: 24px 44px 32px;
 }
 
 .home__ic {
@@ -3448,140 +3470,121 @@ button.btn-fld:active,
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 34px;
 }
 
-.home__selam {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  text-align: center;
-}
-
-.home__ad {
-  font-size: 21px;
+/* Açılış sözü — sayfadaki tek büyük serif. */
+.home__baslikBuyuk {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 36px;
   font-weight: 600;
   letter-spacing: -0.015em;
-  margin-top: 4px;
+  line-height: 1.2;
 }
 
 .home__alt {
-  font-size: 13.5px;
-  line-height: 1.6;
-  max-width: 440px;
-  color: var(--text-muted);
+  margin: 12px 0 0;
+  max-width: 520px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-3);
 }
 
-.home__bolum {
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-}
-
+/* "Ara" ve "daha fazla" — bölüm başlığı satırı. */
 .home__baslik {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 28px;
+  gap: 12px;
+  min-height: 22px;
+  margin-bottom: 12px;
 }
 
-/* Arama alanı açılınca başlığın yerini alıyor; genişlik sabit ki başlık
- * satırı zıplamasın. */
 .home__ara {
-  width: 260px;
-  height: 30px;
-  flex: none;
-  animation: girisSoluk var(--dur-fast) var(--ease-out) both;
+  max-width: 260px;
+  padding-bottom: 6px;
 }
 
-.home__daha {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  padding: 4px 8px;
-  border-radius: var(--r-sm);
-  flex: none;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
-}
-
-.home__daha:hover {
-  color: var(--text);
-  background: var(--field);
-}
-
-.home__hata {
-  flex: none;
-  width: 100%;
-  max-width: var(--olcu);
-  margin: 0 auto 18px;
-  padding: 11px 16px;
-  border-radius: var(--r-lg);
-  background: var(--field);
-  color: var(--fail);
-  font-size: 13px;
-  line-height: 1.5;
-  animation: girisYukari var(--dur-base) var(--ease-out) both;
-}
-
-/* Session kartları — satır/alan ailesinden, o yüzden 12px köşe. */
+/* Session listesi — ızgara değil satır yığını. Tasarımın "EARLIER"
+ * bloğu: durum · başlık · sayaç, her satırın altında cetvel. */
 .oturumlar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .okart {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 13px 14px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
   min-width: 0;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
-.okart:hover {
-  background: var(--surface);
+.okart:hover .okart__ad {
+  color: var(--text);
 }
 
-/* Basma yüzey kademesidir: hover `--surface`'te, basma bir kademe daha. */
-.okart:active {
-  background: var(--surface-2);
+.okart:active .okart__ad {
+  color: var(--text-2);
   transition-duration: var(--dur-tap);
 }
 
-.okart__ust {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+/* Durum — kenar çubuğundaki session listesiyle aynı üç harf ve aynı
+ * genişlik. İki yerde iki farklı kısaltma ayrışırdı. */
+.okart__st {
+  width: var(--oluk-dar);
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.okart__st--run {
+  color: var(--run);
+}
+
+.okart__st--fail {
+  color: var(--fail);
 }
 
 .okart__ad {
-  font-size: 13.5px;
-  font-weight: 500;
   flex-grow: 1;
   min-width: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
-/* Silme yalnızca hover'da: kartın normal hâlinde bir eylem düğmesi
- * durmuyor, tıklanacak şey kartın kendisi. */
+.okart__meta {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Silme düğmesi akıştan çıkıyor — görünmezken sayacı sıkıştırmasın. */
 .okart__sil {
+  position: absolute;
+  right: 0;
+  top: 9px;
   opacity: 0;
+  pointer-events: none;
+  padding-left: 10px;
+  background: var(--bg);
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .okart:hover .okart__sil,
 .okart__sil:focus-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .okart__sil:disabled {
@@ -3589,24 +3592,37 @@ button.btn-fld:active,
   cursor: default;
 }
 
-.okart__meta {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11.5px;
+.okart__daha {
+  display: inline-block;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-/* İki satırda kesiliyor; sabit yükseklik ızgarayı düzensizleştirmesin. */
-.okart__son {
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 37px;
+/* Session açılışında besteci akışın içinde: orada altında kaydırılacak bir
+ * sohbet yok, yüzecek bir şey de yok. */
+.home .composer {
+  padding: 0;
+}
+
+.home .composer__box,
+.home .composer__foot,
+.home .ekler {
+  max-width: none;
+}
+
+.home__hata {
+  max-width: var(--olcu);
+  margin: 12px auto 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fail);
 }
 
 /* ── kenar çubuğu: katlanır session listesi ──────────────────────── */

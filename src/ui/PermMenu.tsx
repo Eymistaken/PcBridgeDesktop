@@ -195,32 +195,11 @@ export default function PermMenu({
         aria-label={t("perm.menu", { name: botName })}
         onClick={() => setAcik((a) => !a)}
       >
-        <KipIkonu kip={value} />
+        {/* İkon kalktı: sıra mono kelimelerden oluşuyor ve kalkan
+         * kipin ne olduğunu metinden daha az söylüyordu. */}
         <span>{t(`perm.${value}`)}</span>
-        <IconChevron acik={acik} />
       </button>
     </div>
   );
 }
 
-/** Menü açılım oku — alana özgü bir ikon değil, `Icon.tsx`'e girmiyor. */
-function IconChevron({ acik }: { acik: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-      style={{ transform: acik ? "rotate(180deg)" : undefined }}
-    >
-      <path
-        d="m6 8 4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
