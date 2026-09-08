@@ -971,6 +971,8 @@ export default function Shell({
           etiketler={etiketler}
           onEtiket={etiketYaz}
           onKill={oturumSonlandir}
+          onInfoTazele={(adlar) => void infoTazele(adlar)}
+          onHata={setConnError}
           agac={agac}
           onAgac={setAgac}
           onReload={() => {

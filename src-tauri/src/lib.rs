@@ -652,6 +652,25 @@ async fn tmux_free_name(taken: Vec<String>) -> Result<String, PtyError> {
         .map_err(|e| PtyError::Io(e.to_string()))
 }
 
+/// Seçilen dizinde yeni bir tmux penceresi açar; indeksini döndürür.
+///
+/// Klasör değiştirme akışının CLI dalı — çalışan bir sürecin cwd'si
+/// dışarıdan değiştirilemez, o yüzden `cd` yerine yeni pencere.
+#[tauri::command]
+async fn tmux_new_window(session: String, workdir: String) -> Result<u32, PtyError> {
+    tokio::task::spawn_blocking(move || pty::new_window(&session, &workdir))
+        .await
+        .map_err(|e| PtyError::Io(e.to_string()))?
+}
+
+/// Oturumun sonraki penceresine geçer — başlıktaki sayacın eylemi.
+#[tauri::command]
+async fn tmux_next_window(session: String) -> Result<(), PtyError> {
+    tokio::task::spawn_blocking(move || pty::next_window(&session))
+        .await
+        .map_err(|e| PtyError::Io(e.to_string()))?
+}
+
 /// Oturumu **sonlandırır** — bölme kapatmaktan ayrı, geri dönüşü yok.
 #[tauri::command]
 async fn tmux_kill(
@@ -768,6 +787,8 @@ pub fn run() {
             pty_close,
             pty_info,
             tmux_free_name,
+            tmux_new_window,
+            tmux_next_window,
             tmux_kill,
             desktop_state,
             desktop_unlock,

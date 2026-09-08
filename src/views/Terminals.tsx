@@ -8,12 +8,22 @@ import {
   useState,
 } from "react";
 
+import { open } from "@tauri-apps/plugin-dialog";
+
 import Term from "../ui/Term";
 import Picker from "../ui/Picker";
 import SagMenu, { type MenuYer } from "../ui/SagMenu";
-import { IconClose, IconZoom } from "../ui/Icon";
-import { ptyClose } from "../lib/ipc";
+import { IconClose, IconFolder, IconZoom } from "../ui/Icon";
+import {
+  detailText,
+  ptyClose,
+  ptyInfo,
+  ptyWrite,
+  tmuxNewWindow,
+  tmuxNextWindow,
+} from "../lib/ipc";
 import { useCikisIcerik } from "../lib/cikis";
+import { KABUKLAR, cdDizisi } from "../lib/kabuk";
 import { t } from "../lib/i18n";
 import {
   bol,
@@ -46,16 +56,6 @@ const DUZENLER: Duzen[] = ["izgara", "sutunlar", "satirlar", "ana"];
  */
 const GECIS_MS = 340;
 
-/**
- * Kabuk sayılan programlar.
- *
- * Başlıktaki nokta bunlarda `--ok`, ötekilerde `--run` yanıyor: "bir şey
- * çalışıyor" bilgisi ancak kabuk boşta değilse anlamlı. Aynı liste klasör
- * değiştirme akışında da kullanılacak — `cd` yalnızca boşta bir kabuğa
- * gönderilebilir (ölçüldü: `#{pane_current_command}` `sleep 30` sürerken
- * `sleep` döndürüyor).
- */
-export const KABUKLAR = ["bash", "zsh", "sh", "fish", "dash", "ksh"];
 
 interface Props {
   view: TerminalsView;
@@ -66,6 +66,9 @@ interface Props {
   onEtiket: (session: string, ad: string) => void;
   /** Oturumu **sonlandırır** — bölme kapatmaktan ayrı, geri dönüşü yok. */
   onKill: (session: string) => void;
+  /** Bir oturumun canlı durumunu yeniden okur — `cd`'den hemen sonra. */
+  onInfoTazele: (adlar: string[]) => void;
+  onHata: (mesaj: string) => void;
   /** Bölme ağacı — `null` ise hiç bölme yok. */
   agac: Dugum | null;
   onAgac: Dispatch<SetStateAction<Dugum | null>>;
@@ -88,12 +91,21 @@ interface Menu {
   session: string;
 }
 
+/** CLI çalışırken klasör değiştirme onayı. */
+interface Onay {
+  session: string;
+  yol: string;
+  komut: string;
+}
+
 export default function Terminals({
   view,
   infos,
   etiketler,
   onEtiket,
   onKill,
+  onInfoTazele,
+  onHata,
   agac,
   onAgac,
   onReload,
@@ -124,6 +136,12 @@ export default function Terminals({
   } = useCikisIcerik(menu);
   /** Etiketi düzenlenen oturum — başlıkta bir alan açılıyor. */
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null);
+  const [onay, setOnay] = useState<Onay | null>(null);
+  const {
+    icerik: onayIcerik,
+    render: onayVar,
+    cikiyor: onayCikiyor,
+  } = useCikisIcerik(onay);
   const [gecis, setGecis] = useState(false);
   const gecisZaman = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -265,6 +283,83 @@ export default function Terminals({
     [agac, onAgac],
   );
 
+  /**
+   * Klasör değiştirme.
+   *
+   * ⚠️ **`.catch(() => null)` YOK.** CLAUDE.md'de bir yıl süren bir hata
+   * kayıtlı: iptali `null` ile bildiren bir API'de `catch` yalnızca gerçek
+   * hatayı gizler ve tuş ölü görünür. İptal `typeof !== "string"` ile, hata
+   * `try/catch` ile ayrı ayrı ele alınıyor.
+   *
+   * Karar **o anki** duruma göre: `pty_info` yeniden okunuyor, çünkü
+   * kullanıcı klasör kutusunda dolaşırken bölmede bir CLI başlamış olabilir.
+   */
+  const klasorSec = useCallback(
+    async (session: string) => {
+      try {
+        const secilen = await open({
+          directory: true,
+          multiple: false,
+          defaultPath: infos[session]?.path || undefined,
+          title: t("panes.chooseDir"),
+        });
+        if (typeof secilen !== "string") return; // kullanıcı iptal etti
+        const bilgi = await ptyInfo(session);
+        if (KABUKLAR.includes(bilgi.command)) {
+          await ptyWrite(session, cdDizisi(secilen));
+          // 4 saniyelik yoklamayı beklemeden başlık güncellensin.
+          onInfoTazele([session]);
+        } else {
+          setOnay({ session, yol: secilen, komut: bilgi.command });
+        }
+      } catch (e) {
+        onHata(detailText(e));
+      }
+    },
+    [infos, onInfoTazele, onHata],
+  );
+
+  /** Onaydaki "yeni pencerede aç". */
+  const yeniPencere = useCallback(
+    async (o: Onay) => {
+      setOnay(null);
+      try {
+        await tmuxNewWindow(o.session, o.yol);
+        onInfoTazele([o.session]);
+      } catch (e) {
+        onHata(detailText(e));
+      }
+    },
+    [onInfoTazele, onHata],
+  );
+
+  /** Onaydaki "yine de gönder" — metin CLI'nin girdi alanına gider. */
+  const yineDeGonder = useCallback(
+    async (o: Onay) => {
+      setOnay(null);
+      try {
+        await ptyWrite(o.session, cdDizisi(o.yol));
+        onInfoTazele([o.session]);
+      } catch (e) {
+        onHata(detailText(e));
+      }
+    },
+    [onInfoTazele, onHata],
+  );
+
+  /** Başlıktaki pencere sayacının eylemi. */
+  const sonrakiPencere = useCallback(
+    async (session: string) => {
+      try {
+        await tmuxNextWindow(session);
+        onInfoTazele([session]);
+      } catch (e) {
+        onHata(detailText(e));
+      }
+    },
+    [onInfoTazele, onHata],
+  );
+
   const duzenSec = useCallback(
     (d: Duzen) => {
       setZoom(null);
@@ -404,10 +499,8 @@ export default function Terminals({
                 gecis={gecis}
                 oturum={byName[b.session]}
                 info={infos[b.session]}
-                eklenecek={bosta[0]}
                 hedef={surukleme?.hedef === b.id}
                 kaynak={surukleme?.kaynak === b.id}
-                onBol={bolmeBol}
                 onKapat={bolmeKapat}
                 onZoom={zoomCevir}
                 onTut={tutmaBasla}
@@ -419,6 +512,8 @@ export default function Terminals({
                 onMenu={(yer) =>
                   setMenu({ yer, bolmeId: b.id, session: b.session })
                 }
+                onKlasor={klasorSec}
+                onPencere={sonrakiPencere}
               />
             ))}
           </div>
@@ -435,6 +530,10 @@ export default function Terminals({
             {
               ad: t("menu.rename"),
               onSec: () => setDuzenlenen(menuIcerik.session),
+            },
+            {
+              ad: t("menu.folder"),
+              onSec: () => void klasorSec(menuIcerik.session),
             },
             {
               // ⚠️ `panes.zoom` bir **ipucu** metni ("tuvali kaplar; ötekiler
@@ -467,6 +566,60 @@ export default function Terminals({
         />
       )}
 
+      {/*
+       * CLI çalışırken klasör değiştirme onayı.
+       *
+       * Karar kullanıcının: çalışan bir sürecin cwd'si dışarıdan
+       * değiştirilemez ve bu bir uygulama eksiği değil. Kutu bunu **açıkça**
+       * yazıyor; sessizce yeni pencere açmak ya da metni CLI'ye göndermek
+       * ikisi de sürpriz olurdu.
+       */}
+      {onayVar && onayIcerik && (
+        <div
+          className="scrim"
+          data-cikis={onayCikiyor || undefined}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("panes.cliTitle")}
+        >
+          <div className="card" style={{ width: 460, background: "var(--bg)" }}>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>
+              {t("panes.cliAsk", { cmd: onayIcerik.komut })}
+            </span>
+            <span className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+              {t("panes.cliBlurb", {
+                dir: kisaltEv(onayIcerik.yol),
+                cmd: onayIcerik.komut,
+              })}
+            </span>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn-quiet"
+                onClick={() => setOnay(null)}
+              >
+                {t("panes.cliCancel")}
+              </button>
+              <button
+                type="button"
+                className="btn-quiet"
+                title={t("panes.cliSendHint", { cmd: onayIcerik.komut })}
+                onClick={() => void yineDeGonder(onayIcerik)}
+              >
+                {t("panes.cliSend")}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void yeniPencere(onayIcerik)}
+              >
+                {t("panes.cliNewWindow")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sürükleme hayaleti — imleci izliyor, hedef bölme vurgulanıyor. */}
       {surukleme && (
         <div
@@ -488,10 +641,8 @@ interface BolmeProps {
   gecis: boolean;
   oturum?: TmuxSession;
   info?: PtyInfo;
-  eklenecek?: string;
   hedef: boolean;
   kaynak: boolean;
-  onBol: (bolmeId: string, yon: Yon, session: string) => void;
   onKapat: (bolmeId: string, session: string) => void;
   onZoom: (bolmeId: string) => void;
   onTut: (e: React.PointerEvent, bolmeId: string, ad: string) => void;
@@ -501,6 +652,8 @@ interface BolmeProps {
   onDuzenle: (session: string | null) => void;
   onEtiket: (session: string, ad: string) => void;
   onMenu: (yer: MenuYer) => void;
+  onKlasor: (session: string) => void;
+  onPencere: (session: string) => void;
 }
 
 function Bolme({
@@ -511,10 +664,8 @@ function Bolme({
   gecis,
   oturum,
   info,
-  eklenecek,
   hedef,
   kaynak,
-  onBol,
   onKapat,
   onZoom,
   onTut,
@@ -524,6 +675,8 @@ function Bolme({
   onDuzenle,
   onEtiket,
   onMenu,
+  onKlasor,
+  onPencere,
 }: BolmeProps) {
   /**
    * Ön planda ne çalışıyor. Kaynak **yerel** `pty_info`; `tmux_list`'ten
@@ -596,7 +749,29 @@ function Bolme({
               title={`${info?.path ?? ""}\n${t("panes.tmuxName", { name: session })}`.trim()}
               onDoubleClick={() => onDuzenle(session)}
             >
-              {gorunen}
+              {/*
+               * ⚠️ İki parça, tek dizge değil. Ölçüldü: bölme 281px'e
+               * düşünce etikete **7–46px** kalıyor ve `text-overflow`
+               * **sonu** kırptığı için görünen tek şey `eymistaken@Zorin…`
+               * oluyordu — yani her bölmede aynı olan, bilgi değeri sıfır
+               * olan kısım. Önek `flex-shrink: 999` ile **önce** kırpılıyor,
+               * dizin son ana kadar duruyor.
+               *
+               * Elle etiket tek parça: kullanıcı ne yazdıysa o, bölünecek
+               * bir yapısı yok.
+               */}
+              {etiket ? (
+                gorunen
+              ) : info ? (
+                <>
+                  <span className="phead__kim">
+                    {info.user}@{info.host}:
+                  </span>
+                  <span className="phead__yol">{kisaltEv(info.path)}</span>
+                </>
+              ) : (
+                session
+              )}
             </span>
           )}
           {/* Çalışan komut ve dizin — başlığın kalan yerini alıyor, kırpılıyor.
@@ -606,6 +781,39 @@ function Bolme({
           {oturum?.attached && (
             <span className="phead__uzak">{t("term.alsoOnPc")}</span>
           )}
+          {/*
+           * Pencere sayacı — yalnızca birden fazla pencere varsa.
+           *
+           * CLI çalışırken klasör değiştirmek aynı oturumda yeni bir pencere
+           * açıyor; bu sayaç geri dönüş yolu. Tasarımın kendi ilkesi gereği
+           * tek pencerede **çizilmiyor**: uygulama ölçmediği şeyi yazmıyor,
+           * ve "1/1" hiçbir şey söylemiyor.
+           */}
+          {info && info.windows > 1 && (
+            <button
+              type="button"
+              className="pb phead__pencere mono"
+              title={t("panes.nextWindow", {
+                i: info.windowIndex + 1,
+                n: info.windows,
+              })}
+              onClick={() => onPencere(session)}
+            >
+              {t("panes.windowCount", {
+                i: info.windowIndex + 1,
+                n: info.windows,
+              })}
+            </button>
+          )}
+          <button
+            type="button"
+            className="pb"
+            title={t("panes.folder")}
+            aria-label={t("panes.folderNamed", { name: session })}
+            onClick={() => onKlasor(session)}
+          >
+            <IconFolder />
+          </button>
           <button
             type="button"
             className="pb"
@@ -616,26 +824,12 @@ function Bolme({
           >
             <IconZoom kucult={zoomlu} />
           </button>
-          <button
-            type="button"
-            className="pb"
-            disabled={!eklenecek}
-            title={t("panes.splitRight")}
-            aria-label={t("panes.splitRight")}
-            onClick={() => eklenecek && onBol(bolmeId, "satir", eklenecek)}
-          >
-            <IconSplit yon="satir" />
-          </button>
-          <button
-            type="button"
-            className="pb"
-            disabled={!eklenecek}
-            title={t("panes.splitDown")}
-            aria-label={t("panes.splitDown")}
-            onClick={() => eklenecek && onBol(bolmeId, "sutun", eklenecek)}
-          >
-            <IconSplit yon="sutun" />
-          </button>
+          {/*
+           * ⚠️ **Böl düğmeleri buradan kalktı, sağ tık menüsünde duruyor.**
+           * Ölçüldü: altı düğme 139px yiyor ve bölme 281px'e düşünce etikete
+           * 7px kalıyordu. Klasör düğmesi kullanıcının açık isteği, o kalıyor;
+           * bölme daha seyrek bir eylem ve menüde tam adıyla duruyor.
+           */}
           <button
             type="button"
             className="pb"
@@ -715,30 +909,3 @@ function EtiketAlani({
   );
 }
 
-/** Bölme ikonu: dikdörtgen + bölen çizgi. Yön çizginin yönünü söylüyor. */
-function IconSplit({ yon }: { yon: Yon }) {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x="3.5"
-        y="4.5"
-        width="13"
-        height="11"
-        rx="2"
-        stroke="var(--text-muted)"
-        strokeWidth="1.5"
-      />
-      <path
-        d={yon === "satir" ? "M10 4.5v11" : "M3.5 10h13"}
-        stroke="var(--text-muted)"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}

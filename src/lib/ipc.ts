@@ -247,6 +247,19 @@ export const ptyInfo = (session: string) => call<PtyInfo>("pty_info", { session 
 export const tmuxFreeName = (taken: string[]) =>
   call<string>("tmux_free_name", { taken });
 
+/**
+ * Seçilen dizinde **yeni bir tmux penceresi** açar; indeksini döndürür.
+ *
+ * Klasör değiştirme akışının CLI dalı: çalışan bir sürecin çalışma dizini
+ * dışarıdan değiştirilemez, o yüzden `cd` yerine yeni pencere.
+ */
+export const tmuxNewWindow = (session: string, workdir: string) =>
+  call<number>("tmux_new_window", { session, workdir });
+
+/** Oturumun sonraki penceresine geçer — başlıktaki sayacın eylemi. */
+export const tmuxNextWindow = (session: string) =>
+  call<void>("tmux_next_window", { session });
+
 /** Oturumu **sonlandırır** — geri dönüşü yok. */
 export const tmuxKill = (session: string) => call<string>("tmux_kill", { session });
 

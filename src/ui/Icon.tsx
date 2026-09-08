@@ -319,3 +319,21 @@ export function IconZoom({
     },
   );
 }
+
+/** Klasör — bölme başlığında ve kenar çubuğu satırında dizin değiştirme. */
+export function IconFolder({
+  size = 13,
+  color = "var(--well-muted)",
+  strokeWidth = 1.6,
+}: IconProps) {
+  return svg(
+    size,
+    <path d="M2.5 6.5h5l1.5 2h8.5v7a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-9Z" />,
+    {
+      stroke: color,
+      strokeWidth,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    },
+  );
+}

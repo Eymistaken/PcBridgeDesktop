@@ -6,7 +6,7 @@ import { IconTrash } from "./ui/Icon";
 import { useCikisIcerik } from "./lib/cikis";
 import { t } from "./lib/i18n";
 import { kisaltEv } from "./lib/yol";
-import { KABUKLAR } from "./views/Terminals";
+import { KABUKLAR } from "./lib/kabuk";
 import type { DesktopState, PtyInfo, TerminalsView } from "./lib/types";
 
 interface Props {

@@ -454,6 +454,74 @@ pub fn free_name(taken: &[String]) -> String {
     format!("term-{}", std::process::id())
 }
 
+/**
+Seçilen dizinde **yeni bir tmux penceresi** açar ve indeksini döndürür.
+
+Klasör değiştirme akışının CLI dalı: çalışan bir sürecin çalışma dizini
+dışarıdan değiştirilemez (Linux'un kuralı), o yüzden `cd` göndermek yerine
+aynı oturumda yeni bir pencere açılıyor. CLI eski pencerede yaşamaya devam
+ediyor ve başlıktaki sayaçtan geri dönülüyor.
+
+`new-window` yeni pencereyi **etkin** yapıyor, yani PTY'deki görüntü ona
+geçiyor — ek bir `select-window` gerekmiyor (ölçüldü).
+*/
+pub fn new_window(session: &str, workdir: &str) -> Result<u32, PtyError> {
+    if !ad_gecerli(session) {
+        return Err(PtyError::Gecersiz(AD_KURALI.into()));
+    }
+    if workdir.is_empty() {
+        return Err(PtyError::Gecersiz("Dizin boş olamaz.".into()));
+    }
+    let o = std::process::Command::new("tmux")
+        .args([
+            "new-window",
+            "-t",
+            &format!("={session}:"),
+            "-c",
+            workdir,
+            "-P",
+            "-F",
+            "#{window_index}",
+        ])
+        .output()
+        .map_err(|e| PtyError::Io(e.to_string()))?;
+    if !o.status.success() {
+        return Err(PtyError::Io(
+            String::from_utf8_lossy(&o.stderr).trim().to_string(),
+        ));
+    }
+    String::from_utf8_lossy(&o.stdout)
+        .trim()
+        .parse()
+        .map_err(|_| PtyError::Io("pencere indeksi okunamadı".into()))
+}
+
+/**
+Oturumun **sonraki** penceresine geçer.
+
+⚠️ Pencere listesi döndüren bir komut **yazılmadı**: başlıktaki sayaç
+(`2/3`) zaten `pty_info.windows`'tan geliyor ve tıklandığında sıradaki
+pencereye geçmek geri dönmeye yetiyor. Ölçülmemiş bir ihtiyaç için liste
+arayüzü eklemek bu depoda ölü kod demek olurdu.
+*/
+pub fn next_window(session: &str) -> Result<(), PtyError> {
+    if !ad_gecerli(session) {
+        return Err(PtyError::Gecersiz(AD_KURALI.into()));
+    }
+    let o = std::process::Command::new("tmux")
+        // `:+` tmux'un kendi "sonraki pencere" hedefi; sonda başa dönüyor.
+        .args(["select-window", "-t", &format!("={session}:+")])
+        .output()
+        .map_err(|e| PtyError::Io(e.to_string()))?;
+    if o.status.success() {
+        Ok(())
+    } else {
+        Err(PtyError::Io(
+            String::from_utf8_lossy(&o.stderr).trim().to_string(),
+        ))
+    }
+}
+
 /// Oturum başına **bağlı istemci sayısı**.
 ///
 /// `tmux_list` yalnızca "PC'de acik mi" diye bir boolean veriyor; biz bir
@@ -670,6 +738,68 @@ mod tests {
 
     /// Test için kabuk adları — `info` hangi kabuğun altında koşuyorsa.
     const KABUK_ADLARI: &[&str] = &["bash", "zsh", "sh", "fish", "dash", "ksh"];
+
+    /// Klasör değiştirmenin CLI dalı: yeni pencere açılıyor, eski pencerede
+    /// çalışan program **yaşamaya devam ediyor** ve sayaçla geri dönülüyor.
+    #[test]
+    #[ignore = "gerçek tmux oturumu yaratıp siliyor"]
+    fn yeni_pencere_cli_yi_oldurmuyor() {
+        let ad = format!("pcbridge-win-{}", std::process::id());
+        struct Guard(String);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                let _ = std::process::Command::new("tmux")
+                    .args(["kill-session", "-t", &format!("={}", self.0)])
+                    .output();
+            }
+        }
+        let _g = Guard(ad.clone());
+        assert!(std::process::Command::new("tmux")
+            .args(["new-session", "-d", "-s", &ad, "-c", "/tmp"])
+            .output()
+            .unwrap()
+            .status
+            .success());
+
+        // Ön planda uzun süren bir program — bir CLI'nin yerine geçiyor.
+        // ⛔ Gerçek `claude -p` kullanılmıyor: kota yakar (CLAUDE.md).
+        let _ = std::process::Command::new("tmux")
+            .args(["send-keys", "-t", &format!("={ad}:"), "-l", "sleep 300\r"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(600));
+
+        let once = info(&ad).expect("info");
+        assert_eq!(once.command, "sleep", "ön plandaki program görülmeli");
+        assert_eq!(once.windows, 1);
+        let cli_penceresi = once.window_index;
+
+        // Klasör değiştirme: yeni pencere.
+        let idx = new_window(&ad, "/etc").expect("yeni pencere");
+        let sonra = info(&ad).expect("info");
+        assert_eq!(sonra.windows, 2, "pencere sayısı artmalı");
+        assert_eq!(sonra.window_index, idx, "yeni pencere etkin olmalı");
+        assert_eq!(sonra.path, "/etc", "yeni pencere seçilen dizinde");
+        assert!(
+            KABUK_ADLARI.contains(&sonra.command.as_str()),
+            "yeni pencerede boşta bir kabuk beklenirdi: {}",
+            sonra.command
+        );
+
+        // Sayaçla geri dönülüyor ve CLI hâlâ orada.
+        next_window(&ad).expect("sonraki pencere");
+        let geri = info(&ad).expect("info");
+        assert_eq!(geri.window_index, cli_penceresi, "CLI penceresine dönülmeli");
+        assert_eq!(geri.command, "sleep", "CLI yaşamaya devam etmeli");
+        assert_eq!(geri.path, "/tmp", "CLI'nin dizini değişmemeli");
+        println!(
+            "CLI pencere {} ({}) · yeni pencere {} (/etc) · geri dönüldü",
+            cli_penceresi, geri.command, idx
+        );
+
+        // Boş dizin ve geçersiz ad ayrıştırıcıya hiç gitmiyor.
+        assert!(matches!(new_window(&ad, ""), Err(PtyError::Gecersiz(_))));
+        assert!(matches!(next_window("kötü ad"), Err(PtyError::Gecersiz(_))));
+    }
 
     /// `free_name` ne ağaçtaki ne tmux'taki bir adı döndürüyor.
     #[test]
