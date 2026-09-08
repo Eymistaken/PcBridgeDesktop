@@ -18,6 +18,8 @@ import Chat from "./src/views/Chat";
 import SessionHome from "./src/views/SessionHome";
 import TerminalSidebar from "./src/TerminalSidebar";
 import Connection from "./src/views/Connection";
+import Onboarding from "./src/Onboarding";
+import BotForge from "./src/BotForge";
 import Terminals from "./src/views/Terminals";
 import { duzenKur } from "./src/lib/agac";
 import Composer from "./src/ui/Composer";
@@ -40,7 +42,36 @@ const sahteIpc: Record<string, unknown> = {
   screen_capture: { shots: [], note: "son yakalama · 2 monitör · 3840×1080 · 17:52:14" },
   model_config: { baseUrl: "http://127.0.0.1:1234/v1", hasKey: false },
   model_models: [],
-  mcp_tools: [],
+  mcp_tools: [
+    { name: "fs_list", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "fs_read", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "fs_search", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "job_list", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "job_status", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "system_status", description: null, inputSchema: {}, readOnly: true, group: "read" },
+    { name: "fs_write", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "shell_run", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "shell_run_background", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "agent_run", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "job_cancel", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "tmux_send", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "tmux_keys", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "tmux_start", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "tmux_kill", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "notify", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "ui_click", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "ui_set_text", description: null, inputSchema: {}, readOnly: false, group: "write" },
+    { name: "screen_info", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "screen_capture", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "mouse", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "keyboard", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "window_focus", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "window_list", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "ui_dump", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "computer_batch", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "computer_task", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+    { name: "desktop_unlock", description: null, inputSchema: {}, readOnly: false, group: "desktop" },
+  ],
   desktop_state: { unlocked: true, remaining: 84, hardRemaining: 2887, reason: "Chrome'da kanal araması", grantedAt: 0, known: true },
 };
 (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
@@ -233,6 +264,20 @@ function Ana() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
+    {ekran === "welcome" ? (
+      <Onboarding
+        endpoint="http://127.0.0.1:8765/mcp"
+        hasStoredToken
+        error={{ kind: "unauthorized" } as never}
+        onReady={bos}
+        onCleared={bos}
+      />
+    ) : ekran === "forge" ? (
+      <BotForge
+        agents={ajanlar} defaultWorkdir="/home/eymistaken"
+        bot={{ ...bots[0], tools: ["fs_list","fs_read","fs_search","job_list","job_status","system_status","screen_info","screen_capture","mouse","keyboard","window_focus"] }} cikiyor={false} onCancel={bos} onDone={bos}
+      />
+    ) : (
     <div className="shell" style={{ height: "100vh" }}>
       <div className="side">
         <div className="side__head"><span className="side__title">pcbridge</span></div>
@@ -257,5 +302,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Ana />
       </div>
     </div>
+    )}
   </React.StrictMode>,
 );

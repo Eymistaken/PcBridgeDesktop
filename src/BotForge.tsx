@@ -278,15 +278,14 @@ export default function BotForge({
     >
       <div className="forge" ref={forgeRef}>
         <div className="forge__head">
-          <span
-            style={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.015em" }}
-          >
-            {bot ? t("forge.edit") : t("forge.new")}
+          {/* Başlıkta botun kendisi var: çip, adı ve künyesi. Hangi botu
+           * düzenlediğini pencerenin adından değil içeriğinden okumak
+           * tasarımın deseni. */}
+          <Avatar tone={draft.avatar} name={draft.name || "?"} size={11} />
+          <span className="forge__ad">
+            {draft.name.trim() || (bot ? t("forge.edit") : t("forge.new"))}
           </span>
-          <div style={{ flexGrow: 1 }} />
-          <span className="muted" style={{ fontSize: 12.5 }}>
-            {t("forge.livesHere")}
-          </span>
+          <span className="forge__kunye">{t("forge.livesHere")}</span>
         </div>
 
         <div className="sek" role="tablist" aria-label={t("forge.tabs")}>
@@ -321,7 +320,7 @@ export default function BotForge({
                   <label className="lbl" htmlFor="bot-ad">
                     {t("forge.name")}
                   </label>
-                  <div className="fld" style={{ background: "var(--surface)" }}>
+                  <div className="fld">
                     <input
                       id="bot-ad"
                       autoFocus
@@ -601,40 +600,34 @@ export default function BotForge({
                         ).length;
                         return (
                           <div key={g} className="toolset__grup">
-                            <div className="toolset__bas">
-                              {/* Grup adı **etiket**, düğme değil: tıklanınca on
-                              aracı birden açan bir başlık, düğmeye benzemediği
-                              için kimse tıklamıyordu. Eylem ayrı ve görünür. */}
+                            {/* Başlık **satırın tamamı bir düğme**: kutucuğu
+                             * ve adı ayırmak, grubu açmak isteyen kullanıcıya
+                             * iki farklı hedef veriyordu. Kutucuk dolu →
+                             * hepsi açık, boş → hiçbiri, yarım → bir kısmı. */}
+                            <button
+                              type="button"
+                              className="toolset__bas"
+                              aria-pressed={secili === liste.length}
+                              onClick={() =>
+                                grupDegistir(g, secili !== liste.length)
+                              }
+                            >
+                              <span
+                                className="toolset__kutu"
+                                data-yarim={
+                                  secili > 0 && secili < liste.length
+                                    ? "1"
+                                    : undefined
+                                }
+                                aria-hidden="true"
+                              />
                               <span className="toolset__ad">
                                 {t(`forge.toolGroup.${g}`)}
                               </span>
-                              <span
-                                className="muted"
-                                style={{ fontSize: 11.5 }}
-                              >
+                              <span className="toolset__sayi mono">
                                 {secili}/{liste.length}
                               </span>
-                              <div style={{ flexGrow: 1 }} />
-                              <button
-                                type="button"
-                                className="toolset__hepsi"
-                                onClick={() =>
-                                  grupDegistir(g, secili !== liste.length)
-                                }
-                              >
-                                {secili === liste.length
-                                  ? t("forge.toolGroup.none")
-                                  : t("forge.toolGroup.all")}
-                              </button>
-                            </div>
-                            {g !== "read" && (
-                              <span
-                                className="muted"
-                                style={{ fontSize: 11.5 }}
-                              >
-                                {t(`forge.toolGroup.${g}.warn`)}
-                              </span>
-                            )}
+                            </button>
                             <div className="toolset__liste">
                               {liste.map((x) => (
                                 <button
@@ -654,6 +647,9 @@ export default function BotForge({
                                 </button>
                               ))}
                             </div>
+                            <span className="toolset__not">
+                              {t(`forge.toolGroup.${g}.note`)}
+                            </span>
                           </div>
                         );
                       })}
@@ -795,18 +791,7 @@ export default function BotForge({
         </div>
 
         <div className="forge__foot">
-          <span
-            className="mono muted"
-            style={{
-              fontSize: 11.5,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {cagri}
-          </span>
-          <div style={{ flexGrow: 1 }} />
+          <span className="forge__ozet mono">{cagri}</span>
           <button
             type="button"
             className="btn-quiet"

@@ -577,84 +577,130 @@ input:focus {
 
 /* ── araç filtresi ───────────────────────────────────────────────── */
 /*
- * Ayırıcı çizgi değil **yüzey kademesi**: gruplar `--field` üstünde duruyor.
- * Seçili araç yükselen yüzeyle anlatılıyor, renkli çubukla değil.
+ * Üç grup, **üç sütun.** Eskiden alt alta üç kutuydu ve 33 araç sarılarak
+ * akıyordu; okumak için kaydırmak gerekiyordu. Tasarım grupları yan yana
+ * koyuyor: "bu bot neyi görebilir" sorusunun cevabı tek bakışta.
+ *
+ * ⚠️ Grup listesi **`tools.rs`'te**, arayüzde değil — kipi Rust uyguluyor ve
+ * ikinci bir liste ayrışırdı. Ön yüz grubu `mcp_tools` yanıtındaki `group`
+ * alanından okuyor.
  */
-
 .toolset {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 3px;
-  border-radius: var(--r-sm);
-  background: var(--field);
-  max-height: 260px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  max-height: 320px;
   overflow-y: auto;
 }
 
 .toolset__grup {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  /* İç içe yüzeyde yarıçap dış − dolgu: 12 − 3 = 9. */
-  border-radius: 9px;
-  padding: 10px 11px;
+  gap: 9px;
+  border-radius: 0;
+  padding: 0;
+  min-width: 0;
 }
 
+/* Başlık satırının tamamı bir düğme: kutucuk ve ad ayrı hedefler olunca
+ * grubu açmak isteyen kullanıcı hangisine basacağını bilmiyordu. */
 .toolset__bas {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 9px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line-2);
+  text-align: left;
+}
+
+/* Kutucuk: dolu = hepsi, boş = hiçbiri, yarım = bir kısmı. */
+.toolset__kutu {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  box-shadow: inset 0 0 0 1px var(--line-3);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.toolset__kutu[data-yarim] {
+  background: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+}
+
+.toolset__bas[aria-pressed="true"] .toolset__kutu {
+  background: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
 }
 
 .toolset__ad {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+  flex-grow: 1;
+  min-width: 0;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.toolset__bas:hover .toolset__ad,
+.toolset__bas[aria-pressed="true"] .toolset__ad {
   color: var(--text);
 }
 
-/* On aracı birden açan eylem. Grup adının kendisi düğmeydi ve düğmeye
- * benzemiyordu; kimse tıklamayınca kullanıcı araçları tek tek açtı. */
-.toolset__hepsi {
+.toolset__sayi {
   flex: none;
-  padding: 4px 10px;
-  border-radius: 9px;
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  background: var(--surface);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
-.toolset__hepsi:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
+/* Araçlar alt alta, sarmadan: sütun genişliği zaten en uzun adı alıyor. */
 .toolset__liste {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 5px;
 }
 
+/*
+ * Tek araç — dolgusuz mono bir satır. Seçili olan `--text-2`, kapalı olan
+ * `--text-muted`; ayrım renkte, kutuda değil.
+ */
 .toolset__arac {
-  padding: 5px 10px;
-  border-radius: 9px;
-  font-size: 12px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+  text-align: left;
   color: var(--text-muted);
-  background: var(--surface);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .toolset__arac:hover {
-  color: var(--text);
+  color: var(--text-2);
 }
 
 .toolset__arac[aria-pressed="true"] {
-  background: var(--surface-2);
-  color: var(--text);
+  color: var(--text-2);
   font-weight: 500;
+}
+
+.toolset__arac[aria-pressed="true"]:hover {
+  color: var(--text);
+}
+
+/* Grubun ne yaptığını söyleyen cümle — listenin altında, tasarımdaki gibi. */
+.toolset__not {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-3);
 }
 
 /* ── kabuk yerleşimi ─────────────────────────────────────────────── */
@@ -1014,21 +1060,75 @@ input:focus {
 }
 
 /* ── karşılama ───────────────────────────────────────────────────── */
-
+/*
+ * İlk açılış. **Arkasında kabuk yok** — uygulama ölçmediği şeyi çizmiyor:
+ * token doğrulanana kadar ne bot listesi var ne bağlantı şeridi.
+ */
 .welcome {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
   background: var(--bg);
-  padding: 24px;
+  padding: 24px 44px;
 }
 
 .welcome__box {
-  width: 420px;
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
+}
+
+.welcome__ic {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
+}
+
+.welcome__ad {
+  display: block;
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.welcome__uc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.welcome__blurb {
+  margin: 0;
+  max-width: 520px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-3);
+}
+
+/* Token alanı — noktalar geniş aralıklı, uzunluk okunabilir kalsın. */
+.welcome__token {
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  color: var(--text-2);
+}
+
+.welcome__hata {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fail);
+}
+
+/* Uygulamanın neye ihtiyacı olduğu — küçük, mono, iddiasız. */
+.welcome__notlar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* ── form alanları (BotForge) ────────────────────────────────────── */
@@ -1039,21 +1139,34 @@ input:focus {
   gap: 8px;
 }
 
+/* Alan etiketi — mono, büyük harf, oluk etiketiyle aynı ses ama daha dar
+ * aralıklı: burada bir bölüm değil bir alan adlandırılıyor. */
 .lbl {
-  font-size: 12px;
-  font-weight: 500;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
+/* Form alanı kutu değil altı çizili satır — `.field` ile aynı biçim.
+ * (`.fld` BotForge'un, `.field` kabuğun; ikisi de aynı şeyi söylüyor ve
+ * aynı görünüyor. Birleştirmek ayrı bir iş.) */
 .fld {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 42px;
-  padding: 0 14px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  padding: 0 0 10px;
+  border-radius: 0;
+  background: none;
+  border-bottom: 1px solid var(--line-2);
   font-size: 14px;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.fld:focus-within {
+  border-color: var(--text-3);
 }
 
 .fld input,
@@ -1090,23 +1203,29 @@ button.btn-fld:hover {
   background: var(--surface);
 }
 
+/* Çok satırlı alan (BotForge'un yönergesi) — altı çizili, dolgusuz.
+ * ⚠️ `min-height: 76px` besteciyi bozuyordu; `.composer__text` onu açıkça
+ * sıfırlıyor. Bu kural genel olduğu için o sıfırlama orada kalmak zorunda. */
 textarea {
   font: inherit;
   color: inherit;
   border: 0;
   resize: vertical;
-  padding: 12px 14px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  padding: 0 0 10px;
+  border-radius: 0;
+  background: none;
+  border-bottom: 1px solid var(--line-2);
   min-height: 76px;
   font-size: 13.5px;
-  line-height: 1.55;
+  line-height: 1.7;
   user-select: text;
   -webkit-user-select: text;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 textarea:focus {
   outline: none;
+  border-color: var(--text-3);
 }
 
 textarea::placeholder,
@@ -1160,9 +1279,9 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 34px;
   /* Blur yok: yalnızca zemini karartıyoruz. */
-  background: rgb(0 0 0 / 45%);
+  background: rgb(0 0 0 / 55%);
   z-index: 10;
 }
 
@@ -1177,51 +1296,84 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
+  /* İçe halka + gölge: halka kenarı çiziyor, gölge katmanı ayırıyor.
+   * Örtü zeminden gerçekten kopmalı, yoksa "bu bir pencere mi" sorusu
+   * kalıyor. */
+  box-shadow:
+    inset 0 0 0 1px var(--line-2),
+    0 30px 60px -20px rgb(0 0 0 / 70%);
   overflow: hidden;
 }
 
 .forge__head {
   flex: none;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 14px;
-  padding: 22px 26px 18px;
+  padding: 24px 30px 16px;
+}
+
+.forge__ad {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forge__kunye {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /*
- * Sekme şeridi. `.seg`'in kardeşi ama **tam genişlikte**: BotForge'un on bir
- * alan grubu tek uzun formdaydı ve kullanıcı aradığını kaydırarak arıyordu.
+ * Sekme şeridi. Kayan parçalı bir denetim değil, **altı çizili sıra** —
+ * kabuktaki öteki sekmelerle (Botlar|Terminal, sistem bölümleri) aynı ses.
+ *
+ * BotForge'un on bir alan grubu bir zamanlar tek uzun formdaydı ve kullanıcı
+ * aradığını kaydırarak arıyordu; sekmeler o yüzden var.
  */
 .sek {
   flex: none;
   display: flex;
-  gap: 3px;
-  padding: 3px;
-  margin: 0 22px;
-  border-radius: var(--r-sm);
-  background: var(--field);
+  gap: 24px;
+  padding: 0 30px;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 .sek > button {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 9px;
-  font-size: 13px;
+  flex: none;
+  padding: 0 0 11px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
   color: var(--text-muted);
+  box-shadow: inset 0 -2px 0 transparent;
   transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-inout);
 }
 
 .sek > button:hover {
-  color: var(--text);
+  color: var(--text-2);
 }
 
 .sek > button[aria-selected="true"] {
-  background: var(--surface-2);
   color: var(--text);
-  font-weight: 500;
+  box-shadow: inset 0 -2px 0 var(--text);
 }
 
 /* Sekme içeriği belirerek geliyor — `key` ile yeniden kuruluyor. */
@@ -1233,8 +1385,8 @@ input::placeholder {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 0 26px 4px;
+  gap: 24px;
+  padding: 26px 30px 8px;
   overflow-y: auto;
   /* ⚠️ **`min-height: 0` burada kalmalı**, esnek kutunun taşmaması ona
    * bağlı. Taban yükseklik **örtünün kendisine** kondu (`.forge`): denendi,
@@ -1247,9 +1399,21 @@ input::placeholder {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 26px;
-  background: var(--bg-side);
+  gap: 16px;
+  padding: 16px 30px 22px;
+  border-top: 1px solid var(--line);
+  background: none;
+}
+
+/* Kaydedilecek şeyin künyesi — model, bütçe, tavan, dizin. */
+.forge__ozet {
+  flex-grow: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── sohbet ──────────────────────────────────────────────────────── */
@@ -2165,26 +2329,37 @@ pre.well {
  * Bir güvenlik kapısını kaldırıyor, o yüzden **kapalı başlıyor** ve ne yaptığı
  * satırın altında yazıyor. Kip satırlarıyla aynı kademede (`--surface`) değil
  * çünkü bir kip değil; filtre satırıyla aynı kademede duruyor. */
+/* Kutu **kuyu yüzeyinde**: bir güvenlik kapısını kaldıran anahtar, olağan
+ * bir ayar satırı gibi görünmemeli. Tasarım da onu ayrı bir kutuya alıyor
+ * ve oluk etiketini durum rengiyle yazıyor. */
 .permmenu__anahtar {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 16px;
   margin-top: 3px;
-  padding: 9px 11px;
-  border-radius: 9px;
-  background: var(--surface);
+  padding: 14px 16px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  color: var(--well-text);
   text-align: left;
-  transition: background-color var(--dur-fast) var(--ease-out);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+  box-shadow: inset 0 0 0 1px transparent;
 }
 
 .permmenu__anahtar:hover {
-  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--well-line);
 }
 
-/* `--text-muted` `--surface-2` üstünde 4.07:1 — hover'da ipucu `--text`'e
- * yükseliyor, tıpkı seçili kip satırında olduğu gibi. */
-.permmenu__anahtar:hover .permmenu__ipucu {
-  color: var(--text);
+/* ⚠️ Kuyunun içindeki ikincil metin kuyu tokenlarını kullanır:
+ * `--text-muted` aydınlık temada kuyu üstünde 2.63:1 veriyor. */
+.permmenu__anahtar .permmenu__ipucu,
+.permmenu__anahtar .permmenu__ad {
+  color: var(--well-muted);
+}
+
+.permmenu__anahtar .permmenu__ad {
+  color: var(--well-text);
+  font-weight: 600;
 }
 
 .permmenu__anahtar .permmenu__metin {
@@ -2193,36 +2368,41 @@ pre.well {
 
 /* Anahtar — renksiz. Açık hâli `--text` dolgu, kapalı `--surface-2`:
  * durum yüzey kademesiyle anlatılıyor, aksan rengiyle değil. */
+/* Anahtar — köşeli ve renksiz, `.tgl` ile aynı dil. Kapalıyken dolgusuz,
+ * içe halkalı: yokluk çizgiyle anlatılıyor. */
 .anahtar {
   flex: none;
-  width: 30px;
-  height: 18px;
-  padding: 2px;
-  border-radius: 9999px;
-  background: var(--surface-2);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.permmenu__anahtar:hover .anahtar {
-  background: var(--line);
+  width: 38px;
+  height: 20px;
+  margin-top: 2px;
+  padding: 3px;
+  border-radius: 0;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--line-3);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .anahtar__top {
   display: block;
   width: 14px;
   height: 14px;
-  border-radius: 9999px;
-  background: var(--text-muted);
-  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  border-radius: 0;
+  background: var(--well-muted);
+  transition:
+    transform var(--dur-base) var(--ease-inout),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 [role="switch"][aria-checked="true"] .anahtar {
-  background: var(--text);
+  background: var(--well-text);
+  box-shadow: inset 0 0 0 1px var(--well-text);
 }
 
 [role="switch"][aria-checked="true"] .anahtar__top {
-  background: var(--bg);
-  transform: translateX(12px);
+  background: var(--well);
+  transform: translateX(18px);
 }
 
 /* Kipin **neye** uygulandığını gösteren satır.

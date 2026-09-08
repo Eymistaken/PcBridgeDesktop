@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { connect, errorText, signOut } from "./lib/ipc";
 import { t } from "./lib/i18n";
+import Oluk from "./ui/Oluk";
 import type { ConnError, ConnSnapshot } from "./lib/types";
 
 interface Props {
@@ -42,6 +43,8 @@ export default function Onboarding({
   }
 
   return (
+    // ⚠️ **Arkasında kabuk yok.** Uygulama ölçmediği şeyi çizmiyor: token
+    // doğrulanana kadar bot listesi de bağlantı şeridi de yok.
     <div className="welcome">
       <form
         className="welcome__box"
@@ -50,39 +53,37 @@ export default function Onboarding({
           if (token.trim() && !busy) void attempt(token.trim());
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.025em" }}>
-            pcbridge
-          </span>
-          <span className="mono muted" style={{ fontSize: 12.5 }}>
-            {endpoint}
-          </span>
-        </div>
+        <Oluk et={t("welcome.server")}>
+          <div className="welcome__ic">
+            <div>
+              <span className="welcome__ad">pcbridge</span>
+              <span className="welcome__uc mono">{endpoint}</span>
+            </div>
 
-        <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-          {t("welcome.blurb")}
-        </p>
+            <p className="welcome__blurb">{t("welcome.blurb")}</p>
 
-        <div className="field" style={{ height: 44 }}>
-          <input
-            type="password"
-            autoFocus
-            spellCheck={false}
-            autoComplete="off"
-            value={token}
-            placeholder={t("welcome.token")}
-            aria-label={t("welcome.token")}
-            onChange={(e) => setToken(e.target.value)}
-          />
-        </div>
+            <div className="grp">
+              <span className="h">{t("welcome.token")}</span>
+              <div className="field">
+                <input
+                  className="mono welcome__token"
+                  type="password"
+                  autoFocus
+                  spellCheck={false}
+                  autoComplete="off"
+                  value={token}
+                  placeholder="••••••••••••••••"
+                  aria-label={t("welcome.token")}
+                  onChange={(e) => setToken(e.target.value)}
+                />
+              </div>
+            </div>
 
-        {error && (
-          <span style={{ fontSize: 13, lineHeight: 1.5, color: "var(--fail)" }}>
-            {errorText(error)}
-          </span>
-        )}
+            {error && (
+              <span className="welcome__hata">{errorText(error)}</span>
+            )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <button className="btn-primary" type="submit" disabled={busy || !token.trim()}>
             {busy ? t("welcome.connecting") : t("welcome.connect")}
           </button>
@@ -119,7 +120,14 @@ export default function Onboarding({
               </button>
             </>
           )}
-        </div>
+            </div>
+
+            <div className="welcome__notlar mono">
+              <span>{t("welcome.needs")}</span>
+              <span>{t("welcome.envHint")}</span>
+            </div>
+          </div>
+        </Oluk>
       </form>
     </div>
   );
