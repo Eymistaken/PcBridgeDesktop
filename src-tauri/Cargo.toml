@@ -1,6 +1,6 @@
 [package]
 name = "pcbridge-desktop"
-version = "0.7.1"
+version = "0.7.2"
 description = "pcbridge MCP sunucusunun masaüstü istemcisi"
 authors = ["eymistaken"]
 edition = "2021"

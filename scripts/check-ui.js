@@ -1,12 +1,17 @@
 // Actual application components; only the external IPC boundary is replaced.
-const { default: React } = await import('/node_modules/.vite/deps/react.js');
-const { default: ReactDOM } = await import('/node_modules/.vite/deps/react-dom_client.js');
-const { default: Thinking } = await import('/src/ui/Thinking.tsx');
-const { default: Sidebar } = await import('/src/Sidebar.tsx');
-const { default: BotForge } = await import('/src/BotForge.tsx');
-const { default: Terminals } = await import('/src/views/Terminals.tsx');
-const tree = await import('/src/lib/agac.ts');
-const { setActiveLang } = await import('/src/lib/i18n.ts');
+const load = async (name, path) => import(path).catch(error => { throw new Error(`${name} import failed: ${error.stack || error}`); });
+// Vite serves dependency wrappers as immutable; WebKit can otherwise reuse a
+// stale wrapper after the development server is restarted with a new hash.
+const cacheBust = Date.now();
+const { default: React } = await load('React', `/node_modules/.vite/deps/react.js?ui-check=${cacheBust}`);
+const { default: ReactDOM } = await load('ReactDOM', `/node_modules/.vite/deps/react-dom_client.js?ui-check=${cacheBust}`);
+const { default: Thinking } = await load('Thinking', '/src/ui/Thinking.tsx');
+const { default: Sidebar } = await load('Sidebar', '/src/Sidebar.tsx');
+const { default: BotForge } = await load('BotForge', '/src/BotForge.tsx');
+const { default: Terminals } = await load('Terminals', '/src/views/Terminals.tsx');
+const { default: Term } = await load('Term', '/src/ui/Term.tsx');
+const tree = await load('tree', '/src/lib/agac.ts');
+const { setActiveLang } = await load('i18n', '/src/lib/i18n.ts');
 setActiveLang('en');
 const h = React.createElement;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -48,6 +53,51 @@ const click = async element => { const p=point(element); await native({kind:'mov
 const key = async (element, key) => { element.focus(); await native({kind:'keyDown',key}); await native({kind:'keyUp',key}); await wait(250); };
 const byText = text => [...host.querySelectorAll('button')].find(el=>el.textContent.trim()===text);
 const bot = {id:'test',name:'Test',agent:'test-agent',backend:'yerel-model',model:'test-model',effort:null,workdir:'/tmp',preamble:'',permission:'sor',timeout:1800,tools:[],contextBudget:8192,maxTurns:100,forceWhenBusy:false,avatar:null,sessions:[],updatedAt:0};
+const keyboardEvent = (type, key, keyCode) => {
+  const event = new KeyboardEvent(type, {key, bubbles:true, cancelable:true, composed:true});
+  Object.defineProperties(event, {keyCode:{get:()=>keyCode}, which:{get:()=>keyCode}});
+  return event;
+};
+const compositionInput = async (textarea, data, {start=true}={}) => {
+  textarea.dispatchEvent(keyboardEvent('keydown', 'Unidentified', 229));
+  if (start) textarea.dispatchEvent(new CompositionEvent('compositionstart', {data:'', bubbles:true, composed:true}));
+  textarea.dispatchEvent(new InputEvent('beforeinput', {data, inputType:'insertFromComposition', bubbles:true, cancelable:true, composed:true}));
+  textarea.value += data;
+  textarea.dispatchEvent(new InputEvent('input', {data, inputType:'insertFromComposition', bubbles:true, composed:true}));
+  textarea.dispatchEvent(new CompositionEvent('compositionend', {data, bubbles:true, composed:true}));
+  textarea.dispatchEvent(keyboardEvent('keyup', 'Unidentified', 229));
+  await wait(40);
+};
+await test('terminal separates orphan Turkish input from real compositions and keys', async () => {
+  calls=[];
+  await render(h('div',{style:{width:900,height:500}},h(Term,{session:'input-test'})));
+  const textarea=host.querySelector('.xterm-helper-textarea');
+  assert(textarea,'xterm textarea was not created');
+  textarea.value='abc';
+  await compositionInput(textarea,'ö',{start:false});
+  let writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===1&&writes[0]==='ö',`Expected one Turkish write, got ${JSON.stringify(writes)}`);
+
+  calls=[];
+  await compositionInput(textarea,'ö',{start:false});
+  writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===1&&writes[0]==='ö',`Repeated Turkish press was deduplicated: ${JSON.stringify(writes)}`);
+
+  calls=[];
+  await compositionInput(textarea,'中');
+  writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===1&&writes[0]==='中',`Real composition changed: ${JSON.stringify(writes)}`);
+
+  calls=[];
+  textarea.dispatchEvent(keyboardEvent('keydown','a',65));
+  textarea.dispatchEvent(keyboardEvent('keyup','a',65));
+  textarea.dispatchEvent(keyboardEvent('keydown','Backspace',8));
+  textarea.dispatchEvent(keyboardEvent('keyup','Backspace',8));
+  await wait(40);
+  writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===2&&writes[0]==='a'&&writes[1]==='\x7f',`ASCII or Backspace changed: ${JSON.stringify(writes)}`);
+  return {orphan:'one write per press',composition:'one write',keys:writes};
+});
 await test('session collapse: native pointer and keyboard', async () => {
   let selected=0;
   await render(h(Sidebar,{bots:[bot],summaries:{},selectedId:bot.id,sessions:[{id:'one',title:'Existing session',running:false}],selectedSession:'one',snap:{endpoint:'http://localhost',agents:[],toolCount:0},desktop:{unlocked:false},waiting:[],onSelect:()=>selected++,onSelectSession:()=>selected++,onOpenSystem:()=>{},onToggleDesktop:()=>{},onEdit:()=>{},onDelete:()=>{},onDeleteSession:()=>{}}));

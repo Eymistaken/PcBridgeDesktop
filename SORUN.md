@@ -1,96 +1,75 @@
-# AÇIK SORUN — Türkçe karakterler terminalde katlanıyor
+# ÇÖZÜLEN SORUN — Türkçe karakterler terminalde katlanıyordu
 
-**Durum: ÇÖZÜLMEDİ.** 0.7.1'deki düzeltme denendi ve **işe yaramadı**;
-kullanıcı kurup denedi, belirti aynı.
+**Güncel durum: ÇÖZÜLDÜ.** Düzeltme 0.7.2'de. 2026-09-09'da gerçek
+Tauri/WebKitGTK penceresinde fiziksel Türkçe klavyeyle doğrulandı; kullanıcı
+`ö → Backspace → ö` dizisinde katlanmanın kalmadığını onayladı.
 
 ## Belirti
 
-Herhangi bir terminal bölmesinde (CLI de olsa düz kabuk da olsa) `ö ç ı ğ`
-gibi bir karaktere **bir kez** basmak ekrana birden çok karakter yazıyor.
-Üstüne, **her silip yeniden yazmada satır bir karakter daha uzuyor** —
-kullanıcının deyimiyle "katlanarak stackleniyor". Ekran görüntüsündeki desen:
-tek bir `ö` basımı → `öööGöööö`.
+Herhangi bir terminal bölmesinde `ö ç ı ğ` gibi bir karaktere bir kez basmak
+birden çok karakter yazıyordu. Silip yeniden yazdıkça satır daha da uzuyor;
+birikmiş metin yeniden gönderiliyordu. ASCII karakterlerde görülmüyordu.
 
-ASCII karakterlerde görülmüyor.
+## Gerçek kök neden
 
-## Ne bulundu (ve neden yetmedi)
+0.7.1'deki hipotez yanlıştı. Sorun, `_keyDown` ile `_inputEvent` arasındaki
+geç sıra değildi. Gerçek WebKitGTK/IBus izi şu diziyi gösterdi:
 
-xterm'in **iki göndericisi** var: `_keyDown` (tuşun kendisi) ve `_inputEvent`
-(yardımcı metin alanına düşen `insertText`). İkincisinin yineleme koruması:
+1. `keydown`: `key = "Unidentified"`, `keyCode = 229`
+2. `beforeinput` ve `input`: `inputType = "insertFromComposition"`, veri
+   Türkçe harf
+3. **`compositionstart` olmadan** `compositionend`
+4. `onData`: yeni harf
+5. `onData`: textarea'da daha önce birikmiş metnin büyük bölümü
 
-```js
-(!e.composed || !this._keyDownSeen)
-```
+xterm, `keyCode 229` için `_handleAnyTextareaChanges` ile textarea farkını
+gönderiyor. Aynı fiziksel basımın yetim `compositionend` olayı da
+`_finalizeComposition` yolunu çalıştırıyor. Bir `compositionstart` olmadığı
+için xterm'in composition başlangıç konumu `0` kalıyor ve sonlandırıcı,
+textarea'nın birikmiş kısmını yeniden gönderiyor. Katlanmanın sebebi bu.
 
-`e.composed` gerçek kullanıcı girdisinde her zaman `true`, yani koruma tamamen
-`_keyDownSeen`'e bakıyor — ve **`_keyUp` onu sıfırlıyor**
-(`_keyUp(e){this._keyDownSeen=!1,…}`). Yani `input` olayı `keyup`'tan **sonra**
-gelirse koruma çalışmıyor ve harf ikinci kez gönderiliyor. Hipotez: ibus
-Türkçe düzende ASCII olmayan tuşu eşzamansız işliyor, `input` gerçekten sonra
-geliyor.
+Gerçek izde bir `ğ` basımı, önce `"ğ"`, ardından 11 karakterlik eski
+birikimi gönderdi. Aynı sıranın textarea `"abc"` ile regresyon tekrarı,
+düzeltme öncesinde `["ö", "bcö"]` sonucunu verdi.
 
-Katlanmanın açıklaması da buna oturuyordu: her tuş **iki** karakter yazıyor,
-her geri silme **bir** tanesini siliyor.
+## Yapılanlar
 
-**Bu mekanizma WebKitGTK'da gerçek xterm 6.0.0 üstünde ölçüldü** — ama
-**sentetik olay dizisiyle**, ibus'la değil:
+- `Term.tsx` içine geçici, yalnızca geliştirme derlemesinde çalışan bir
+  olay izi eklendi. DOM olayları, textarea değeri ve `onData` çıktıları gerçek
+  Tauri penceresinde ölçüldü.
+- Fazladan göndericinin yetim `compositionend` olduğu kanıtlandı.
+- 0.7.1'in `beklenen`/`onKey`/`insertText` yaması tamamen kaldırıldı.
+- Terminal kabında, xterm'in textarea dinleyicisinden önce çalışan bir
+  yakalama dinleyicisi eklendi. Yalnızca öncesinde `compositionstart` olmayan
+  `compositionend` durduruluyor; gerçek composition oturumları geçiyor.
+- Geçici izleme ve `localStorage` kaydı üretim kodundan tamamen çıkarıldı.
+- WebKitGTK regresyonuna şu senaryolar eklendi: bir Türkçe basım, art arda
+  iki gerçek Türkçe basım, gerçek `compositionstart → compositionend`, ASCII
+  ve Backspace.
 
-| olay sırası | gönderilen | |
-|---|---|---|
-| Türkçe, `input` `keyup`'tan **sonra**, yamasız | `ööççıığğ` | ikili |
-| aynısı, **yamalı** | `öçığ` | düzeliyor |
-| Türkçe, `input` `keyup`'tan **önce** | `öçığ` | doğru |
-| **ASCII**, geç sıra, yamasız | `aabbccdd` | ASCII de ikileniyor |
-| büyük harf muafiyeti (65–90), yamalı / yamasız | `AB` / `AB` | yama bozmuyor |
-| gerçek IME derlemesi (`中文`, keyCode 229), yamalı | `中文` | yama bozmuyor |
+## Doğrulama
 
-Yama `src/ui/Term.tsx`'te duruyor: `onKey` yalnızca `_keyDown`/`_keyPress`
-veriyi kendisi gönderdiğinde ateşliyor (aynı dalda), o yüzden ateşledikten
-sonra gelen aynı içerikli `insertText` kapta ve **yakalama evresinde**
-durduruluyor.
+- **RED:** textarea `"abc"`; yetim Türkçe girdi → `["ö", "bcö"]`.
+- **GREEN:** aynı olay sırası → yalnızca `["ö"]`.
+- Art arda iki Türkçe basımın ikisi de korunuyor; gerçek tekrar yanlışlıkla
+  yineleme sayılmıyor.
+- Gerçek IME composition, ASCII ve Backspace regresyonları geçiyor.
+- Fiziksel Türkçe klavye testi gerçek Tauri/WebKitGTK penceresinde geçti.
 
-⚠️ **Sentetik dizide çalışan yama gerçek klavyede çalışmadı.** Yani
-**gerçek ibus'un ürettiği olay dizisi benim yeniden kurduğumdan farklı.**
-Kalan iş bu diziyi *ölçmek*; kod okumakla buraya kadar gelinebiliyor.
+## Kalanlar
 
-## Elenmiş olanlar
+- Bu Türkçe girdi sorunu için kalan iş yok.
+- Tam `scripts/check-ui.py` koşumunda bu düzeltmenin odaklı testi geçiyor;
+  ancak `empty terminal centered at multiple widths` ve
+  `terminal close, split, drag and concurrent close use native input`
+  kontrolleri ayrıca başarısız. Bunlar bu girdi hatasının kabul ölçütü
+  değil; ayrı bir arayüz regresyonu incelemesi gerektiriyor.
 
-- **Çıktı yolu temiz.** `"öçığşüÖÇİĞŞÜ ok"` **her olası bayt kesiminde** ikiye
-  bölünüp `atob` + `TextDecoder({stream:true})` + `term.write` üstünden
-  yazıldı: bozulan kesim **yok**. Bayt bayt yazmak da metni birebir veriyor.
-  Sorun PTY→ekran yönünde **değil**, girdi yönünde.
-- **Rust tarafı temiz:** `pty.rs` `engine.encode(&buf[..n])` ve
-  `data.as_bytes()` — bayt bazlı, çok baytlı karakteri bozmuyor.
-- **`ptybus.ts` çift dağıtım yapmıyor:** tek `listen`, `Set` ile dağıtım.
-- **xterm sürümü:** `6.0.0` **en son kararlı**; npm'de `6.1.0` yalnızca beta
-  (300+ beta). Yükseltmek bir çözüm yolu değil.
+## Elenmiş ve yeniden denenmemesi gereken yollar
 
-## Sıradaki adım — gerçek olay dizisini ölçmek
-
-Tahminle daha ileri gidilmemeli. Yapılacak: `Term.tsx`'e **geçici** bir iz
-kaydı konup gerçek klavyeyle bir kez üretilecek. Konsol görünmüyor, ama
-`localStorage`'a yazılırsa **diskten okunabiliyor**:
-
-```
-~/.local/share/com.pcbridge.desktop/localstorage/*.localstorage   (sqlite, ItemTable)
-```
-
-Kaydedilecekler, tuş başına sırayla: `keydown` · `keypress` · `keyup` ·
-`beforeinput` · `input` (+ `inputType`, `data`, `isComposing`, `composed`) ·
-`compositionstart/update/end`, her birinde `performance.now()` ve o andaki
-`textarea.value`, artı `onData`'nın ne gönderdiği. Bir kez `ö` basıp bir kez
-silip yeniden yazmak yetiyor.
-
-Dizi görülünce hangi göndericinin fazladan ateşlediği kesinleşir; bugünkü
-yama ya düzeltilir ya kaldırılır.
-
-## Denenmemesi gerekenler (gerekçeleriyle)
-
-- ⛔ **`onData` seviyesinde yineleme ayıklamak.** Orada iki **özdeş** olay
-  görünüyor; gerçekten iki kez basılmış bir harften ayırt edilemez.
-- ⛔ **Yardımcı metin alanını elle temizlemek.** xterm onu yalnızca Enter,
-  Ctrl+C ve odak kaybında boşaltıyor, yani yazdıkça biriktiriyor (ölçüldü).
-  Ama `_handleAnyTextareaChanges`'in bekleyen bir farkı varsa alanın kısalması
-  ona **geri silme** (`DEL`) gibi görünür.
-- ⛔ **Ölçümü Chromium'da (tarayıcı bölmesinde) yapmak.** Uygulama WebKitGTK;
-  girdi yolunu ilgilendiren hiçbir ölçüm orada geçerli değil.
+- PTY çıktı yolu, Rust bayt kodlaması ve `ptybus.ts` dağıtımı temiz.
+- `onData` seviyesinde genel yineleme ayıklama yapılmamalı; iki gerçek basımı
+  birbirinden ayıramaz.
+- Yardımcı textarea elle temizlenmemeli; xterm'in bekleyen fark hesabı bunu
+  geri silme olarak yorumlayabilir.
+- Chromium ölçümü kullanılmamalı; uygulamanın girdi motoru WebKitGTK.
