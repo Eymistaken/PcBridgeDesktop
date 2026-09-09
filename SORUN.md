@@ -1,10 +1,9 @@
 # ÇÖZÜLEN SORUN — Türkçe girdiden sonra birikmiş metin yeniden gönderiliyordu
 
-**Güncel durum: YERELDE ÇÖZÜLDÜ, HENÜZ YAYIMLANMADI.** 2026-09-09'da
+**Güncel durum: ÇÖZÜLDÜ — 0.7.3'E DAHİL EDİLDİ.** 2026-09-09'da
 gerçek Tauri/WebKitGTK penceresinde fiziksel Türkçe klavyeyle doğrulandı.
 Kullanıcı `bu c    ümlede olmalı.  ı ç ü ö ş` metninin bozulmadan yazıldığını
-onayladı. Bu takip düzeltmesi henüz sürüm artırımı yapılmadan yerel çalışma
-ağacında bulunuyor ve GitHub'a gönderilmedi.
+onayladı.
 
 ## Belirti
 
@@ -73,13 +72,50 @@ fark hesabını güvenli hale getirmiyordu. Yeni izde tek karakter beklenirken
 ## Kalanlar
 
 - Bu Türkçe girdi hatası için kod veya doğrulama işi kalmadı.
-- Takip düzeltmesi için henüz sürüm artırımı, paketleme veya GitHub gönderimi
-  yapılmadı.
 - Tam `scripts/check-ui.py` koşumunda odaklı terminal girdi testi geçiyor;
   `empty terminal centered at multiple widths` ve
   `terminal close, split, drag and concurrent close use native input`
   kontrolleri ayrıca başarısız. Bunlar bu girdi düzeltmesinden önce de vardı ve
   ayrı bir arayüz regresyonu incelemesi gerektiriyor.
+
+## Açık terminal işleri ve özellik önerileri — yalnızca kayıt
+
+**Durum: AÇIK; bu sürümde çözülmedi veya uygulanmadı.** Aşağıdaki maddeler
+sonraki çalışmalar için kaydedildi. Kök neden veya uygulama yaklaşımı henüz
+kesinleştirilmedi.
+
+### Görsel ve yerleşim sorunları
+
+- Terminal içeriğinin en altındaki birkaç piksel sürekli terminal çerçevesinin
+  altında kalıyor veya kırpılmış görünüyor. Alt satır, çerçevenin tamamen
+  içinde kalmalı.
+- Claude Code'un blok karakterlerle çizilen maskotu parçalı görünüyor. Olması
+  gereken görünümde bloklar yatay ve dikey olarak tümleşik; mevcut görünümde
+  satır/sütun aralarında boşluklar var. Satır yüksekliği, hücre genişliği ve
+  xterm çizim ölçüleri birlikte incelenmeli; bunlar şimdilik yalnızca hipotez.
+- Terminal ilk açıldığında tamamen siyah-beyaz göründü; hiçbir ayar veya girdi
+  değişmeden renkler daha sonra kendiliğinden geldi. Renklerin kalıcı kaybı
+  sürmedi, ancak başlangıç paleti/tema uygulamasında aralıklı bir yarış veya
+  gecikme olasılığı ayrıca izlenmeli.
+- Genel arayüz tasarımı daha okunaklı olacak biçimde yeniden ele alınacak.
+  Görsel yön ve ayrıntılar henüz kararlaştırılmadı; bu madde tasarım çalışması
+  başlamadan önce netleştirilecek.
+
+### Terminal ve grup davranışları
+
+- Area 1'de yeni terminal oluşturulduğunda ilk terminal adı her zaman
+  `Pcbridge` oluyor. Kullanıcı elle değiştirmedikçe varsayılan ad
+  `username@hostname` biçiminde olmalı.
+- Her terminal grubu sağ tık menüsündeki **Kapat** eylemiyle kapatılabilmeli.
+- Bir terminal grubuna orta fare tuşuyla (tekerlek tıklaması) basmak grubu
+  kapatmalı.
+- Son kalan grup da kapatılabilmeli; terminal görünümü sıfır grupla boş durumda
+  kalabilmeli. Yeni bir terminal açmak için önceden grup oluşturmak zorunlu
+  olmamalı.
+- Her grup için isteğe bağlı bir varsayılan çalışma klasörü seçilebilmeli.
+  Seçim, terminal başlığındaki mevcut klasör düğmesine benzer bir klasör
+  seçiciyle yapılmalı. O grupta açılan yeni terminaller otomatik olarak bu
+  klasörde başlamalı.
 
 ## Elenmiş ve yeniden denenmemesi gereken yollar
 
