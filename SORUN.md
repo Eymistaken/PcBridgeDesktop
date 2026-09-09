@@ -1,75 +1,94 @@
-# ÇÖZÜLEN SORUN — Türkçe karakterler terminalde katlanıyordu
+# ÇÖZÜLEN SORUN — Türkçe girdiden sonra birikmiş metin yeniden gönderiliyordu
 
-**Güncel durum: ÇÖZÜLDÜ.** Düzeltme 0.7.2'de. 2026-09-09'da gerçek
-Tauri/WebKitGTK penceresinde fiziksel Türkçe klavyeyle doğrulandı; kullanıcı
-`ö → Backspace → ö` dizisinde katlanmanın kalmadığını onayladı.
+**Güncel durum: YERELDE ÇÖZÜLDÜ, HENÜZ YAYIMLANMADI.** 2026-09-09'da
+gerçek Tauri/WebKitGTK penceresinde fiziksel Türkçe klavyeyle doğrulandı.
+Kullanıcı `bu c    ümlede olmalı.  ı ç ü ö ş` metninin bozulmadan yazıldığını
+onayladı. Bu takip düzeltmesi henüz sürüm artırımı yapılmadan yerel çalışma
+ağacında bulunuyor ve GitHub'a gönderilmedi.
 
 ## Belirti
 
-Herhangi bir terminal bölmesinde `ö ç ı ğ` gibi bir karaktere bir kez basmak
-birden çok karakter yazıyordu. Silip yeniden yazdıkça satır daha da uzuyor;
-birikmiş metin yeniden gönderiliyordu. ASCII karakterlerde görülmüyordu.
+0.7.2, tek Türkçe karakterin sabit biçimde katlanması sorununu düzeltti; ancak
+bağlama bağlı ikinci bir yol kaldı. Özellikle boşluklar ve Türkçe karakterler
+karışık yazıldığında, yeni karakter yerine terminal textarea'sında birikmiş
+metnin tamamı yeniden gönderilebiliyordu. Bu nedenle uzun cümlelerin parçaları
+satırın sonunda tekrar görünüyordu.
 
 ## Gerçek kök neden
 
-0.7.1'deki hipotez yanlıştı. Sorun, `_keyDown` ile `_inputEvent` arasındaki
-geç sıra değildi. Gerçek WebKitGTK/IBus izi şu diziyi gösterdi:
+Gerçek WebKitGTK/IBus izi şu diziyi gösterdi:
 
-1. `keydown`: `key = "Unidentified"`, `keyCode = 229`
-2. `beforeinput` ve `input`: `inputType = "insertFromComposition"`, veri
-   Türkçe harf
-3. **`compositionstart` olmadan** `compositionend`
-4. `onData`: yeni harf
-5. `onData`: textarea'da daha önce birikmiş metnin büyük bölümü
+1. Normal boşluk terminale doğru biçimde tek `U+0020` olarak gönderiliyor.
+2. WebKit, xterm'in gizli textarea'sındaki bazı boşlukları `U+00A0` (NBSP)
+   olarak tutuyor.
+3. Türkçe karakter için `keydown`, `keyCode = 229` ve `key = "Unidentified"`
+   geliyor. Ardından `insertFromComposition` girdisi ve öncesinde
+   `compositionstart` olmayan bir `compositionend` oluşuyor.
+4. WebKit yeni karakteri eklerken textarea'daki bir NBSP'yi normal boşluğa
+   dönüştürebiliyor.
+5. xterm'in `_handleAnyTextareaChanges` yolu eski textarea değerini yeni
+   değerden `replace` ile çıkarmaya çalışıyor. Boşluk kod noktası değiştiği
+   için eski değer artık eşleşmiyor ve xterm tüm textarea'yı yeni girdi sanıp
+   `onData` üzerinden yeniden gönderiyor.
 
-xterm, `keyCode 229` için `_handleAnyTextareaChanges` ile textarea farkını
-gönderiyor. Aynı fiziksel basımın yetim `compositionend` olayı da
-`_finalizeComposition` yolunu çalıştırıyor. Bir `compositionstart` olmadığı
-için xterm'in composition başlangıç konumu `0` kalıyor ve sonlandırıcı,
-textarea'nın birikmiş kısmını yeniden gönderiyor. Katlanmanın sebebi bu.
-
-Gerçek izde bir `ğ` basımı, önce `"ğ"`, ardından 11 karakterlik eski
-birikimi gönderdi. Aynı sıranın textarea `"abc"` ile regresyon tekrarı,
-düzeltme öncesinde `["ö", "bcö"]` sonucunu verdi.
+0.7.2'deki yetim `compositionend` filtresi, o olayın ikinci gönderimini
+engelliyordu; fakat `keyCode 229` tarafından daha önce zamanlanmış textarea
+fark hesabını güvenli hale getirmiyordu. Yeni izde tek karakter beklenirken
+24, 26, 28 ve daha uzun karakter dizilerinin gönderildiği görüldü.
 
 ## Yapılanlar
 
-- `Term.tsx` içine geçici, yalnızca geliştirme derlemesinde çalışan bir
-  olay izi eklendi. DOM olayları, textarea değeri ve `onData` çıktıları gerçek
-  Tauri penceresinde ölçüldü.
-- Fazladan göndericinin yetim `compositionend` olduğu kanıtlandı.
-- 0.7.1'in `beklenen`/`onKey`/`insertText` yaması tamamen kaldırıldı.
-- Terminal kabında, xterm'in textarea dinleyicisinden önce çalışan bir
-  yakalama dinleyicisi eklendi. Yalnızca öncesinde `compositionstart` olmayan
-  `compositionend` durduruluyor; gerçek composition oturumları geçiyor.
-- Geçici izleme ve `localStorage` kaydı üretim kodundan tamamen çıkarıldı.
-- WebKitGTK regresyonuna şu senaryolar eklendi: bir Türkçe basım, art arda
-  iki gerçek Türkçe basım, gerçek `compositionstart → compositionend`, ASCII
-  ve Backspace.
+- `Term.tsx` içine geçici ve yalnızca geliştirme modunda çalışan ayrıntılı bir
+  olay izi eklendi. DOM olayları, textarea değeri/seçimi ve xterm `onData`
+  çıktısı gerçek Tauri penceresinde toplandı.
+- NBSP'nin normal boşluğa dönüşmesi ile xterm'in birikmiş metni yeniden
+  göndermesi arasındaki ilişki doğrulandı.
+- Öncesinde `compositionstart` olmayan `compositionend` olayında, olayın kendi
+  verisi güvenilir yeni girdi olarak saklanıyor.
+- xterm'in zamanlanmış `onData` çağrısı geldiğinde yalnızca bu saklanan veri
+  PTY'ye gönderiliyor; xterm'in hatalı tam-textarea farkı gönderilmiyor.
+- xterm bekleyen fark hesabını bitirdikten sonra yardımcı textarea temizleniyor.
+  Böylece temizleme işlemi erken yapılıp yanlış Backspace üretmiyor ve sonraki
+  Türkçe basım eski metinle başlamıyor.
+- Gerçek `compositionstart → compositionend` oturumları, ASCII tuşlar ve
+  Backspace mevcut yollarından geçmeye devam ediyor.
+- Geçici tanılama kodu üretim kaynağından çıkarıldı.
 
-## Doğrulama
+## Regresyon ve doğrulama
 
-- **RED:** textarea `"abc"`; yetim Türkçe girdi → `["ö", "bcö"]`.
-- **GREEN:** aynı olay sırası → yalnızca `["ö"]`.
-- Art arda iki Türkçe basımın ikisi de korunuyor; gerçek tekrar yanlışlıkla
-  yineleme sayılmıyor.
-- Gerçek IME composition, ASCII ve Backspace regresyonları geçiyor.
-- Fiziksel Türkçe klavye testi gerçek Tauri/WebKitGTK penceresinde geçti.
+- **RED:** textarea `"önce\u00a0"` iken WebKit'in NBSP'yi normal boşluğa
+  çevirip yetim `ı` eklemesi → PTY yazımı `["önce ı"]`.
+- **GREEN:** aynı olay sırası → PTY yazımı yalnızca `["ı"]`; yardımcı textarea
+  gönderimden sonra boş.
+- Veri içermeyen, iptal edilmiş bir yetim birleşimin sonraki normal tuşu
+  yutmaması ayrı bir regresyonla doğrulandı.
+- Odaklı WebKitGTK testi ayrıca art arda Türkçe basımı, gerçek IME birleşimini,
+  ASCII ve Backspace davranışını doğruluyor.
+- `npm run build` geçti: i18n anahtar kontrolü, TypeScript ve Vite üretim
+  derlemesi başarılı.
+- Temiz bir `tauri dev` süreci açılarak fiziksel klavyede
+  `bu c    ümlede olmalı.  ı ç ü ö ş` yazıldı; kullanıcı bozulmanın
+  tekrarlanmadığını onayladı.
 
 ## Kalanlar
 
-- Bu Türkçe girdi sorunu için kalan iş yok.
-- Tam `scripts/check-ui.py` koşumunda bu düzeltmenin odaklı testi geçiyor;
-  ancak `empty terminal centered at multiple widths` ve
+- Bu Türkçe girdi hatası için kod veya doğrulama işi kalmadı.
+- Takip düzeltmesi için henüz sürüm artırımı, paketleme veya GitHub gönderimi
+  yapılmadı.
+- Tam `scripts/check-ui.py` koşumunda odaklı terminal girdi testi geçiyor;
+  `empty terminal centered at multiple widths` ve
   `terminal close, split, drag and concurrent close use native input`
-  kontrolleri ayrıca başarısız. Bunlar bu girdi hatasının kabul ölçütü
-  değil; ayrı bir arayüz regresyonu incelemesi gerektiriyor.
+  kontrolleri ayrıca başarısız. Bunlar bu girdi düzeltmesinden önce de vardı ve
+  ayrı bir arayüz regresyonu incelemesi gerektiriyor.
 
 ## Elenmiş ve yeniden denenmemesi gereken yollar
 
 - PTY çıktı yolu, Rust bayt kodlaması ve `ptybus.ts` dağıtımı temiz.
-- `onData` seviyesinde genel yineleme ayıklama yapılmamalı; iki gerçek basımı
-  birbirinden ayıramaz.
-- Yardımcı textarea elle temizlenmemeli; xterm'in bekleyen fark hesabı bunu
-  geri silme olarak yorumlayabilir.
+- `onData` seviyesinde genel metin/yineleme ayıklama yapılmamalı; iki gerçek
+  basımı güvenilir biçimde ayıramaz.
+- Yardımcı textarea, xterm'in zamanlanmış fark hesabından önce temizlenmemeli;
+  xterm bunu Backspace olarak yorumlayabilir.
+- Hot reload sonrasında açık terminalin eski `useEffect` dinleyicilerini
+  koruyabildiği unutulmamalı; fiziksel girdi doğrulaması temiz uygulama
+  süreciyle yapılmalı.
 - Chromium ölçümü kullanılmamalı; uygulamanın girdi motoru WebKitGTK.

@@ -58,10 +58,11 @@ const keyboardEvent = (type, key, keyCode) => {
   Object.defineProperties(event, {keyCode:{get:()=>keyCode}, which:{get:()=>keyCode}});
   return event;
 };
-const compositionInput = async (textarea, data, {start=true}={}) => {
+const compositionInput = async (textarea, data, {start=true, normalizeTrailingNbsp=false}={}) => {
   textarea.dispatchEvent(keyboardEvent('keydown', 'Unidentified', 229));
   if (start) textarea.dispatchEvent(new CompositionEvent('compositionstart', {data:'', bubbles:true, composed:true}));
   textarea.dispatchEvent(new InputEvent('beforeinput', {data, inputType:'insertFromComposition', bubbles:true, cancelable:true, composed:true}));
+  if (normalizeTrailingNbsp && textarea.value.endsWith('\u00a0')) textarea.value=textarea.value.slice(0,-1)+' ';
   textarea.value += data;
   textarea.dispatchEvent(new InputEvent('input', {data, inputType:'insertFromComposition', bubbles:true, composed:true}));
   textarea.dispatchEvent(new CompositionEvent('compositionend', {data, bubbles:true, composed:true}));
@@ -82,6 +83,21 @@ await test('terminal separates orphan Turkish input from real compositions and k
   await compositionInput(textarea,'ö',{start:false});
   writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
   assert(writes.length===1&&writes[0]==='ö',`Repeated Turkish press was deduplicated: ${JSON.stringify(writes)}`);
+
+  calls=[];
+  textarea.value='önce\u00a0';
+  await compositionInput(textarea,'ı',{start:false,normalizeTrailingNbsp:true});
+  writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===1&&writes[0]==='ı',`Normalized NBSP resent accumulated input: ${JSON.stringify(writes)}`);
+  assert(textarea.value==='',`Orphan composition left stale textarea input: ${JSON.stringify(textarea.value)}`);
+
+  calls=[];
+  await compositionInput(textarea,'',{start:false});
+  textarea.dispatchEvent(keyboardEvent('keydown','a',65));
+  textarea.dispatchEvent(keyboardEvent('keyup','a',65));
+  await wait(40);
+  writes=calls.filter(call=>call.command==='pty_write').map(call=>call.args.data);
+  assert(writes.length===1&&writes[0]==='a',`Canceled orphan composition swallowed the next key: ${JSON.stringify(writes)}`);
 
   calls=[];
   await compositionInput(textarea,'中');

@@ -226,11 +226,14 @@ export default function Term({ session, workdir, dondur, onExit, onOpened }: Pro
         });
 
       // WebKitGTK/IBus, Türkçe düzende bazen `compositionstart` olmadan
-      // `compositionend` üretiyor. xterm bu yetim bitişi gerçek bir derleme
-      // gibi sonlandırınca textarea'nın birikmiş kısmını yeniden gönderiyor.
-      // Kapta yakalamak, olayın xterm'in textarea dinleyicisine ulaşmasını
-      // engeller; gerçek compositionstart → compositionend dizisi geçer.
+      // `compositionend` üretiyor. xterm'in keyCode 229 geri dönüş yolu,
+      // WebKit textarea içindeki NBSP'yi normal boşluğa dönüştürdüğünde eski
+      // metni ayıramayıp birikmiş girdinin tamamını yeniden gönderebiliyor.
+      // Yetim bitişin kendi verisini kaynak kabul edip textarea'yı gönderimden
+      // sonra temizliyoruz; gerçek compositionstart → compositionend dizisi geçer.
       let birlesimBasladi = false;
+      let yetimBirlesimVerisi: string | null = null;
+
       const birlesimBaslangici = (e: Event) => {
         if (e.target === term.textarea) birlesimBasladi = true;
       };
@@ -238,7 +241,10 @@ export default function Term({ session, workdir, dondur, onExit, onOpened }: Pro
         if (e.target !== term.textarea) return;
         const yetim = !birlesimBasladi;
         birlesimBasladi = false;
-        if (yetim) e.stopPropagation();
+        if (yetim) {
+          yetimBirlesimVerisi = (e as CompositionEvent).data || null;
+          e.stopPropagation();
+        }
       };
       kap.addEventListener("compositionstart", birlesimBaslangici, true);
       kap.addEventListener("compositionend", birlesimSonu, true);
@@ -248,7 +254,12 @@ export default function Term({ session, workdir, dondur, onExit, onOpened }: Pro
       });
 
       const veri = term.onData((d) => {
-        void ptyWrite(session, d).catch(() => {});
+        const gonderilecek = yetimBirlesimVerisi ?? d;
+        if (yetimBirlesimVerisi !== null) {
+          yetimBirlesimVerisi = null;
+          if (term.textarea) term.textarea.value = "";
+        }
+        if (gonderilecek) void ptyWrite(session, gonderilecek).catch(() => {});
       });
       sokulecek.push(() => veri.dispose());
 
