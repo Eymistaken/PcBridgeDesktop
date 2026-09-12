@@ -5,6 +5,7 @@ import SagMenu, { type MenuYer } from "./SagMenu";
 import { IconPlus } from "./Icon";
 import { useCikisIcerik } from "../lib/cikis";
 import { t } from "../lib/i18n";
+import { kisaltEv } from "../lib/yol";
 import { avatarVar, hueOf } from "../lib/types";
 import type { Alan } from "../lib/alanlar";
 
@@ -17,6 +18,10 @@ interface Props {
   onEkle: () => void;
   onAdlandir: (id: string, ad: string) => void;
   onSil: (id: string) => void;
+  /** Alanın varsayılan klasörünü seçtirir — burada doğan terminaller oradan. */
+  onKlasor: (id: string) => void;
+  /** Varsayılan klasörü kaldırır; alan yeniden `~`'da doğuruyor. */
+  onKlasorSil: (id: string) => void;
 }
 
 /**
@@ -50,6 +55,8 @@ export default function AlanSekmeleri({
   onEkle,
   onAdlandir,
   onSil,
+  onKlasor,
+  onKlasorSil,
 }: Props) {
   const [menu, setMenu] = useState<{ yer: MenuYer; id: string } | null>(null);
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null);
@@ -58,6 +65,10 @@ export default function AlanSekmeleri({
     render: menuVar,
     cikiyor: menuCikiyor,
   } = useCikisIcerik(menu);
+  /** Menüdeki alanın varsayılan klasörü — satır metnini o belirliyor. */
+  const klasorlu = menuIcerik
+    ? alanlar.find((a) => a.id === menuIcerik.id)?.dizin
+    : undefined;
 
   return (
     <>
@@ -92,6 +103,20 @@ export default function AlanSekmeleri({
                 data-etkin={a.id === etkin || undefined}
                 title={t("area.tabTitle", { name: a.ad, n })}
                 onClick={() => onSec(a.id)}
+                /*
+                 * Orta tık sekmeyi kapatıyor — tarayıcı sekmesinin ve GNOME
+                 * Terminal'in davranışı, kullanıcının açık isteği.
+                 *
+                 * ⚠️ `onAuxClick` orta **ve** sağ tuşta ateşliyor; sağ tuş
+                 * zaten menüyü açıyor, o yüzden düğme numarasına bakılıyor.
+                 * `preventDefault` X11/Wayland'in birincil-seçim yapıştırmasını
+                 * da kesiyor.
+                 */
+                onAuxClick={(e) => {
+                  if (e.button !== 1) return;
+                  e.preventDefault();
+                  onSil(a.id);
+                }}
                 onDoubleClick={() => setDuzenlenen(a.id)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -134,10 +159,31 @@ export default function AlanSekmeleri({
               onSec: () => setDuzenlenen(menuIcerik.id),
             },
             {
+              /*
+               * Alanın varsayılan klasörü. Satır seçiliyse hangi klasör
+               * olduğunu **yazıyor**: uygulama ölçtüğü şeyi gösteriyor, ve
+               * "Varsayılan klasör" tek başına açık mı kapalı mı belli
+               * değildi.
+               */
+              ad: klasorlu
+                ? t("area.dirSet", { dir: kisaltEv(klasorlu) })
+                : t("area.dirPick"),
+              onSec: () => onKlasor(menuIcerik.id),
+            },
+            ...(klasorlu
+              ? [
+                  {
+                    ad: t("area.dirClear"),
+                    onSec: () => onKlasorSil(menuIcerik.id),
+                  },
+                ]
+              : []),
+            {
               ad: t("area.close"),
               ayrac: true,
-              // Son alan silinmiyor: sekmesiz bir terminal kipi çizilemez.
-              kapali: alanlar.length < 2,
+              // ⚠️ Eskiden `alanlar.length < 2` ile kapalıydı. Kullanıcının
+              // kararı (2026-09-09): son alan da kapanabilmeli, terminal kipi
+              // sıfır alanla boş durumda kalabilmeli.
               onSec: () => onSil(menuIcerik.id),
             },
           ]}

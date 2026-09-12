@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 import BotForge from "./BotForge";
 import Sidebar, { sayilar } from "./Sidebar";
@@ -29,9 +29,11 @@ import { ekle, oturumKoy, oturumlar, type Dugum } from "./lib/agac";
 import {
   agacYaz,
   alanAdlandir,
+  alanKlasor,
   alanEkle,
   alanSil,
   etkinAgac,
+  etkinDizin,
   etkinYap,
   oku as okuAlanlarHam,
   oturumDus,
@@ -288,7 +290,11 @@ export default function Shell({
   const setAgac = useCallback<Dispatch<SetStateAction<Dugum | null>>>(
     (v) =>
       setDurum((d) =>
-        agacYaz(d, typeof v === "function" ? v(etkinAgac(d)) : v),
+        agacYaz(
+          d,
+          typeof v === "function" ? v(etkinAgac(d)) : v,
+          t("area.n", { n: 1 }),
+        ),
       ),
     [],
   );
@@ -417,11 +423,20 @@ export default function Shell({
   const yeniTerminal = useCallback(async () => {
     try {
       const ad = await tmuxFreeName(oturumlar(agacRef.current));
+      // ⚠️ **Ölü oturumun etiketi yeni terminale yapışıyordu.** Etiket
+      // haritasının anahtarı tmux adı, ve `free_name` adları geri
+      // dönüştürüyor: oturum ölünce `term1` yeniden boşa çıkıyor ve bir
+      // zamanlar ona verilmiş ad başlıkta yeniden beliriyor. Gerçek
+      // `localStorage`'ta ölçüldü (2026-09-12): tmux sunucusu kapalıyken kayıt
+      // hâlâ `{"term1":"Pcbridge"}` taşıyordu ve her yeni ilk terminal
+      // "Pcbridge" adıyla doğuyordu. `free_name` adın tmux'ta **olmadığını**
+      // garanti ediyor, yani buradaki etiket her koşulda ölü bir oturumun.
+      etiketYaz(ad, "");
       setAgac((a) => ekle(a, ad));
     } catch (e) {
       setConnError(detailText(e));
     }
-  }, []);
+  }, [etiketYaz]);
 
   /**
    * Kilit rozetinin eylemi: kapalıysa 15 dakika açar, açıksa kilitler.
@@ -450,6 +465,10 @@ export default function Shell({
   const oturumSonlandir = useCallback((name: string) => {
     void tmuxKill(name)
       .then(() => {
+        // Etiket öldürülen oturuma aitti; adı geri dönüştüğünde yeni bir
+        // terminale yapışmasın diye kaynağında siliniyor. Boş ad `etiketYaz`
+        // için zaten "sil" demek — ikinci bir silme yolu yazılmadı.
+        etiketYaz(name, "");
         // Oturum öldü: onu gösteren bölme de kalkmalı — hangi alanda olursa
         // olsun. Arka plandaki bir alanda ölü bir bölme bırakmak, oraya
         // dönene kadar görünmeyen bir hata olurdu.
@@ -457,7 +476,7 @@ export default function Shell({
         return terminalleriYukleRef.current();
       })
       .catch((e) => setConnError(errorText(e as ConnError)));
-  }, []);
+  }, [etiketYaz]);
 
   /**
    * Kenar çubuğundan bir oturumu açık bir bölmenin **üstüne** bırakmak.
@@ -487,9 +506,50 @@ export default function Shell({
     setDurum((d) => etkinYap(d, id));
   }, []);
 
-  /** Yeni alan sıradaki numarayla doğuyor; adı sekmede çift tıkla değişiyor. */
+  /**
+   * Yeni alan sıradaki **boş** numarayla doğuyor; adı sekmede çift tıkla
+   * değişiyor.
+   *
+   * ⚠️ Numara listenin uzunluğundan değil, kullanılmayan ilk sayıdan geliyor:
+   * alanlar artık kapatılabildiği için "Alan 1, Alan 2" varken 1'i kapatmak
+   * uzunluğu 1'e düşürüyor ve sıradaki alan da "Alan 2" olurdu. Ad rengi de
+   * besliyor (`hueOf`), yani iki aynı adlı sekme aynı renkte olurdu.
+   */
   const alanYeni = useCallback(() => {
-    setDurum((d) => alanEkle(d, t("area.n", { n: d.alanlar.length + 1 })));
+    setDurum((d) => {
+      let n = 1;
+      while (d.alanlar.some((a) => a.ad === t("area.n", { n }))) n += 1;
+      return alanEkle(d, t("area.n", { n }));
+    });
+  }, []);
+
+  /**
+   * Alanın varsayılan klasörü — burada doğan terminaller oradan başlıyor.
+   *
+   * ⚠️ **`.catch(() => null)` YOK**, bölme klasörü seçicisindeki gerekçenin
+   * aynısı: iptali `null` ile bildiren bir API'de `catch` yalnızca gerçek
+   * hatayı gizler ve tuş ölü görünür (CLAUDE.md, bir yıl süren dışa aktarma
+   * hatası).
+   */
+  const alanKlasorSec = useCallback(async (id: string) => {
+    const alan = durumRef.current.alanlar.find((a) => a.id === id);
+    try {
+      const secilen = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: alan?.dizin || undefined,
+        title: t("area.chooseDir"),
+      });
+      if (typeof secilen !== "string") return; // kullanıcı iptal etti
+      setDurum((d) => alanKlasor(d, id, secilen));
+    } catch (e) {
+      setConnError(detailText(e));
+    }
+  }, []);
+
+  /** Alanın varsayılan klasörünü kaldırır; alan yeniden `~`'da doğuruyor. */
+  const alanKlasorSil = useCallback((id: string) => {
+    setDurum((d) => alanKlasor(d, id, ""));
   }, []);
 
   const alanAdiYaz = useCallback((id: string, ad: string) => {
@@ -1095,6 +1155,7 @@ export default function Shell({
           onHata={setConnError}
           agac={agac}
           onAgac={setAgac}
+          dizin={etkinDizin(durum)}
           alanlar={durum.alanlar}
           etkinAlan={durum.etkin}
           onAlanaTasi={oturumAlanaTasi}
@@ -1125,6 +1186,8 @@ export default function Shell({
         onAlanYeni={alanYeni}
         onAlanAd={alanAdiYaz}
         onAlanKapat={alanKapat}
+        onAlanKlasor={(id) => void alanKlasorSec(id)}
+        onAlanKlasorSil={alanKlasorSil}
         onAlanaTasi={oturumAlanaTasi}
         panes={panes}
         desktop={desktop}

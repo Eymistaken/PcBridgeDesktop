@@ -93,6 +93,11 @@ interface Props {
   agac: Dugum | null;
   onAgac: Dispatch<SetStateAction<Dugum | null>>;
   /**
+   * Etkin alanın varsayılan klasörü — burada doğan terminaller oradan
+   * başlıyor. Seçilmemişse bölme eskisi gibi `~`'da doğuyor.
+   */
+  dizin?: string;
+  /**
    * Çalışma alanları — yalnızca *"alana taşı"* menüsü için.
    *
    * ⚠️ Bu bileşen bir **ağaç** çiziyor ve hangi alanda olduğunu bilmiyor;
@@ -138,6 +143,7 @@ export default function Terminals({
   onHata,
   agac,
   onAgac,
+  dizin,
   alanlar,
   etkinAlan,
   onAlanaTasi,
@@ -464,7 +470,9 @@ export default function Terminals({
       <div className="agac">
         {agac === null ? (
           <div className="chat__bos agac__bos">
-            <span className="h">{t("panes.empty")}</span>
+            <span className="h">
+              {alanlar.length === 0 ? t("panes.noAreas") : t("panes.empty")}
+            </span>
             <span
               style={{
                 fontSize: 13,
@@ -473,7 +481,9 @@ export default function Terminals({
                 maxWidth: 420,
               }}
             >
-              {t("panes.emptyHint")}
+              {alanlar.length === 0
+                ? t("panes.noAreasHint")
+                : t("panes.emptyHint")}
             </span>
           </div>
         ) : (
@@ -525,6 +535,7 @@ export default function Terminals({
                 onMenu={(yer) =>
                   setMenu({ yer, bolmeId: b.id, session: b.session })
                 }
+                dizin={dizin}
                 onKlasor={klasorSec}
                 onPencere={sonrakiPencere}
               />
@@ -663,6 +674,8 @@ interface BolmeProps {
   gecis: boolean;
   oturum?: TmuxSession;
   info?: PtyInfo;
+  /** Alanın varsayılan klasörü; yalnızca oturum doğarken okunuyor. */
+  dizin?: string;
   hedef: boolean;
   kaynak: boolean;
   onKapat: (bolmeId: string, session: string) => void;
@@ -686,6 +699,7 @@ function Bolme({
   gecis,
   oturum,
   info,
+  dizin,
   kaynak,
   onKapat,
   onZoom,
@@ -705,6 +719,17 @@ function Bolme({
    */
   const komut = info?.command ?? oturum?.command ?? "";
   const calisiyor = komut !== "" && !KABUKLAR.includes(komut);
+
+  /**
+   * Alanın klasörü **ilk çizimde dondurulur.**
+   *
+   * tmux `-c`'yi yalnızca `new-session` yolunda okuyor (`pty.rs::open`), yani
+   * klasör yalnızca oturum doğarken anlamlı. Canlı prop olarak geçirilseydi
+   * alanın klasörünü değiştirmek `Term`'in kurulum efektini yeniden
+   * çalıştırırdı (deps `[session, workdir]`) ve **açık bütün bölmeler**
+   * sökülüp yeniden kurulurdu.
+   */
+  const ilkDizin = useRef(dizin);
 
   /**
    * Başlıkta yazan şey **etiket**, tmux adı değil: `eymistaken@ZorinOS: ~yol`
@@ -868,6 +893,7 @@ function Bolme({
          * ölüm düşüyor. */}
         <Term
           session={session}
+          workdir={ilkDizin.current}
           dondur={gecis}
           onOpened={onOpened}
           onExit={() => void onKapat(bolmeId, session)}

@@ -190,6 +190,9 @@ const en: Record<string, string> = {
   "panes.empty": "No open panes",
   "panes.emptyHint":
     "Click a session in the list on the left, or press the plus to open a new one. Every pane is a real tmux session.",
+  "panes.noAreas": "No workspaces",
+  "panes.noAreasHint":
+    "Press the plus in the header to open a terminal; a workspace is created for it. The plus above the list makes an empty workspace.",
   "panes.close": "Close pane (the session keeps running)",
   "panes.closeNamed": "Close pane {name}",
   "panes.zoom": "Expand (fills the canvas; the others keep their size)",
@@ -207,6 +210,10 @@ const en: Record<string, string> = {
   "area.renameLabel": "New name for workspace {name}",
   "area.moveTo": "Move to {name}",
   "area.inArea": "in {name}",
+  "area.dirPick": "Set a default folder…",
+  "area.dirSet": "Default folder: {dir}",
+  "area.dirClear": "Clear the default folder",
+  "area.chooseDir": "Default folder for new terminals in this workspace",
   "term.noDir": "No directory",
   "menu.closePane": "Close pane",
   "menu.zoom": "Expand",
@@ -683,6 +690,9 @@ const tr: Record<string, string> = {
   "panes.empty": "Açık bölme yok",
   "panes.emptyHint":
     "Soldaki listeden bir oturuma tıkla ya da artıya basıp yeni bir tane aç. Her bölme gerçek bir tmux oturumudur.",
+  "panes.noAreas": "Çalışma alanı yok",
+  "panes.noAreasHint":
+    "Başlıktaki artıya basıp bir terminal aç; çalışma alanı onunla birlikte doğar. Listenin üstündeki artı boş bir alan kurar.",
   "panes.close": "Bölmeyi kapat (oturum yaşamaya devam eder)",
   "panes.closeNamed": "{name} bölmesini kapat",
   "panes.zoom": "Genişlet (tuvali kaplar; ötekiler ölçüsünü korur)",
@@ -699,6 +709,10 @@ const tr: Record<string, string> = {
   "area.renameLabel": "{name} alanının yeni adı",
   "area.moveTo": "{name} alanına taşı",
   "area.inArea": "{name} alanında",
+  "area.dirPick": "Varsayılan klasör seç…",
+  "area.dirSet": "Varsayılan klasör: {dir}",
+  "area.dirClear": "Varsayılan klasörü kaldır",
+  "area.chooseDir": "Bu alanda açılacak terminallerin varsayılan klasörü",
   "term.noDir": "Dizinsiz",
   "menu.closePane": "Bölmeyi kapat",
   "menu.zoom": "Genişlet",

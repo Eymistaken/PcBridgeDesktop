@@ -9,6 +9,8 @@ const { default: Thinking } = await load('Thinking', '/src/ui/Thinking.tsx');
 const { default: Sidebar } = await load('Sidebar', '/src/Sidebar.tsx');
 const { default: BotForge } = await load('BotForge', '/src/BotForge.tsx');
 const { default: Terminals } = await load('Terminals', '/src/views/Terminals.tsx');
+const { default: AreaTabs } = await load('AreaTabs', '/src/ui/AlanSekmeleri.tsx');
+const areas = await load('areas', '/src/lib/alanlar.ts');
 const { default: Term } = await load('Term', '/src/ui/Term.tsx');
 const tree = await load('tree', '/src/lib/agac.ts');
 const { setActiveLang } = await load('i18n', '/src/lib/i18n.ts');
@@ -50,8 +52,20 @@ window.__TAURI_INTERNALS__ = {
 const native = async action => { window.webkit.messageHandlers.nativeInput.postMessage(JSON.stringify(action)); await wait(30); };
 const point = element => { assert(element, 'Input target missing'); const r=element.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; };
 const click = async element => { const p=point(element); await native({kind:'move',...p}); await native({kind:'down',...p}); await native({kind:'up',...p}); await wait(100); };
+// Button 2 closes an area, button 3 opens the pane and area menus; both are
+// real input paths, so they go through GDK like the left click above.
+const clickWith = async (element, button) => { const p=point(element); await native({kind:'move',...p}); await native({kind:'down',...p,button}); await native({kind:'up',...p,button}); await wait(120); };
+const menuItem = text => [...host.querySelectorAll('.sagmenu__oge')].find(el=>el.textContent.trim()===text);
 const key = async (element, key) => { element.focus(); await native({kind:'keyDown',key}); await native({kind:'keyUp',key}); await wait(250); };
 const byText = text => [...host.querySelectorAll('button')].find(el=>el.textContent.trim()===text);
+// Terminals gained the working-area layer in stage 23; a test that omits those
+// props renders nothing at all and every query below it returns null.
+const terminalProps = {
+  view:{sessions:[]}, infos:{}, etiketler:{}, onEtiket:()=>{}, onKill:()=>{},
+  onInfoTazele:()=>{}, onHata:()=>{}, agac:null, onAgac:()=>{},
+  alanlar:[{id:'area-1',ad:'Area 1',agac:null}], etkinAlan:'area-1',
+  onAlanaTasi:()=>{}, onReload:()=>{},
+};
 const bot = {id:'test',name:'Test',agent:'test-agent',backend:'yerel-model',model:'test-model',effort:null,workdir:'/tmp',preamble:'',permission:'sor',timeout:1800,tools:[],contextBudget:8192,maxTurns:100,forceWhenBusy:false,avatar:null,sessions:[],updatedAt:0};
 const keyboardEvent = (type, key, keyCode) => {
   const event = new KeyboardEvent(type, {key, bubbles:true, cancelable:true, composed:true});
@@ -160,12 +174,17 @@ await test('session expansion moves the next bot without bouncing', async () => 
 await test('empty terminal centered at multiple widths', async () => {
   const offsets=[];
   for(const width of [700,1000,1350]) {
-    await render(h('div',{style:{width,height:700,display:'flex',flexDirection:'column'}},h(Terminals,{view:{sessions:[]},agac:null,onAgac:()=>{},onReload:()=>{}})));
-    const a=host.querySelector('.agac').getBoundingClientRect(),b=host.querySelector('.chat__bos').getBoundingClientRect();
+    await render(h('div',{style:{width,height:700,display:'flex',flexDirection:'column'}},h(Terminals,{...terminalProps,view:{sessions:[]},agac:null})));
+    const treeElement=host.querySelector('.agac');
+    const a=treeElement.getBoundingClientRect(),b=host.querySelector('.chat__bos').getBoundingClientRect();
+    // The tree pads its content box asymmetrically, so the expected centre is
+    // read from the computed padding. A hardcoded constant went stale once when
+    // the padding changed and reported a centred empty state as 5px off.
+    const style=getComputedStyle(treeElement);
+    const top=parseFloat(style.paddingTop),bottom=parseFloat(style.paddingBottom);
     const dx=b.x+b.width/2-a.x-a.width/2;
-    // The tree reserves 24px of bottom padding outside its content area.
-    const dy=b.y+b.height/2-(a.y+(a.height-24)/2);
-    offsets.push({width,dx,dy});assert(Math.abs(dx)<=1&&Math.abs(dy)<=1,'Empty state is off center');
+    const dy=b.y+b.height/2-(a.y+top+(a.height-top-bottom)/2);
+    offsets.push({width,top,bottom,dx,dy});assert(Math.abs(dx)<=1&&Math.abs(dy)<=1,'Empty state is off center');
   }
   return offsets;
 });
@@ -227,14 +246,19 @@ await test('terminal close, split, drag and concurrent close use native input', 
   const observe=e=>{if(e.isTrusted)trusted++;};host.addEventListener('pointerdown',observe);
   const names=Array.from({length:9},(_,i)=>`test-${i}`);
   const sessions=names.map(name=>({name,command:'bash',attached:false}));
-  function Harness({count}){const [value,setValue]=React.useState(()=>tree.duzenKur(names.slice(0,count),'izgara'));updateTree=setValue;current=value;return h(Terminals,{view:{sessions},agac:value,onAgac:setValue,onReload:()=>{}});}
+  function Harness({count}){const [value,setValue]=React.useState(()=>tree.duzenKur(names.slice(0,count),'izgara'));updateTree=setValue;current=value;return h(Terminals,{...terminalProps,view:{sessions},agac:value,onAgac:setValue});}
   calls=[];await render(h(Harness,{count:1}));
   await click(host.querySelector('.phead .pb:last-child'));await wait(250);
   assert(!host.querySelector('.pane'),'Single pane did not close');
   assert(calls.some(c=>c.command==='pty_close')&&!calls.some(c=>c.command==='tmux_kill'),'Wrong close operation');
   updateTree(tree.duzenKur(names.slice(0,8),'izgara'));await wait(200);
-  await click(host.querySelector('.phead .pb:first-of-type'));await wait(200);
-  assert(host.querySelectorAll('.pane').length===9,'Split button failed');
+  // Splitting moved out of the header into the pane menu: six buttons ate
+  // 139px and left 7px for the label on a narrow pane.
+  await clickWith(host.querySelector('.phead'),3);
+  const splitRight=menuItem('Split right');
+  assert(splitRight,'Pane menu did not open on right click');
+  await click(splitRight);await wait(300);
+  assert(host.querySelectorAll('.pane').length===9,`Split failed: ${host.querySelectorAll('.pane').length} panes`);
   const heads=host.querySelectorAll('.phead');
   const first=point(heads[0]),second=point(heads[1]);const before=tree.oturumlar(current).join();
   await native({kind:'move',...first});await native({kind:'down',...first});await native({kind:'move',...second,held:true});await native({kind:'up',...second});await wait(200);
@@ -249,6 +273,81 @@ await test('terminal close, split, drag and concurrent close use native input', 
   assert(host.querySelector('.pane'),'Closed session could not reopen');
   host.removeEventListener('pointerdown',observe);assert(trusted>0,'Input was not trusted');
   return {trustedPointerDowns:trusted,closeCalls:calls.filter(c=>c.command==='pty_close').length};
+});
+await test('workspaces can be closed down to none and reopen on demand', async () => {
+  // Closing the last workspace used to be refused; the terminal view now has a
+  // zero-workspace empty state and a new terminal creates one on its own.
+  let state = areas.oku(null, null, 'Area 1');
+  assert(state.alanlar.length===1,'Fresh state should start with one workspace');
+  const closed = areas.alanSil(state, state.alanlar[0].id);
+  assert(closed.durum.alanlar.length===0,'The last workspace refused to close');
+  assert(areas.etkinAlan(closed.durum)===null,'An empty state still reported an active workspace');
+  assert(areas.etkinAgac(closed.durum)===null,'An empty state still reported a tree');
+
+  // The empty state has to survive localStorage, otherwise the next launch
+  // silently resurrects a workspace the user closed.
+  const reread = areas.oku(JSON.stringify(closed.durum), null, 'Area 1');
+  assert(reread.alanlar.length===0,'The empty state did not survive a save/load round trip');
+
+  // A pane opened with no workspace creates one; an empty tree does not.
+  const stillEmpty = areas.agacYaz(reread, null, 'Area 1');
+  assert(stillEmpty.alanlar.length===0,'Closing the last pane created an empty workspace');
+  const grown = areas.agacYaz(reread, tree.duzenKur(['test-0'],'izgara'), 'Area 1');
+  assert(grown.alanlar.length===1&&grown.etkin===grown.alanlar[0].id,'A new terminal did not create its workspace');
+  assert(tree.oturumlar(areas.etkinAgac(grown)).join()==='test-0','The new workspace lost the pane');
+
+  // A record whose entries are all corrupt must still fall back to migration
+  // rather than be read as "the user closed everything".
+  const corrupt = areas.oku('{"s":2,"alanlar":[{"id":1}],"etkin":""}', null, 'Area 1');
+  assert(corrupt.alanlar.length===1,'A corrupt record was read as an intentionally empty state');
+
+  const dirSet = areas.alanKlasor(grown, grown.alanlar[0].id, '/tmp/alan');
+  assert(areas.etkinDizin(dirSet)==='/tmp/alan','The workspace folder was not stored');
+  assert(areas.etkinDizin(areas.alanKlasor(dirSet, grown.alanlar[0].id, ''))===undefined,'The workspace folder could not be cleared');
+  return {closedTo:closed.durum.alanlar.length, recreated:grown.alanlar.length};
+});
+await test('workspace tab closes from the menu and on middle click', async () => {
+  const closes=[];
+  const single=[{id:'area-1',ad:'Area 1',agac:null}];
+  const props={alanlar:single,etkin:'area-1',sayilar:{'area-1':0},onSec:()=>{},onEkle:()=>{},
+    onAdlandir:()=>{},onSil:id=>closes.push(id),onKlasor:()=>{},onKlasorSil:()=>{}};
+  await render(h('div',{style:{width:260}},h(AreaTabs,props)));
+  const tab=host.querySelector('.sekme');
+  assert(tab,'The workspace tab did not render');
+
+  // The menu entry used to be disabled whenever a single workspace was left.
+  await clickWith(tab,3);
+  const closeItem=menuItem('Close workspace');
+  assert(closeItem,'The workspace menu did not open');
+  assert(!closeItem.disabled,'Closing the only workspace is still refused');
+  await click(closeItem);
+  assert(closes.length===1,'The menu entry did not close the workspace');
+
+  await render(h('div',{style:{width:260}},h(AreaTabs,props)));
+  await clickWith(host.querySelector('.sekme'),2);
+  assert(closes.length===2,`Middle click did not close the workspace (${closes.length} closes)`);
+  return {closes};
+});
+await test('a workspace folder reaches a new pane without rebuilding the open ones', async () => {
+  // tmux reads -c only while creating the session, so the folder is frozen at
+  // mount. A live prop would re-run the terminal's setup effect and tear down
+  // every open pane whenever the workspace folder changed.
+  calls=[];
+  const sessions=[{name:'dir-0',command:'bash',attached:false}];
+  const grid=tree.duzenKur(['dir-0'],'izgara');
+  await render(h('div',{style:{width:900,height:520,display:'flex',flexDirection:'column'}},
+    h(Terminals,{...terminalProps,view:{sessions},agac:grid,dizin:'/tmp/alan-a'})));
+  await wait(300);
+  const opens=calls.filter(c=>c.command==='pty_open');
+  assert(opens.length===1,`Expected one pty_open, got ${opens.length}`);
+  assert(opens[0].args.workdir==='/tmp/alan-a',`The pane ignored the workspace folder: ${opens[0].args.workdir}`);
+
+  calls=[];
+  await render(h('div',{style:{width:900,height:520,display:'flex',flexDirection:'column'}},
+    h(Terminals,{...terminalProps,view:{sessions},agac:grid,dizin:'/tmp/alan-b'})));
+  await wait(300);
+  assert(calls.filter(c=>c.command==='pty_open').length===0,'Changing the workspace folder rebuilt an open pane');
+  return {workdir:opens[0].args.workdir};
 });
 root.unmount();host.remove();
 return {passed:results.every(result=>result.passed),theme:document.documentElement.dataset.theme,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,results};

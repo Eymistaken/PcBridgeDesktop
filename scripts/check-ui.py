@@ -43,6 +43,11 @@ def input_received(_manager, message):
                   "up": Gdk.EventType.BUTTON_RELEASE,
                   "keyDown": Gdk.EventType.KEY_PRESS,
                   "keyUp": Gdk.EventType.KEY_RELEASE}[kind]
+    # Right and middle clicks are real input paths in the terminal mode: the
+    # pane and area menus open on button 3 and an area closes on button 2.
+    held_mask = {1: Gdk.ModifierType.BUTTON1_MASK,
+                 2: Gdk.ModifierType.BUTTON2_MASK,
+                 3: Gdk.ModifierType.BUTTON3_MASK}
     event = Gdk.Event.new(event_type)
     event.window = view.get_window()
     event.send_event = False
@@ -54,11 +59,12 @@ def input_received(_manager, message):
         event.state = Gdk.ModifierType(0)
         event.group = 0
     else:
+        button = action.get("button", 1)
         event.set_device(device)
         event.x, event.y = action["x"], action["y"]
-        event.state = Gdk.ModifierType.BUTTON1_MASK if action.get("held") else Gdk.ModifierType(0)
+        event.state = held_mask[button] if action.get("held") else Gdk.ModifierType(0)
         if kind != "move":
-            event.button = 1
+            event.button = button
     Gtk.main_do_event(event)
 
 

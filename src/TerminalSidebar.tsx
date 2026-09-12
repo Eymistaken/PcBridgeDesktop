@@ -34,6 +34,9 @@ interface Props {
   onAlanYeni: () => void;
   onAlanAd: (id: string, ad: string) => void;
   onAlanKapat: (id: string) => void;
+  /** Alanın varsayılan klasörü — orada doğan terminaller oradan başlıyor. */
+  onAlanKlasor: (id: string) => void;
+  onAlanKlasorSil: (id: string) => void;
   onAlanaTasi: (session: string, hedef: string) => void;
   panes: string[];
   desktop: DesktopState;
@@ -56,6 +59,8 @@ export default function TerminalSidebar({
   onAlanYeni,
   onAlanAd,
   onAlanKapat,
+  onAlanKlasor,
+  onAlanKlasorSil,
   onAlanaTasi,
   panes,
   desktop,
@@ -109,6 +114,8 @@ export default function TerminalSidebar({
         onEkle={onAlanYeni}
         onAdlandir={onAlanAd}
         onSil={onAlanKapat}
+        onKlasor={onAlanKlasor}
+        onKlasorSil={onAlanKlasorSil}
       />
 
       <div className="side__list">

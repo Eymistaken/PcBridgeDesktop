@@ -29,13 +29,30 @@ export interface Alan {
   id: string;
   ad: string;
   agac: Dugum | null;
+  /**
+   * Alanın varsayılan çalışma klasörü — burada doğan terminaller oradan
+   * başlıyor. Seçilmemişse alan `~`'da doğuran eski davranışta kalıyor.
+   *
+   * ⚠️ Yalnızca **doğuşta** okunuyor. tmux `-c`'yi yalnızca `new-session`
+   * yolunda görüyor; var olan bir oturuma bağlanmak onu hiç okumuyor
+   * (`pty.rs::open`). Yani klasörü sonradan değiştirmek açık bölmeleri
+   * taşımıyor — ve taşıyormuş gibi göstermiyoruz.
+   */
+  dizin?: string;
 }
 
 export interface AlanDurum {
   /** Şema sürümü — göç bunun yokluğuna bakıyor. */
   s: 2;
+  /**
+   * ⚠️ **Boş olabilir.** Kullanıcının isteği (2026-09-09): *"son kalan grup da
+   * kapatılabilmeli; terminal görünümü sıfır grupla boş durumda kalabilmeli."*
+   * Liste boşken `etkin` boş dizge ve `etkinAlan` `null` döndürüyor; yeni bir
+   * terminal açmak alanı **kendiliğinden** kuruyor (`agacYaz`), yani kullanıcı
+   * önce grup yaratmak zorunda değil.
+   */
   alanlar: Alan[];
-  /** Etkin alanın `id`'si. Listede yoksa ilk alana düşülür. */
+  /** Etkin alanın `id`'si. Liste boşken boş dizge. */
   etkin: string;
 }
 
@@ -49,13 +66,18 @@ export function alanYap(ad: string, agac: Dugum | null = null): Alan {
   return { id: yeniId(), ad, agac };
 }
 
+/** Liste boşken `etkin` bu: hiçbir alanın kimliği olamayacak bir değer. */
+const YOK = "";
+
 /**
  * Diskten okur ve **iki eski biçimden göç eder.**
  *
  * `ham` bu anahtarın kendi kaydı; `eskiAgac` ise Aşama 23'ten önceki tek ağaç
- * (`pcbridge.panes`, ki o da kendi içinde düz diziden göç ediyor). Hiçbiri
- * yoksa boş ama **geçerli** bir durum döner: alan listesi hiç boş kalmaz,
- * yoksa arayüzün her yerinde bir "alan var mı" denetimi gerekirdi.
+ * (`pcbridge.panes`, ki o da kendi içinde düz diziden göç ediyor).
+ *
+ * **Hiç kayıt yoksa tek bir alanla başlar.** Sıfır alan geçerli bir durum ama
+ * ilk açılışın hâli değil: oraya kullanıcı hepsini kapatarak varıyor, ve o
+ * kayıt `coz` tarafından olduğu gibi korunuyor.
  */
 export function oku(
   ham: string | null,
@@ -94,31 +116,56 @@ function coz(ham: string | null): AlanDurum | null {
       id: a.id,
       ad: a.ad,
       agac: a.agac ? okuAgac(JSON.stringify(a.agac)) : null,
+      ...(typeof a.dizin === "string" && a.dizin ? { dizin: a.dizin } : {}),
     });
   }
-  if (alanlar.length === 0) return null;
+  // ⚠️ **Boş liste geçerli**, ama "hepsi bozuktu" değil: kayıtta alan varken
+  // hiçbiri doğrulamadan geçmediyse elimizde bir şey yok demektir ve göç
+  // yoluna düşmek doğru olanı. Kayıtta hiç alan yoksa kullanıcı hepsini
+  // kapatmıştır ve o durum korunmalı.
+  if (alanlar.length === 0 && d.alanlar.length > 0) return null;
   const etkin =
     typeof d.etkin === "string" && alanlar.some((a) => a.id === d.etkin)
       ? d.etkin
-      : alanlar[0].id;
+      : (alanlar[0]?.id ?? YOK);
   return { s: 2, alanlar, etkin };
 }
 
-/** Etkin alan — liste hiç boş olmadığı için her zaman bir tane var. */
-export function etkinAlan(d: AlanDurum): Alan {
-  return d.alanlar.find((a) => a.id === d.etkin) ?? d.alanlar[0];
+/** Etkin alan — hiç alan yoksa `null`. */
+export function etkinAlan(d: AlanDurum): Alan | null {
+  return d.alanlar.find((a) => a.id === d.etkin) ?? d.alanlar[0] ?? null;
 }
 
 export function etkinAgac(d: AlanDurum): Dugum | null {
-  return etkinAlan(d).agac;
+  return etkinAlan(d)?.agac ?? null;
 }
 
-/** Etkin alanın ağacını değiştirir; ötekiler dokunulmaz. */
-export function agacYaz(d: AlanDurum, agac: Dugum | null): AlanDurum {
-  const etkin = etkinAlan(d).id;
+/** Etkin alanın varsayılan klasörü — yeni terminal oradan doğuyor. */
+export function etkinDizin(d: AlanDurum): string | undefined {
+  return etkinAlan(d)?.dizin;
+}
+
+/**
+ * Etkin alanın ağacını değiştirir; ötekiler dokunulmaz.
+ *
+ * **Hiç alan yokken ağaç yazmak alanı kurar.** Kullanıcının şartı: *"yeni bir
+ * terminal açmak için önceden grup oluşturmak zorunlu olmamalı."* Boş bir ağaç
+ * için kurmuyor — son bölmeyi kapatmak boş bir grup doğurmamalı.
+ */
+export function agacYaz(
+  d: AlanDurum,
+  agac: Dugum | null,
+  varsayilanAd: string,
+): AlanDurum {
+  const etkin = etkinAlan(d);
+  if (!etkin) {
+    if (!agac) return d;
+    const a = alanYap(varsayilanAd, agac);
+    return { ...d, alanlar: [a], etkin: a.id };
+  }
   return {
     ...d,
-    alanlar: d.alanlar.map((a) => (a.id === etkin ? { ...a, agac } : a)),
+    alanlar: d.alanlar.map((a) => (a.id === etkin.id ? { ...a, agac } : a)),
   };
 }
 
@@ -135,20 +182,51 @@ export function alanEkle(d: AlanDurum, ad: string): AlanDurum {
 }
 
 /**
- * Alanı siler. **Son alan silinmez** — liste boşalırsa arayüzün çizecek
- * sekmesi kalmaz. Silinen alandaki oturumlar tmux'ta yaşamaya devam eder;
- * PTY'lerini çağıran kapatıyor (`dusenler`).
+ * Alanı siler — **sonuncusu dahil.**
+ *
+ * ⚠️ Eskiden `alanlar.length < 2` iken hiçbir şey yapmıyordu; gerekçe
+ * "sekmesiz bir terminal kipi çizilemez" idi. Kullanıcı 2026-09-09'da tersini
+ * istedi ve gerekçe zaten yanlıştı: sıfır sekme çizilebilir bir durum, yeni
+ * terminal de alanı kendiliğinden kuruyor (`agacYaz`).
+ *
+ * Silinen alandaki oturumlar tmux'ta yaşamaya devam eder; PTY'lerini çağıran
+ * kapatıyor (`dusenler`).
  */
 export function alanSil(
   d: AlanDurum,
   id: string,
 ): { durum: AlanDurum; dusenler: string[] } {
-  if (d.alanlar.length < 2) return { durum: d, dusenler: [] };
   const kalan = d.alanlar.filter((a) => a.id !== id);
   if (kalan.length === d.alanlar.length) return { durum: d, dusenler: [] };
   const dusenler = oturumlar(d.alanlar.find((a) => a.id === id)?.agac ?? null);
-  const etkin = kalan.some((a) => a.id === d.etkin) ? d.etkin : kalan[0].id;
+  const etkin = kalan.some((a) => a.id === d.etkin)
+    ? d.etkin
+    : (kalan[0]?.id ?? YOK);
   return { durum: { ...d, alanlar: kalan, etkin }, dusenler };
+}
+
+/**
+ * Alanın varsayılan klasörünü yazar; boş dizge onu **siler** ve alan yeniden
+ * `~`'da doğuran davranışa döner. Bölme başlığındaki klasör düğmesinin
+ * alan karşılığı.
+ */
+export function alanKlasor(
+  d: AlanDurum,
+  id: string,
+  dizin: string,
+): AlanDurum {
+  const kirpik = dizin.trim();
+  return {
+    ...d,
+    alanlar: d.alanlar.map((a) => {
+      if (a.id !== id) return a;
+      if (!kirpik) {
+        const { dizin: _dusen, ...kalan } = a;
+        return kalan;
+      }
+      return { ...a, dizin: kirpik };
+    }),
+  };
 }
 
 export function alanAdlandir(d: AlanDurum, id: string, ad: string): AlanDurum {
