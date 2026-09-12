@@ -128,9 +128,10 @@ yaratan istemciye bağlıyor ve PTY düşünce oturum da ölüyor.
 ## Tasarım
 
 Arayüzün kuralları yazılı ve bağlayıcı: renksiz bir kabuk; renk yalnızca
-kimlikten (bot avatarı) ve durumdan (çalışıyor / bitti / başarısız) geliyor.
-Sistem aksan rengi yok, gradyan yok, renkli birincil düğme yok. Kontrast
-oranları hesaplandı, tahmin edilmedi. [CLAUDE.md](CLAUDE.md)'ye bak.
+**durumdan** geliyor (çalışıyor / bitti / başarısız). Sistem aksan rengi yok,
+kimlik rengi yok, gradyan yok, renkli birincil düğme yok. Kontrast oranları
+hesaplandı değil **ölçüldü** — uygulamanın kendi motorunda, WebKitGTK'da.
+[CLAUDE.md](CLAUDE.md)'ye bak.
 
 ## Depo belgeleri
 

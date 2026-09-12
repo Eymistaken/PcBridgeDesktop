@@ -78,13 +78,13 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-   - ✅ **Yeni tasarım 2026-09-09'da gerçek pencerede görüldü.** Temiz bir
-     `tauri dev` süreciyle açıldı ve kullanıcı fiziksel klavyeyle yazdı
-     (SORUN.md). SORUN.md'deki dört görsel madde zaten o bakışın ürünü.
-     ⚠️ **Ama Aşama 25'in değişiklikleri gerçek pencerede görülmedi** —
-     satır aralığı 1.15 → 1.0 ve `.pane .term`'in kutu modeli. Doğrulama
-     WebKitGTK'da, aynı motorda ve gerçek `Term` bileşeniyle yapıldı; gözle
-     bakmak kullanıcıya kalıyor.
+   - ✅ **Tasarım gerçek pencerede görüldü** — 2026-09-09'da ledger, ve
+     **2026-09-12'de Aşama 26** (kullanıcı botlar kipini açıp denedi,
+     ekran görüntüsü gönderdi: *"çok iyi olmuş test ettim biraz"*).
+     ⚠️ **Ama Aşama 25'in terminal değişiklikleri hâlâ gerçek pencerede
+     görülmedi** — satır aralığı 1.15 → 1.0 ve `.pane .term`'in kutu
+     modeli. Doğrulama WebKitGTK'da, aynı motorda ve gerçek `Term`
+     bileşeniyle yapıldı; gözle bakmak kullanıcıya kalıyor.
 8. ✅ **Aşama 23 2026-09-08'de bitti — terminal kipi.** Kullanıcının sekiz
    isteği kapandı: ad sormayan `+`, sağ tık + yeniden adlandırma, klasör
    değiştirme, çalışma alanları, ikonlu düzen sırası, animasyonlu sıra

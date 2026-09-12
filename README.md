@@ -129,9 +129,10 @@ it, which kills the session when the PTY goes away.
 ## Design
 
 The interface rules are written down and binding: a colorless shell, where color
-comes only from identity (a bot's avatar) and state (running / done / failed).
-No system accent color, no gradients, no colored primary button. Contrast ratios
-are computed, not guessed. See [CLAUDE.md](CLAUDE.md).
+comes only from **state** (running / done / failed). No system accent color, no
+identity color, no gradients, no colored primary button. Contrast ratios are
+**measured** in the app's own engine, WebKitGTK — not guessed, and not computed
+on paper. See [CLAUDE.md](CLAUDE.md).
 
 ## Project documents
 
