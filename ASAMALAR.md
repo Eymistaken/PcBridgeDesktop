@@ -4,8 +4,12 @@ Kurallar, tasarım kanunu ve ölçülmüş gerçekler **[CLAUDE.md](CLAUDE.md)'d
 yeni oturumda önce onu oku. Bu dosya yalnızca **ne yapılacağını** ve **bitiş
 ölçütünü** taşır.
 
-Durum: **Dokuz aşamanın hepsi bitti ve ölçüldü.** Bu dosya artık yapılacak
-iş listesi değil, **bitmiş işin kaydı**.
+Durum: **Yirmi beş aşamanın hepsi bitti ve ölçüldü.** Bu dosya artık
+yapılacak iş listesi değil, **bitmiş işin kaydı** — yeni iş bitince oraya bir
+aşama olarak taşınır.
+
+⚠️ 0.7.2 ve 0.7.3'ün Türkçe girdi düzeltmesi (NBSP kök nedeni) buraya bir
+aşama olarak **taşınmadı**; kaydı [SORUN.md](SORUN.md)'de duruyor.
 
 ---
 
@@ -1542,3 +1546,160 @@ kısalması ona geri silme gibi görünür.
   şekli koda dökülürken doğrulanacak. Geri dönüş yolu düz `reqwest`.
 - **xterm.js + Wayland ölçekleme.** İki monitör 1.0 ölçekte, sorun beklenmiyor
   ama ilk PTY açılışında font metriği ve `fit` eklentisi kontrol edilmeli.
+
+---
+
+## Aşama 25 — SORUN.md'nin terminal backlog'u ✅ BİTTİ
+
+0.7.3 çıkarken kaydedilmiş dokuz maddelik liste (SORUN.md, "Açık terminal
+işleri ve özellik önerileri"). Yedisi kapandı, biri ölçülüp yarısı kapandı,
+biri kullanıcının kararını bekliyor.
+
+### Ölü etiketin yeni terminale yapışması
+
+Kullanıcının bildirimi: *"Area 1'de yeni terminal oluşturulduğunda ilk
+terminal adı her zaman `Pcbridge` oluyor."*
+
+**Sebep gerçek uygulamanın diskinde ölçüldü.** `~/.local/share/
+com.pcbridge.desktop/localstorage/tauri_localhost_0.localstorage`:
+
+```
+pcbridge.terminal.etiketler = {"term1":"Pcbridge"}
+```
+
+Etiket haritasının anahtarı **tmux oturum adı**, ve `pty.rs::free_name` adları
+**geri dönüştürüyor**: `term1`'den başlayıp tmux'ta olmayan ilk adı veriyor.
+Oturum ölünce `term1` yeniden boşa çıkıyor ve bir zamanlar ona verilmiş etiket
+yeni ve alakasız bir terminalin başlığında beliriyor. Ölçüm anında makinede
+**hiç tmux sunucusu yoktu** (`error connecting to /tmp/tmux-1000/default`),
+yani kayıttaki her etiket ölü bir oturuma aitti.
+
+Etiket iki yerde düşüyor: oturum öldürülürken (`oturumSonlandir`) ve ad geri
+dönüştürülürken (`yeniTerminal`). İkisi de `etiketYaz(ad, "")` çağırıyor —
+boş ad zaten "sil" demek, ikinci bir silme yolu yazılmadı.
+
+### Sıfır çalışma alanı
+
+Kullanıcının şartı: *"son kalan grup da kapatılabilmeli; terminal görünümü
+sıfır grupla boş durumda kalabilmeli. Yeni bir terminal açmak için önceden
+grup oluşturmak zorunlu olmamalı."*
+
+- `alanSil` artık sonuncuyu da siliyor. Eski gerekçe ("sekmesiz bir terminal
+  kipi çizilemez") zaten yanlıştı.
+- Boş durum diskten okunurken **korunuyor**, ama "kayıtta alan vardı ve hepsi
+  bozuktu" hâlâ göç yoluna düşüyor; `coz` ikisini ayırt ediyor.
+- `agacYaz` hiç alan yokken alanı kendiliğinden kuruyor. **Boş ağaç için
+  kurmuyor** — son bölmeyi kapatmak boş bir grup doğurmamalı.
+- Sağ tık menüsündeki Kapat tek alanda da açık; orta tık (düğme 2) da
+  kapatıyor.
+- Yeni alanın numarası listenin uzunluğundan değil **kullanılmayan ilk
+  sayıdan** geliyor: alanlar kapatılabildiği için "Alan 2" iki kez doğabilir
+  ve ad rengi de besliyor (`hueOf`).
+
+### Alanın varsayılan klasörü
+
+Sağ tık menüsünde; seçiliyse menü **hangi klasör olduğunu yazıyor**.
+Klasör bölmeye **ilk çizimde donduruluyor** (`Bolme::ilkDizin`): tmux `-c`'yi
+yalnızca `new-session` yolunda okuyor (`pty.rs::open`), yani canlı prop olsaydı
+alanın klasörünü değiştirmek `Term`'in kurulum efektini (deps `[session,
+workdir]`) yeniden çalıştırır ve **açık bütün bölmeleri** sökerdi.
+
+### Kırpılan alt satır — `FitAddon` ile `border-box`
+
+`FitAddon.proposeDimensions` satır sayısını
+`getComputedStyle(terminal.element.parentElement).height`'tan çıkarıyor ve
+yalnızca **terminalin kendi** (`.xterm`) dolgusunu düşüyor. `.xterm`'in
+dolgusu yok; dolgu kapta (`.pane .term`, `8px 10px`). Küresel
+`box-sizing: border-box` altında WebKit o özelliği **kenarlık kutusu** olarak
+veriyor — ölçüldü: `getComputedStyle(.term).height` 454, gerçek içerik 438.
+
+Yedi bölme yüksekliğinde ölçüldü:
+
+| kap | .term rect | hesaplanan | içerik | satır | taşma (içerik) | taşma (bölme) |
+|---|---|---|---|---|---|---|
+| 500 | 454 | 454 | 438 | 23 | −1 | −9 |
+| 505 | 459 | 459 | 443 | 24 | **+13** | **+5** |
+| 510 | 464 | 464 | 448 | 24 | **+8** | **0** |
+| 515 | 469 | 469 | 453 | 24 | **+3** | −5 |
+| 520 | 474 | 474 | 458 | 24 | −2 | −10 |
+| 525 | 479 | 479 | 463 | 25 | **+12** | **+4** |
+| 530 | 484 | 484 | 468 | 25 | **+7** | −1 |
+
+Yedide altısında **bir fazla satır**; ikisinde son satır bölmenin kendi
+`overflow: hidden`'ı tarafından kırpılıyor. Temiz çıkan 500 ve 520, `floor`'un
+iki sayı için aynı sonucu verdiği 3/19'luk azınlık — ilk ölçüm 520'ye denk
+geldiği için sorun "yok" görünmüştü.
+
+Düzeltme `.pane .term`'e **`box-sizing: content-box`**. Düzeni hiç
+değiştirmiyor, yalnızca `getComputedStyle`'ın ne raporladığını değiştiriyor;
+yedi yükseklikte de `hesaplanan == içerik` ve taşma negatif. Aynı hata
+genişlikte de vardı: yatay 20px dolgu bir fazla sütun veriyordu.
+
+### Parçalı bloklar — satır aralığı
+
+Gerçek widget görüntüsü üstünde piksel piksel ölçüldü (dolu bir blok
+yığınından geçen dikey kesitin dip değeri):
+
+| satır aralığı | hücre | satır arası düşüş |
+|---|---|---|
+| 1.00 | 15px | 54/255 — yalnızca yumuşak kenar |
+| 1.05 | 15px | 54/255 |
+| 1.08 | 16px | **247/255 — tam boşluk** |
+| 1.10 | 16px | **247/255** |
+| 1.15 | 17px | **247/255**, iki tam piksel |
+
+13px Geist Mono'da blok glifi **15px**; hücre bundan yüksek olunca fark satır
+sınırında arka plan olarak görünüyor. `SATIR` 1.0'a indi — hücre artık glifin
+kendi yüksekliğine eşit (gerçek `Term` bileşeniyle doğrulandı: `cell.height`
+15, `cols` 109, `rows` 23).
+
+⚠️ **Kanun `customGlyphs` konusunda yanlıştı.** *"xterm kutu-çizim ve blok
+karakterlerini kendi çiziyor, DOM çizicide de geçerli"* yazıyordu. Ölçüldü:
+xterm 6'nın ana paketinde seçenek yalnızca iki yerde geçiyor — varsayılan
+değeri (`true`, yani açıkça vermek gereksizdi) ve bir "değişti, yeniden çiz"
+dinleyicisi. Glifi çizen kod **tuval/WebGL eklenti paketlerinde**, ve WebGL bu
+motorda hiç çizmediği için Aşama 9'da kaldırılmıştı. DOM çizicide hiçbir
+etkisi yok; seçenek kaldırıldı. Çerçevelerin düzgün görünmesi **Geist
+Mono'nun kendi kutu-çizim gliflerinden**.
+
+⚠️ **Sütun arası dikiş AÇIK kaldı.** Hücre genişliği 7.798px, yani kesirli, ve
+komşu bloklar alt piksel sınırlarında kenar yumuşatmasıyla çiziliyor —
+ölçülen **her** satır aralığında 84/255. Satır aralığından bağımsız; DOM
+çizicide kapatmanın yolu yok. Gerçek çözüm tuval çizicisi (`@xterm/
+addon-canvas`, orada `customGlyphs` blokları gerçekten çiziyor) ama o bir
+bağımlılık kararı ve bu depo bir kez çizici eklentisinden yanmıştı.
+
+### Bayat iki UI testi
+
+İkisi de 0.7.3'ten beri düşüyordu ve **ikisi de uygulamayı değil kendini
+yanlış ölçüyordu**:
+
+- `empty terminal centered at multiple widths` — boş durum üç genişlikte de
+  tam ortalı (`dx: 0`, içerik kutusuna göre `dy: 0`). Testteki `24px` sabiti
+  `.agac` dolgusu `11px 25px 25px` olunca bayatlamıştı (asimetri 14) ve 5px
+  sapma raporluyordu. Sabit kalktı; dolgu hesaplanan biçimden okunuyor.
+- `terminal close, split, drag and concurrent close use native input` — hiç
+  çizilmiyordu: `TypeError: undefined is not an object (evaluating
+  'infos[b.session]')`. Test dört prop veriyordu, `Terminals` Aşama 23'te alan
+  katmanını almıştı. Böl düğmeleri de başlıktan sağ tık menüsüne taşınmıştı.
+
+Harness sağ ve orta tık taşıyor (GDK düğme numarası). Dört yeni regresyon
+eklendi ve **dördü de eski davranış geri konunca düşüyor**.
+
+⚠️ **Süit kararsız.** Bu oturumda 8 koşumdan 6'sı tamamen yeşil; kalan ikisinde
+her seferinde **başka** bir test düştü (`session collapse`, `session
+expansion`, bir kez Türkçe girdi). Üçü de gerçek GDK girdisi ve devinim
+zamanlaması üstünde duruyor. Ayrı bir iş; kayda geçiyor.
+
+### Kapanmayan iki madde
+
+- **Açılışta siyah-beyaz terminal** — *yeniden üretilemedi ve en olası sebep
+  elendi.* Hipotez `palet()`'in tokenları okuyamadan çalışması ve xterm'in
+  kendi siyah-beyaz varsayılanına düşmesiydi; ölçüldü ki `--well-*` ailesi
+  `data-theme` **hiç yokken bile** dolu (`--well: #08090a`, `--well-text:
+  #e9e9ea`), yani o yol açık değil. Sıradaki adım üretim derlemesini
+  `tauri://localhost` altında ölçmek: `dist/index.html`'de `<script
+  type="module">` stil sayfasının **önünde** duruyor.
+- **Genel arayüz okunaklılığı** — kullanıcının kendi notu *"görsel yön ve
+  ayrıntılar henüz kararlaştırılmadı"* diyor. Karar verilmeden koda
+  dokunulmadı.

@@ -78,10 +78,13 @@ derse **başka bir şey sormadan** şunu yap:
      yasak yüzünden. Kapı ısrarı kesiyor ama **isabeti artırmıyor**: model
      hâlâ ıskalıyor, yalnızca üçüncüde durduruluyor. Ölçüm sonrası "tekrar"
      hâlâ yüksekse sıradaki adım Set-of-Mark; gerekçesi YAPILACAKLAR.md'de.
-   - **Uygulama 2026-09-08'de gerçek IPC'yle derlenip açıldı** (`npm run
-     tauri dev`, panik/hata yok) ama **pencerede gözle görülmedi**; görsel
-     doğrulama WebKitGTK'da, aynı motorda yapıldı. Yeni tasarımın gerçek
-     pencerede ilk kez görülmesi kullanıcıya kalıyor.
+   - ✅ **Yeni tasarım 2026-09-09'da gerçek pencerede görüldü.** Temiz bir
+     `tauri dev` süreciyle açıldı ve kullanıcı fiziksel klavyeyle yazdı
+     (SORUN.md). SORUN.md'deki dört görsel madde zaten o bakışın ürünü.
+     ⚠️ **Ama Aşama 25'in değişiklikleri gerçek pencerede görülmedi** —
+     satır aralığı 1.15 → 1.0 ve `.pane .term`'in kutu modeli. Doğrulama
+     WebKitGTK'da, aynı motorda ve gerçek `Term` bileşeniyle yapıldı; gözle
+     bakmak kullanıcıya kalıyor.
 8. ✅ **Aşama 23 2026-09-08'de bitti — terminal kipi.** Kullanıcının sekiz
    isteği kapandı: ad sormayan `+`, sağ tık + yeniden adlandırma, klasör
    değiştirme, çalışma alanları, ikonlu düzen sırası, animasyonlu sıra
@@ -94,8 +97,7 @@ derse **başka bir şey sormadan** şunu yap:
    - **Zoom arkadakileri boyutlandırmıyor** — ötekilerin kutusu birebir aynı.
    - **Çalışma alanları sekmeli**, her birinin kendi ağacı var.
 
-   ⚠️ **Yeni tasarım hâlâ gerçek pencerede gözle görülmedi** (madde 7).
-   Doğrulama WebKitGTK'da, aynı motorda yapıldı.
+   ✅ **Gerçek pencerede 2026-09-09'da görüldü** (madde 7).
 
 9. ✅ **Aşama 24 (2026-09-08): Türkçe karakterler iki kez gönderiliyordu.**
    Kullanıcı *"ciddi hata"* dedi ve haklıydı. Sebep xterm'in yineleme
@@ -103,10 +105,30 @@ derse **başka bir şey sormadan** şunu yap:
    "Terminal kipi" ölçümlerinde ve [ASAMALAR.md](ASAMALAR.md) Aşama 24'te.
    **Sorun harf değil olay sırasıydı** — geç sırada ASCII de ikileniyor.
 
-10. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi dört aşama da
+10. ✅ **Aşama 25 2026-09-12'de bitti — SORUN.md'nin terminal backlog'u.**
+   Dokuz maddenin yedisi kapandı. Ayrıntı ve bütün ölçümler
+   [ASAMALAR.md](ASAMALAR.md) Aşama 25'te; özetle:
+
+   - **Ölü oturumun etiketi** yeni terminale yapışıyordu (`Pcbridge`); sebep
+     `free_name`'in adları geri dönüştürmesi, gerçek `localStorage`'ta ölçüldü.
+   - **Sıfır çalışma alanı** artık geçerli; son grup kapanabiliyor, orta tık
+     kapatıyor, yeni terminal alanı kendiliğinden kuruyor.
+   - **Alan başına varsayılan klasör** sağ tık menüsünde.
+   - **`FitAddon` kenarlık kutusunu okuyordu** — yedi yükseklikten altısında
+     bir fazla satır, ikisinde alt satır kırpılıyor.
+   - **Satır aralığı 1.15 → 1.0**; blok karakterlerin satır arası boşluğu
+     kapandı (247/255 → 54/255).
+
+   ⚠️ **İki madde açık:** blokların **sütun** arası dikişi (kesirli hücre
+   genişliği, DOM çizicide çözümü yok) ve **açılışta siyah-beyaz terminal**
+   (yeniden üretilemedi; en olası sebep ölçümle elendi). Ayrıntı SORUN.md
+   "Hâlâ açık" başlığında.
+   ⛔ **Genel arayüz okunaklılığı** kullanıcının kararını bekliyor.
+
+11. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi beş aşama da
    bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
    yeni iş bitince oraya bir aşama olarak taşınır.
-11. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+12. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -179,6 +201,14 @@ gerçek terminal ızgarası.
   (`user@host: ~dizin`) durur, silinince geri gelir. GNOME Terminal'in
   davranışı. Yeni terminalin adını **Rust üretiyor** (`tmux_free_name`),
   kullanıcı hiç yazmıyor.
+  ⚠️ **Ad geri dönüştürülüyor, yani etiket oturumdan uzun yaşarsa yanlış
+  terminale yapışır.** `free_name` `term1`'den başlayıp tmux'ta **olmayan**
+  ilk adı veriyor; oturum ölünce `term1` yeniden boşa çıkıyor. Gerçek
+  uygulamanın diskinde ölçüldü (2026-09-12): tmux sunucusu hiç çalışmazken
+  kayıt `{"term1":"Pcbridge"}` taşıyordu ve her yeni ilk terminal "Pcbridge"
+  adıyla doğuyordu. Etiket artık iki yerde düşüyor — oturum öldürülürken ve ad
+  geri dönüştürülürken — ve ikisi de `etiketYaz(ad, "")` çağırıyor; boş ad
+  zaten "sil" demek, ikinci bir silme yolu yazılmadı.
 - **Otomatik olan şey listenin gruplanması, alan üyeliği değil.** Kullanıcı
   *"varsayılan olarak dizine göre otomatik ayrılır… ancak o terminal orada
   kalır"* dedi. Bir yeni terminal `~`'da doğuyor, yani dizine göre **atama**
@@ -188,6 +218,20 @@ gerçek terminal ızgarası.
   Üyeliğin tek kaynağı alanın ağacı (`alanlar.ts`) — ayrı bir
   `session → alan` haritası **yok**, alan rengi için ayrı bir hue alanı da
   yok (addan türüyor). İkisi de `Bot.desktop` dersinden.
+- **Çalışma alanı sayısında ALT sınır da yok.** `alanSil` sonuncuyu da
+  siliyor ve sıfır alan geçerli bir durum; eski gerekçe ("sekmesiz bir
+  terminal kipi çizilemez") yanlıştı. Boş durum diskten okunurken korunuyor,
+  ama *"kayıtta alan vardı ve hepsi bozuktu"* hâlâ göç yoluna düşüyor —
+  `alanlar.ts::coz` ikisini ayırt ediyor. Hiç alan yokken ağaç yazmak alanı
+  **kendiliğinden kuruyor** (`agacYaz`), yani yeni terminal açmak için önce
+  grup yaratmak gerekmiyor; **boş ağaç için kurmuyor**, son bölmeyi kapatmak
+  boş bir grup doğurmamalı.
+- **Alanın varsayılan klasörü yalnızca DOĞUŞTA okunur.** tmux `-c`'yi yalnızca
+  `new-session` yolunda görüyor (`pty.rs::open`), var olan oturuma bağlanmak
+  onu hiç okumuyor. Bu yüzden klasör bölmeye **ilk çizimde donduruluyor**
+  (`Bolme::ilkDizin`): canlı prop olsaydı alanın klasörünü değiştirmek
+  `Term`'in kurulum efektini (deps `[session, workdir]`) yeniden çalıştırır ve
+  açık bütün bölmeleri sökerdi.
 - **Terminal bölme sayısında sınır YOK.** Dörtlü sınır bir ön yüz
   sözleşmesiydi (`slice(0, 4)`) ve beşinci oturumu **sessizce yutuyordu**;
   Rust'ta hiç olmadı (`pty.rs` sınırsız `HashMap`). Düzen bir ağaç
@@ -592,19 +636,34 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
 
 ### Terminal çizimi — 2026-09-02'de ölçüldü
 
-- **Satır aralığı 1.0'a yakın olmak zorunda.** TUI'ler (Claude Code,
-  Antigravity) çerçevelerini `─ │ ╭ ╯` ve blok karakterleriyle çiziyor;
-  1.62'de bu karakterler hücreyi doldurmuyor ve logo ile çerçeveler kopuk
-  kopuk görünüyordu. Şimdi **1.15**.
+- **Satır aralığı `1.0` ve bu bir yuvarlama değil, eşik.** TUI'ler (Claude
+  Code, Antigravity) maskotlarını ve çerçevelerini blok karakterleriyle
+  (`█ ▀ ▄ ▌`) çiziyor. 13px Geist Mono'da blok glifi **15px**; hücre bundan
+  yüksek olunca fark satır sınırında **arka plan** olarak görünüyor ve yığın
+  parçalanıyor. Gerçek widget görüntüsü üstünde piksel piksel ölçüldü
+  (2026-09-12), dolu bir yığından geçen dikey kesitin dip değeri:
+  **1.00 ve 1.05 → hücre 15px, düşüş 54/255** (yalnızca yumuşak kenar);
+  **1.08 · 1.10 · 1.15 → hücre 16–17px, düşüş 247/255** yani tam boşluk.
+  Eski 1.15 gaptan yanadaydı.
+  ⚠️ **Sütun arası dikiş bununla düzelmiyor** ve satır aralığından bağımsız:
+  hücre genişliği **7.798px**, yani kesirli, komşu bloklar alt piksel
+  sınırlarında kenar yumuşatmasıyla çiziliyor — ölçülen her satır aralığında
+  **84/255**. DOM çizicide kapatmanın yolu yok; gerçek çözüm tuval çizicisi.
 - ⚠️ **WebGL çizici KULLANILMIYOR — WebKitGTK'da hiç çizmiyor.**
   `@xterm/addon-webgl` 2026-09-03'te kaldırıldı. Ölçüm: aynı sayfa, aynı 1,5
   saniye, **hiçbir girdi olayı olmadan** alınan gerçek widget görüntüsü
   (`WebKit2.WebView.get_snapshot`, JS piksel okuması değil) — WebGL açıkken
   tuval **bomboş**, kapalıyken yazı yerinde. Hız gerekçesi de düştü: 2000
   satır DOM çizicide 46 ms, WebGL'de 43 ms.
-  `customGlyphs` artık bir **`Terminal` seçeneği** ve DOM çizicide de
-  geçerli; kutu-çizim ve blok karakterleri hücreye tam oturuyor (çerçeve
-  görüntüsüyle doğrulandı).
+  ⚠️ **`customGlyphs` DOM çizicide çalışmıyor — bu satır bir yıl yanlıştı.**
+  Eskiden burada *"artık bir `Terminal` seçeneği ve DOM çizicide de geçerli;
+  kutu-çizim ve blok karakterleri hücreye tam oturuyor"* yazıyordu. Ölçüldü
+  (2026-09-12): xterm 6'nın ana paketinde seçenek yalnızca iki yerde geçiyor —
+  varsayılan değeri (`true`, yani açıkça vermek zaten gereksizdi) ve bir
+  "değişti, yeniden çiz" dinleyicisi. Glifi çizen kod **tuval/WebGL eklenti
+  paketlerinde**. Seçenek `Term.tsx`'ten kaldırıldı. Çerçevelerin düzgün
+  görünmesi **Geist Mono'nun kendi kutu-çizim gliflerinden**; bloklar hücreye
+  oturmuyor (yukarıdaki satır aralığı ölçümü).
 - **Punto tam sayı** (13). Kesirli punto hücre genişliğini kesirli yapıyor.
 - **Yazı tipi ÖNCE yüklenir, terminal SONRA kurulur.** xterm hücre
   genişliğini `open()` anında bir kez ölçüyor. `document.fonts.ready` tek
@@ -613,6 +672,22 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
   `document.fonts.load('13px "Geist Mono"')` isteği açıkça başlatıyor.
 - **Ölçüm:** bölme 222x45 çıktı; `COLUMNS` kadar uzunlukta bir cetvel tek
   satıra tam sığdı, taşma ve sarma yok. tmux durum çubuğu da tam genişlikte.
+  ⚠️ **Satır sayısı 2026-09-12'de değişti** (satır aralığı 1.15 → 1.0, hücre
+  19 → 15px): aynı bölme artık daha çok satır taşıyor. Genişlik ölçümü
+  geçerli, `45` değil.
+- ⚠️ **`FitAddon` kabın KENARLIK kutusunu okuyor ve dolgu bir fazla satır
+  veriyordu.** `proposeDimensions` satır sayısını
+  `getComputedStyle(terminal.element.parentElement).height`'tan çıkarıyor ve
+  yalnızca **terminalin kendi** (`.xterm`) dolgusunu düşüyor; dolgu ise kapta
+  (`.pane .term`, `8px 10px`). Küresel `box-sizing: border-box` altında WebKit
+  o özelliği kenarlık kutusu olarak veriyor (ölçüldü: 454, gerçek içerik 438).
+  Yedi bölme yüksekliğinde ölçüldü — **altısında bir fazla satır**, son satır
+  içerik kutusunun 3–13px altına taşıyor, ikisinde bölmenin `overflow: hidden`'ı
+  tarafından **kırpılıyor**. Temiz çıkan ikisi `floor`'un iki sayı için aynı
+  sonucu verdiği 3/19'luk azınlık, ve ilk ölçüm oraya denk geldiği için sorun
+  "yok" görünmüştü. Düzeltme `.pane .term`'e **`box-sizing: content-box`**:
+  düzeni hiç değiştirmiyor, yalnızca `getComputedStyle`'ın ne raporladığını
+  değiştiriyor. Aynı hata genişlikte de vardı (bir fazla sütun).
 - **Yeniden boyutlandırma geciktiriliyor** (90 ms) ve yalnızca sütun/satır
   **gerçekten değiştiyse** gönderiliyor: `ResizeObserver` pencere
   sürüklenirken onlarca kez ateşliyor, her biri tmux'a tam yeniden çizim

@@ -72,50 +72,71 @@ fark hesabını güvenli hale getirmiyordu. Yeni izde tek karakter beklenirken
 ## Kalanlar
 
 - Bu Türkçe girdi hatası için kod veya doğrulama işi kalmadı.
-- Tam `scripts/check-ui.py` koşumunda odaklı terminal girdi testi geçiyor;
-  `empty terminal centered at multiple widths` ve
-  `terminal close, split, drag and concurrent close use native input`
-  kontrolleri ayrıca başarısız. Bunlar bu girdi düzeltmesinden önce de vardı ve
-  ayrı bir arayüz regresyonu incelemesi gerektiriyor.
+- ✅ **Düşen iki kontrol 2026-09-12'de düzeldi** ve ikisi de uygulamayı değil
+  **kendini** yanlış ölçüyordu: `empty terminal centered at multiple widths`
+  bayat bir dolgu sabiti taşıyordu, `terminal close, split, drag and
+  concurrent close use native input` ise `Terminals`'ın Aşama 23'te aldığı
+  alan proplarını vermediği için hiç çizilmiyordu. Ölçümler
+  [ASAMALAR.md](ASAMALAR.md) Aşama 25'te.
 
-## Açık terminal işleri ve özellik önerileri — yalnızca kayıt
+## Terminal backlog — 2026-09-12'de kapandı (Aşama 25)
 
-**Durum: AÇIK; bu sürümde çözülmedi veya uygulanmadı.** Aşağıdaki maddeler
-sonraki çalışmalar için kaydedildi. Kök neden veya uygulama yaklaşımı henüz
-kesinleştirilmedi.
+**Dokuz maddenin yedisi kapandı**, biri ölçülüp yarısı kapandı, biri
+kullanıcının kararını bekliyor. Ayrıntı ve bütün ölçümler
+[ASAMALAR.md](ASAMALAR.md) **Aşama 25**'te.
 
-### Görsel ve yerleşim sorunları
+| madde | durum |
+|---|---|
+| Alt satır çerçevenin altında kalıyor | ✅ `FitAddon` kenarlık kutusunu okuyordu; `.pane .term` artık `content-box` |
+| Blok maskot parçalı | ⚠️ **yarısı**: satır arası boşluk kapandı (`SATIR` 1.15 → 1.0), **sütun arası dikiş açık** |
+| Açılışta siyah-beyaz terminal | ⛔ **yeniden üretilemedi** — aşağıda |
+| Genel arayüz okunaklılığı | ⛔ **kullanıcının kararını bekliyor** — aşağıda |
+| İlk terminalin adı hep `Pcbridge` | ✅ ölü oturumun etiketi geri dönüştürülen ada yapışıyordu |
+| Grup sağ tık menüsünden kapatılabilsin | ✅ tek alanda da açık |
+| Orta tıkla grup kapatma | ✅ |
+| Son grup da kapatılabilsin, sıfır grup | ✅ yeni terminal alanı kendiliğinden kuruyor |
+| Grup başına varsayılan klasör | ✅ sağ tık menüsünde |
 
-- Terminal içeriğinin en altındaki birkaç piksel sürekli terminal çerçevesinin
-  altında kalıyor veya kırpılmış görünüyor. Alt satır, çerçevenin tamamen
-  içinde kalmalı.
-- Claude Code'un blok karakterlerle çizilen maskotu parçalı görünüyor. Olması
-  gereken görünümde bloklar yatay ve dikey olarak tümleşik; mevcut görünümde
-  satır/sütun aralarında boşluklar var. Satır yüksekliği, hücre genişliği ve
-  xterm çizim ölçüleri birlikte incelenmeli; bunlar şimdilik yalnızca hipotez.
-- Terminal ilk açıldığında tamamen siyah-beyaz göründü; hiçbir ayar veya girdi
-  değişmeden renkler daha sonra kendiliğinden geldi. Renklerin kalıcı kaybı
-  sürmedi, ancak başlangıç paleti/tema uygulamasında aralıklı bir yarış veya
-  gecikme olasılığı ayrıca izlenmeli.
-- Genel arayüz tasarımı daha okunaklı olacak biçimde yeniden ele alınacak.
-  Görsel yön ve ayrıntılar henüz kararlaştırılmadı; bu madde tasarım çalışması
-  başlamadan önce netleştirilecek.
+## Hâlâ açık
 
-### Terminal ve grup davranışları
+### Sütun arası dikiş — ölçüldü, DOM çizicide çözümü yok
 
-- Area 1'de yeni terminal oluşturulduğunda ilk terminal adı her zaman
-  `Pcbridge` oluyor. Kullanıcı elle değiştirmedikçe varsayılan ad
-  `username@hostname` biçiminde olmalı.
-- Her terminal grubu sağ tık menüsündeki **Kapat** eylemiyle kapatılabilmeli.
-- Bir terminal grubuna orta fare tuşuyla (tekerlek tıklaması) basmak grubu
-  kapatmalı.
-- Son kalan grup da kapatılabilmeli; terminal görünümü sıfır grupla boş durumda
-  kalabilmeli. Yeni bir terminal açmak için önceden grup oluşturmak zorunlu
-  olmamalı.
-- Her grup için isteğe bağlı bir varsayılan çalışma klasörü seçilebilmeli.
-  Seçim, terminal başlığındaki mevcut klasör düğmesine benzer bir klasör
-  seçiciyle yapılmalı. O grupta açılan yeni terminaller otomatik olarak bu
-  klasörde başlamalı.
+Blok karakterlerin **satır** arası boşluğu kapandı; **sütun** arası dikiş
+duruyor. Hücre genişliği **7.798px**, yani kesirli: komşu bloklar alt piksel
+sınırlarında kenar yumuşatmasıyla çiziliyor ve ölçülen her satır aralığında
+**84/255**'lik bir düşüş bırakıyor. Satır aralığından bağımsız.
+
+Gerçek çözüm tuval çizicisi (`@xterm/addon-canvas`) — orada `customGlyphs`
+blokları gerçekten çiziyor. **Yapılmadı:** bir bağımlılık kararı, ve bu depo
+bir kez çizici eklentisinden yandı (WebGL WebKitGTK'da hiç çizmiyordu, Aşama
+9). Denenecekse ölçüm asıl motorda yapılmalı.
+
+### Açılışta siyah-beyaz terminal — yeniden üretilemedi
+
+En olası sebep **elendi.** Hipotez: `palet()` tokenları okuyamadan çalışıyor,
+xterm kendi siyah-beyaz varsayılanına düşüyor, sonra `data-theme` değişince
+`temayiTazele` düzeltiyor. Ölçüldü ki `--well-*` ailesi `data-theme` **hiç
+yokken bile** dolu (`--well: #08090a`, `--well-text: #e9e9ea`) — o yol açık
+değil.
+
+Sıradaki adım: ölçümü **üretim derlemesinde** yinelemek. `dist/index.html`'de
+`<script type="module">` stil sayfasının **önünde** duruyor, ve uygulama
+`tauri://localhost` özel protokolünü kullanıyor — ikisi de dev sunucusundan
+farklı. Belirti aralıklı olduğu için kullanıcı bir daha görürse o anki
+`document.styleSheets.length` değerli olur.
+
+### Genel arayüz okunaklılığı — karar bekliyor
+
+Kullanıcının kendi notu: *"görsel yön ve ayrıntılar henüz kararlaştırılmadı;
+bu madde tasarım çalışması başlamadan önce netleştirilecek."* Karar
+verilmeden koda dokunulmadı.
+
+### UI süiti kararsız
+
+`scripts/check-ui.py` bu oturumda 8 koşumdan 6'sında tamamen yeşildi; kalan
+ikisinde her seferinde **başka** bir test düştü (`session collapse`, `session
+expansion`, bir kez Türkçe girdi). Üçü de gerçek GDK girdisi ve devinim
+zamanlaması üstünde duruyor — kararsızlık orada. Ayrı bir iş.
 
 ## Elenmiş ve yeniden denenmemesi gereken yollar
 
