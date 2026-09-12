@@ -88,7 +88,7 @@ kullanıcının kararını bekliyor. Ayrıntı ve bütün ölçümler
 | madde | durum |
 |---|---|
 | Alt satır çerçevenin altında kalıyor | ✅ `FitAddon` kenarlık kutusunu okuyordu; `.pane .term` artık `content-box` |
-| Blok maskot parçalı | ⚠️ **yarısı**: satır arası boşluk kapandı (`SATIR` 1.15 → 1.0), **sütun arası dikiş açık** |
+| Blok maskot parçalı | ⚠️ **yarısı**: satır arası boşluk kapandı (`SATIR` 1.15 → 1.0); **sütun arası dikiş ⏭️ ES GEÇİLDİ** — kullanıcı 2026-09-12'de "sorun değil" dedi |
 | Açılışta siyah-beyaz terminal | ⛔ **yeniden üretilemedi** — aşağıda |
 | Genel arayüz okunaklılığı | ⛔ **kullanıcının kararını bekliyor** — aşağıda |
 | İlk terminalin adı hep `Pcbridge` | ✅ ölü oturumun etiketi geri dönüştürülen ada yapışıyordu |
@@ -99,7 +99,11 @@ kullanıcının kararını bekliyor. Ayrıntı ve bütün ölçümler
 
 ## Hâlâ açık
 
-### Sütun arası dikiş — ölçüldü, DOM çizicide çözümü yok
+### Sütun arası dikiş — ⏭️ ES GEÇİLDİ (kullanıcının kararı, 2026-09-12)
+
+**Kullanıcının sözü:** *"hâlâ parçalı ama bu sorun değil, sonra da hallolur."*
+Ölçüldü, sebebi biliniyor, **bilerek bırakıldı.** Kendi başına yeniden ele
+alma — yalnızca kullanıcı açıkça isterse.
 
 Blok karakterlerin **satır** arası boşluğu kapandı; **sütun** arası dikiş
 duruyor. Hücre genişliği **7.798px**, yani kesirli: komşu bloklar alt piksel

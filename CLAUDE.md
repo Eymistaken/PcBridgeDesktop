@@ -119,10 +119,12 @@ derse **başka bir şey sormadan** şunu yap:
    - **Satır aralığı 1.15 → 1.0**; blok karakterlerin satır arası boşluğu
      kapandı (247/255 → 54/255).
 
-   ⚠️ **İki madde açık:** blokların **sütun** arası dikişi (kesirli hücre
-   genişliği, DOM çizicide çözümü yok) ve **açılışta siyah-beyaz terminal**
-   (yeniden üretilemedi; en olası sebep ölçümle elendi). Ayrıntı SORUN.md
-   "Hâlâ açık" başlığında.
+   ⏭️ **Blokların sütun arası dikişi ES GEÇİLDİ.** Ölçüldü, sebebi biliniyor
+   (kesirli hücre genişliği; DOM çizicide çözümü yok), ve kullanıcı
+   2026-09-12'de *"sorun değil, sonra da hallolur"* dedi. **Kendi başına
+   yeniden ele alma.**
+   ⚠️ **Açılışta siyah-beyaz terminal** açık: yeniden üretilemedi, en olası
+   sebep ölçümle elendi. Ayrıntı SORUN.md "Hâlâ açık" başlığında.
    ⛔ **Genel arayüz okunaklılığı** kullanıcının kararını bekliyor.
 
 11. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi beş aşama da
