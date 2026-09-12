@@ -133,10 +133,19 @@ verilmeden koda dokunulmadı.
 
 ### UI süiti kararsız
 
-`scripts/check-ui.py` bu oturumda 8 koşumdan 6'sında tamamen yeşildi; kalan
-ikisinde her seferinde **başka** bir test düştü (`session collapse`, `session
-expansion`, bir kez Türkçe girdi). Üçü de gerçek GDK girdisi ve devinim
-zamanlaması üstünde duruyor — kararsızlık orada. Ayrı bir iş.
+`scripts/check-ui.py` bu oturumda **12 koşumdan 8'i** tamamen yeşildi; kalan
+dördünde her seferinde **başka** bir test düştü — `session collapse`,
+`session expansion`, ve bir kez `terminal separates orphan Turkish input`.
+
+**Bir hipotez denendi ve çürüdü.** "İlk tıklama kurulum devinimi sürerken
+düşüyor" diye düşünüldü; `click` yardımcısı her olaydan önce hedefi yeniden
+ölçecek biçimde düzeltildi (bu kendi başına doğru bir düzeltme, korundu) ve
+iki teste 400 ms yerleşme payı kondu. **Dört koşumdan ikisi yine düştü**, ve
+biri hiç fare kullanmayan Türkçe girdi testiydi. Yani sebep imleç değil:
+süitin sabit `wait` süreleri makine yükü altında yetmiyor. Pay geri alındı.
+
+Doğru yön muhtemelen sabit beklemeleri **koşula** çevirmek (aranan durum
+oluşana kadar yokla, zaman aşımıyla). Ayrı bir iş.
 
 ## Elenmiş ve yeniden denenmemesi gereken yollar
 

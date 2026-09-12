@@ -51,7 +51,14 @@ window.__TAURI_INTERNALS__ = {
 };
 const native = async action => { window.webkit.messageHandlers.nativeInput.postMessage(JSON.stringify(action)); await wait(30); };
 const point = element => { assert(element, 'Input target missing'); const r=element.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; };
-const click = async element => { const p=point(element); await native({kind:'move',...p}); await native({kind:'down',...p}); await native({kind:'up',...p}); await wait(100); };
+// The centre is re-read before every event. A point captured once and reused
+// for move/down/up is simply wrong whenever the target moves between them.
+// ⚠️ This did NOT fix the intermittent "Session list did not collapse": four
+// runs with the fix, and with an extra 400ms settle before the first click,
+// still failed twice — once including the Turkish input test, which uses no
+// pointer at all. The flakiness is in the suite's fixed waits under machine
+// load, not in this helper.
+const click = async element => { await native({kind:'move',...point(element)}); await native({kind:'down',...point(element)}); await native({kind:'up',...point(element)}); await wait(100); };
 // Button 2 closes an area, button 3 opens the pane and area menus; both are
 // real input paths, so they go through GDK like the left click above.
 const clickWith = async (element, button) => { const p=point(element); await native({kind:'move',...p}); await native({kind:'down',...p,button}); await native({kind:'up',...p,button}); await wait(120); };
