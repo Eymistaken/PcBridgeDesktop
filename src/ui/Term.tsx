@@ -28,12 +28,33 @@ interface Props {
 }
 
 /**
- * Hücre yüksekliği. **1.0'a yakın olmak zorunda:** TUI'ler (Claude Code,
- * Antigravity) çerçevelerini `─ │ ╭ ╯` ve blok karakterleriyle çiziyor.
- * Yüksek satır aralığında bu karakterler hücreyi doldurmaz ve dikey çizgiler
- * kopuk kopuk görünür — "terminal garip duruyor"un sebebi buydu.
+ * Hücre yüksekliği. **1.0** — ölçülerek seçildi, yuvarlatılarak değil.
+ *
+ * TUI'ler (Claude Code, Antigravity) maskotlarını ve çerçevelerini blok
+ * karakterleriyle (`█ ▀ ▄ ▌`) çiziyor. 13px Geist Mono'da blok glifi tam
+ * **15px** yüksekliğinde; hücre bundan yüksek olunca aradaki fark satır
+ * sınırında **arka plan** olarak görünüyor ve yığın parçalanıyor.
+ *
+ * WebKitGTK'da gerçek widget görüntüsü üstünde piksel piksel ölçüldü
+ * (2026-09-12), dolu bir blok yığınından geçen dikey kesitin dip değeri:
+ *
+ * | satır aralığı | hücre | satır arası düşüş |
+ * |---|---|---|
+ * | 1.00 | 15px | 54/255 — yalnızca yumuşak kenar |
+ * | 1.05 | 15px | 54/255 |
+ * | 1.08 | 16px | **247/255 — tam boşluk** |
+ * | 1.10 | 16px | **247/255** |
+ * | 1.15 | 17px | **247/255**, iki tam piksel |
+ *
+ * Yani eşik 1.05 ile 1.08 arasında ve eski 1.15 gaptan yanadaydı. `1.0`
+ * hücreyi glifin kendi yüksekliğine eşitliyor.
+ *
+ * ⚠️ **Sütun arası dikiş bununla düzelmiyor** ve satır aralığından bağımsız:
+ * hücre genişliği 7.802px, yani kesirli, ve komşu bloklar alt piksel
+ * sınırlarında kenar yumuşatmasıyla çiziliyor — her ölçülen satır aralığında
+ * 59/255. Onu kapatmanın yolu DOM çizicide yok; kaynağı yazı tipi metriği.
  */
-const SATIR = 1.15;
+const SATIR = 1.0;
 
 /** Tam sayı: kesirli boyut hücre genişliğini kesirli yapar ve ızgara kayar. */
 const PUNTO = 13;
@@ -128,9 +149,20 @@ export default function Term({ session, workdir, dondur, onExit, onOpened }: Pro
         fontSize: PUNTO,
         lineHeight: SATIR,
         cursorBlink: true,
-        // Kutu-çizim ve blok karakterlerini xterm kendi çiziyor, yazı tipinin
-        // glif metriğine bırakmıyor: TUI çerçeveleri hücreye tam oturuyor.
-        customGlyphs: true,
+        /*
+         * ⚠️ **`customGlyphs` buradan kalktı ve kanun bu konuda yanlıştı.**
+         * "xterm kutu-çizim ve blok karakterlerini kendi çiziyor, DOM
+         * çizicide de geçerli" yazıyordu. Ölçüldü (2026-09-12): xterm 6'nın
+         * ana paketinde seçenek yalnızca iki yerde geçiyor — varsayılan
+         * değer (`true`, yani vermek zaten gereksizdi) ve bir "değişti,
+         * yeniden çiz" dinleyicisi. Glifi çizen kod **tuval/WebGL eklenti
+         * paketlerinde**, ve WebGL bu motorda hiç çizmediği için 2026-09-03'te
+         * kaldırılmıştı. DOM çizicide seçeneğin hiçbir etkisi yok.
+         *
+         * Çerçevelerin düzgün görünmesi bundan değil: **Geist Mono'nun kendi
+         * kutu-çizim glifleri** hücre kenarına değiyor. Bloklar değmiyor —
+         * `SATIR` yorumundaki tabloya bakın.
+         */
         // Kabuk paletiyle aynı; ayrı bir tema uydurmuyoruz.
         theme: palet(),
         allowProposedApi: true,

@@ -3335,8 +3335,26 @@ pre.well {
   cursor: default;
 }
 
-/* xterm kabı — kuyu zemininde, iç dolgu panele ait. */
+/*
+ * xterm kabı — kuyu zemininde, iç dolgu panele ait.
+ *
+ * ⚠️ **`content-box` bir süs değil, `fit` eklentisinin sözleşmesi.**
+ * `FitAddon.proposeDimensions` satır sayısını
+ * `getComputedStyle(terminal.element.parentElement).height`'tan çıkarıyor ve
+ * yalnızca **terminalin kendi** (`.xterm`) dolgusunu düşüyor — `.xterm`'in
+ * dolgusu yok, dolgu bu kapta. Küresel `box-sizing: border-box` altında
+ * WebKit o özelliği **kenarlık kutusu** olarak veriyor, yani buradaki 16px
+ * satır hesabına dahil oluyordu ve terminal bir satır fazla alıyordu.
+ *
+ * WebKitGTK'da yedi bölme yüksekliğinde ölçüldü (2026-09-12): altısında bir
+ * fazla satır, son satır içerik kutusunun 3–13px altına taşıyor, ikisinde
+ * bölmenin kendi `overflow: hidden`'ı tarafından kırpılıyor. `content-box`
+ * **düzeni hiç değiştirmiyor** — yalnızca `getComputedStyle`'ın ne
+ * raporladığını değiştiriyor — ve yedi yükseklikte de taşma negatif oluyor.
+ * Aynı hata genişlikte de vardı: yatay 20px dolgu bir fazla sütun veriyordu.
+ */
 .pane .term {
+  box-sizing: content-box;
   flex-grow: 1;
   min-height: 0;
   padding: 8px 10px;

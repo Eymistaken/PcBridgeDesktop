@@ -349,5 +349,30 @@ await test('a workspace folder reaches a new pane without rebuilding the open on
   assert(calls.filter(c=>c.command==='pty_open').length===0,'Changing the workspace folder rebuilt an open pane');
   return {workdir:opens[0].args.workdir};
 });
+await test('the last terminal row stays inside the pane at every height', async () => {
+  // FitAddon derives rows from getComputedStyle(parent).height and subtracts
+  // only the terminal element's own padding. Under a global border-box WebKit
+  // reports the parent's border box, so the container's padding was counted as
+  // usable space and the terminal took one row too many; the bottom row then
+  // sat under the frame or was clipped away by the pane's overflow.
+  const rows=[];
+  for(const height of [500,505,510,515,520,525,530]) {
+    await render(h('div',{style:{position:'relative',width:900,height}},
+      h('div',{className:'pane'},h('div',{className:'phead'},'head'),h(Term,{session:`fit-${height}`}))));
+    await wait(500);
+    const holder=host.querySelector('.term'),pane=host.querySelector('.pane');
+    const style=getComputedStyle(holder),box=holder.getBoundingClientRect();
+    const contentBottom=box.bottom-parseFloat(style.paddingBottom);
+    const list=host.querySelector('.xterm-rows');
+    assert(list&&list.children.length,'The terminal did not render any rows');
+    const last=list.children[list.children.length-1].getBoundingClientRect();
+    const overContent=+(last.bottom-contentBottom).toFixed(2);
+    const overPane=+(last.bottom-pane.getBoundingClientRect().bottom).toFixed(2);
+    rows.push({height,rows:list.children.length,overContent,overPane});
+    assert(overContent<=0,`The last row overflows the content box by ${overContent}px at height ${height}`);
+    assert(overPane<=0,`The last row is clipped by the pane by ${overPane}px at height ${height}`);
+  }
+  return rows;
+});
 root.unmount();host.remove();
 return {passed:results.every(result=>result.passed),theme:document.documentElement.dataset.theme,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,results};
