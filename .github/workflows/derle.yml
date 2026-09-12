@@ -6,6 +6,23 @@
 # yüklemek tam olarak böyle olurdu.
 #
 # Kullanılan eylemlerin hepsi GitHub'ın kendi eylemleri; üçüncü taraf yok.
+#
+# ⚠️ **Eylemler 2026-09-12'de node24 majörlerine çıkarıldı.** `@v4`'ler Node
+# 20 hedefliyordu ve koşucu onları zorla Node 24'te çalıştırıp her koşumda
+# uyarı basıyordu ("Node.js 20 is deprecated… being forced to run on Node.js
+# 24"). Uyarı derlemeyi kırmıyordu ama zorlama bir gün kalkacak.
+#
+# Kırıcı değişiklikler okundu, dördü de bu iş akışını etkilemiyor:
+#   checkout v7        fork PR'ı `pull_request_target`/`workflow_run`'da
+#                      engelliyor — biz `push` ile koşuyoruz.
+#   setup-node v6      otomatik önbelleği **yalnızca npm**'e indirdi; zaten
+#                      `cache: npm` kullanıyoruz.
+#   cache v6           node24 + ESM; `path`/`key`/`restore-keys` aynı.
+#   upload-artifact v7 node24 + ESM, bir de isteğe bağlı `archive` girdisi;
+#                      `name`/`path`/`if-no-files-found` aynı.
+#
+# cache ve upload-artifact **koşucu 2.327.1** istiyor. GitHub'ın kendi
+# koşucuları çoktan üstünde; kendi koşucuna geçilirse bu satır hatırlansın.
 
 name: Derle
 
@@ -31,9 +48,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -68,7 +85,7 @@ jobs:
             build-essential curl wget file
 
       - name: Cargo önbelleği
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -120,7 +137,7 @@ jobs:
           fi
           ls -la cikti/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pcbridge-desktop-${{ steps.s.outputs.surum }}
           path: cikti/*
