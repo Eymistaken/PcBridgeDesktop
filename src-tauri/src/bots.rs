@@ -700,25 +700,38 @@ mod tests {
         // **Session göçü gerçek dosya üstünde — bellekte, diske yazmadan.**
         // Tek koşum bile kaybolmamalı: kaybolan koşum kaybolan sohbettir.
         let mut gocmus = store;
-        let onceki: Vec<Vec<String>> = gocmus
+        // ⚠️ Session **sayısı** da göç öncesinden alınıyor. Eskiden yalnızca
+        // koşum listesi saklanıyor ve "koşumu olan botun tek session'ı olur"
+        // diye bakılıyordu; o kural yalnızca **göçün kendi kurduğu** session
+        // için doğru. Kullanıcı ikinci bir session açar açmaz test kırmızıya
+        // döndü (2026-09-12, gerçek dosyada `sessions: 2`) — oysa `goc` doğru
+        // davranıyordu: eski alanlar boşsa hiç dokunmuyor. Test yanlıştı.
+        let onceki: Vec<(Vec<String>, usize, bool)> = gocmus
             .bots
             .iter()
             .map(|b| {
                 let mut hepsi = b.jobs.clone();
                 hepsi.extend(b.sessions.iter().flat_map(|o| o.jobs.iter().cloned()));
-                hepsi
+                // "Göç edecek" = eski alanlardan biri hâlâ doluysa.
+                let gocecek = !b.jobs.is_empty() || b.session_id.is_some();
+                (hepsi, b.sessions.len(), gocecek)
             })
             .collect();
         goc(&mut gocmus);
-        for (b, eski) in gocmus.bots.iter().zip(&onceki) {
+        for (b, (eski, kac, gocecek)) in gocmus.bots.iter().zip(&onceki) {
             let sonra: Vec<String> = b.sessions.iter().flat_map(|o| o.jobs.iter().cloned()).collect();
             assert_eq!(&sonra, eski, "{}: koşum listesi göçte değişti", b.name);
             assert!(b.jobs.is_empty(), "{}: eski jobs düşmedi", b.name);
-            if !eski.is_empty() {
-                assert_eq!(b.sessions.len(), 1, "{}: tek session bekleniyordu", b.name);
+            assert!(b.session_id.is_none(), "{}: eski session_id düşmedi", b.name);
+            if *gocecek && *kac == 0 {
+                // Session'ı olmayan eski bot: göç tam bir tane kuruyor.
+                assert_eq!(b.sessions.len(), 1, "{}: göç tek session kurmalıydı", b.name);
+            } else {
+                // Zaten session'ı olan bot: göç sayıyı **değiştirmemeli**.
+                assert_eq!(b.sessions.len(), *kac, "{}: session sayısı oynadı", b.name);
             }
         }
-        let toplam: usize = onceki.iter().map(Vec::len).sum();
+        let toplam: usize = onceki.iter().map(|(j, _, _)| j.len()).sum();
         eprintln!(
             "{} bot, {toplam} koşum — göç sağlam, kayıp yok",
             gocmus.bots.len()

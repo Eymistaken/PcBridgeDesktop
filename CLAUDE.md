@@ -540,7 +540,8 @@ Yerine `src/ui/Picker.tsx`; menüler de kendi bileşenimiz (`PermMenu`).
 
 1. **Kip anahtarı kenar çubuğunun tepesinde** (Botlar | Terminal), tasarımın
    gösterdiği gibi — ama artıyı yalnızca terminal kipinde tutuyoruz: bot
-   kipinde "yeni bot" listenin sonunda bir satır.
+   kipinde "yeni bot" listenin sonunda **kesik çerçeveli bir yuva**
+   (`.yenibot`), ve her bot kutusunun başlığında kendi artısı var.
 2. **Besteci ipucu `Ctrl ↵`.** Tasarım `⌘↵` yazmıyor ama artboard macOS
    alışkanlığı taşıyor; bu makine Linux.
 3. **Aydınlık tema tasarımda YOK ve türetildi.** Koyu rampanın kontrast
@@ -1524,6 +1525,17 @@ Yeni bir regresyon testi yazınca **eski davranışı geri koyup düşmesini gö
 Denetim noktası testi böyle doğrulandı: eski `write_ctx` geri konunca
 `summary` `None` oluyor ve test kırmızıya dönüyor. Düşmeyen bir regresyon
 testi hiçbir şey sabitlemez.
+
+⚠️ **Kullanıcının canlı verisine bağlı bir test, testtir ama kırılgandır.**
+`bots::tests::diskteki_gercek_botlar_hala_okunuyor` gerçek `bots.json`'u
+okuyor — doğru bir fikir, çünkü göç ancak gerçek dosyada sınanır. Ama içine
+*"koşumu olan botun tek session'ı olur"* diye bir varsayım sızmıştı ve o,
+yalnızca **göçün kendi kurduğu** session için doğru. Kullanıcı ikinci bir
+session açar açmaz test kırmızıya döndü (2026-09-12) ve **kod doğruydu**.
+Ölçüt şu: diske bakan bir test **değişmeyecek** olanı sabitlesin (dosya
+ayrıştırılıyor mu, varsayılanlar düşüyor mu, koşum kayboluyor mu);
+davranışın kendisi **sentetik** bir kayıtla sınansın. `goc`'un iki dalının
+da kendi sentetik testi zaten vardı ve dişleri görülmüştü.
 
 ## Çalışma tarzı
 
