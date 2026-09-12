@@ -43,9 +43,12 @@ interface Props {
  * kullanıcıyı yanılttı. Yatay FLIP gerekirse `flip.ts` genişletilir, ikinci
  * bir uygulama yazılmaz.
  *
- * Renk **addan türüyor** (`hueOf`), botlardaki formülün aynısı. Ayrı bir hue
- * alanı yok: bu depoda okunmayan bir alan bir kez ölü kaldı, ve adı
- * değiştirmek zaten rengi değiştirmenin en kısa yolu.
+ * Renk **addan türüyor** (`hueOf`). ⚠️ Formül bir zamanlar botlarda da
+ * vardı; botların kimlik rengi 2026-09-12'de kaldırıldı ve `hueOf` burada
+ * tek okuyucusuyla kaldı. Kullanıcının kararı: *"terminal sekmelerinin
+ * renkleri kalsın"* — ama nokta **yuvarlak**, kare değil (`.tile`).
+ * Ayrı bir hue alanı yok: bu depoda okunmayan bir alan bir kez ölü kaldı,
+ * ve adı değiştirmek zaten rengi değiştirmenin en kısa yolu.
  */
 export default function AlanSekmeleri({
   alanlar,

@@ -134,15 +134,18 @@ derse **başka bir şey sormadan** şunu yap:
    - **Bot ve session'ları çerçeveli bir kutuda** — *"soldaki bot, altındaki
      sessionlar ile başka botları ayırmak da çok zor"*.
    - **Kimlik rengi ve kimlik karesi kaldırıldı** — `Bot.avatar`, `hueFor`,
-     `ui/Avatar.tsx`, hue şeridi silindi. `hueOf` terminal sekmeleri için
-     duruyor.
+     `ui/Avatar.tsx`, hue şeridi silindi. `hueOf` **terminal sekmelerinde
+     kalıyor** (kullanıcının kararı), ama nokta orada da yuvarlak.
+   - **BotForge dört sekmeden üçe indi:** Temel (ad · yönerge · dizin) ·
+     Motor · Araçlar & izin. Kimlik rengi kalkınca "Kimlik" tek alana
+     düşmüştü.
    - **Sohbetteki 104px oluk kalktı;** konuşanı yön söylüyor.
    - **Yedi yerde kelime ikona döndü;** kelimeler `title`/`aria-label`'da.
    - **Besteci yeniden bir kutu, yer tutucusu boş.**
 
-   ⚠️ **Terminal kipi bu çalışmanın dışındaydı.** `hueOf` hâlâ çalışma alanı
-   sekmelerini besliyor; oradaki rengin kalıp kalmayacağı **kullanıcının
-   kararı**, sorulmadan değiştirilmez. Aynı şekilde `PermAsk` hâlâ oluğu
+   ⚠️ **Terminal kipinin geri kalanı bu çalışmanın dışındaydı** — satır
+   listesi, `.row__ops` hover davranışı, bölme başlıkları. Sekme rengine
+   kullanıcı ayrıca karar verdi (kalıyor, yuvarlak). `PermAsk` hâlâ oluğu
    kullanıyor (bestecinin üstünde yüzen kart) — tasarımda yoktu.
 
 12. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi altı aşama da
@@ -373,10 +376,13 @@ yok."* `Bot.avatar` (Rust ve TS), `Avatar` tipi, `hueFor`, `ui/Avatar.tsx`,
 artık kenar çubuğundaki **çerçeveli kutu**; renk yalnızca **durumdan**
 geliyor.
 
-⚠️ **`hueOf` ve `avatarVar` duruyor** — terminal kipindeki çalışma alanı
-sekmeleri (`AlanSekmeleri`, `.tile`) hâlâ addan türeyen hue'yu kullanıyor.
-Terminal kipi bu tasarım çalışmasının dışındaydı; oradaki rengin kalıp
-kalmayacağı **kullanıcının kararı** ve sorulmadan değiştirilmez.
+✅ **`hueOf` ve `avatarVar` duruyor ve kalıyor.** Terminal kipindeki çalışma
+alanı sekmeleri (`AlanSekmeleri`, `.tile`) addan türeyen hue'yu kullanmaya
+devam ediyor — kullanıcının kararı (2026-09-12): *"terminal sekmelerinin
+renkleri kalsın ama kare kare değil botlardaki bildirim gibi yuvarlak
+olsunlar"*. Yani **renk kaldı, biçim değişti**: 9px kare → 6px yuvarlak,
+`.dot` ile aynı geometri. `--av-l` / `--av-c` tokenlarının tek okuyucusu
+artık burası.
 
 Diskteki `bots.json` `"avatar"` alanını hâlâ taşıyor; serde
 `deny_unknown_fields` kullanmadığı için sessizce yutuluyor ve ilk kayıtta
@@ -396,8 +402,12 @@ ve yeşili kendi koyu zemininde **2.5:1** ile çiziliyordu.
 
 ### Köşeler — iki değer
 
-`0` düğme · `4px` kuyu, panel, bölme, örtü · `9999px` yalnızca 6px'lik durum
-noktası. ⚠️ **Düğmelerin yarıçapı yoktur** — tasarımda tek bir yuvarlatılmış
+`0` düğme · `4px` kuyu, panel, bölme, örtü, **bot kutusu ve besteci** ·
+`9999px` 6px'lik noktalar — durum noktası (`.dot`) ve terminal/çalışma alanı
+noktası (`.tile`). ⚠️ `.tile` 9px **kareydi**; kimlik çipinin biçimiydi ve
+o kalkınca tek başına kaldı. Kullanıcının kararı (2026-09-12): *"terminal
+sekmelerinin renkleri kalsın ama kare kare değil botlardaki bildirim gibi
+yuvarlak olsunlar"*. ⚠️ **Düğmelerin yarıçapı yoktur** — tasarımda tek bir yuvarlatılmış
 düğme yok.
 
 ### Yazı
@@ -484,10 +494,11 @@ daha görsel odaklı gitsek"*, ve ayrıca *"gönder tuşunda bile yazı var"*,
 *"altında ek tuşu da gördüğün gibi sadece bir 'ekle' yazısı"*, *"hiç sorma
 yazısı da öyle"*.
 
-Şu yedi yer artık ikon: **kip anahtarı** (Botlar · Terminal), **dışa
-aktar**, **ek**, **izin kipi**, **gönder**, **yeni session**, ve sohbetteki
-**düşünce/araç** şeridi. `IconBot` · `IconTerminal` · `IconExport` ·
-`IconSend` · `IconThought` · `IconTool` bu gün eklendi.
+Şu sekiz yer artık ikon: **kip anahtarı** (Botlar · Terminal), **dışa
+aktar**, **ek**, **izin kipi**, **gönder**, **yeni session**, sohbetteki
+**düşünce/araç** şeridi, ve BotForge'un **klasör seç** tuşu (`SEÇ…`).
+`IconBot` · `IconTerminal` · `IconExport` · `IconSend` · `IconThought` ·
+`IconTool` bu gün eklendi; `IconFolder` zaten vardı.
 
 **Kelimeler silinmedi, `title` ve `aria-label`'a taşındı** — ipucu ve ekran
 okuyucu aynı metni görüyor. Bir regresyon testi bunu sabitliyor

@@ -49,7 +49,8 @@ yanında. Kaynak `.dc.html` dosyaları ve `canvas.json`; sayfa onlardan
 `seed-canvas.mjs` ile yeniden üretiliyor.
 
 ⛔ **Terminal kipi ve ayarlar bu çalışmanın dışındaydı** ve hâlâ yukarıdaki
-sekiz ekrandan okunuyor.
+sekiz ekrandan okunuyor. Tek istisna: çalışma alanı sekmelerinin noktası
+kullanıcının ayrı bir kararıyla kareden yuvarlağa döndü (renk duruyor).
 
 ## eski-notr-kabuk/
 

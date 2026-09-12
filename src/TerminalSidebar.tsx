@@ -311,7 +311,7 @@ function SessionRow({
         }
       }}
     >
-      {/* Çip botunkiyle aynı 9px kare; burada rengi kimlikten değil
+      {/* 6px yuvarlak nokta (2026-09-12'de kareden döndü); rengi
        * **durumdan** geliyor. Burada açık olmayan oturum içi boş. */}
       <span
         className="tile"

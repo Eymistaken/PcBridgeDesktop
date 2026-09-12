@@ -1845,3 +1845,40 @@ değil.
 - **Terminal kipi** hiç dokunulmadı: kenar çubuğu satır listesi
   (`.side__list--kutu` yalnızca botlarda), `.row__ops` hover davranışı,
   çalışma alanı sekmelerinin `hueOf` rengi.
+
+### Onay sonrası iki düzeltme (aynı gün)
+
+Kullanıcı koda geçtikten sonra iki şey daha söyledi:
+
+**1. Terminal sekmelerinin noktası.** *"terminal sekmelerinin renkleri kalsın
+ama kare kare değil botlardaki bildirim gibi yuvarlak olsunlar."* `.tile`
+9px kareden **6px yuvarlağa** döndü — `.dot`'un aynı geometrisi. Kare, kalkan
+bot kimlik çipinin biçimiydi ve o gidince burada tek başına kalmıştı. Renk
+duruyor: `hueOf` + `--av-l`/`--av-c` artık yalnızca buradan okunuyor.
+
+Aynı sınıfı kenar çubuğundaki terminal satırları da kullanıyor ve orada renk
+**durumdan** geliyor (çalışan CLI kehribar, kabuk yeşil, burada açık olmayan
+içi boş halka). İkisi yan yana hiç durmuyor.
+
+**2. BotForge'un `SEÇ…` tuşu.** *"botforge ekranında seç yazan tuşun yerinde
+ne olmasını istediğimi artık biliyorsun"* — klasör ikonu. `IconFolder` zaten
+vardı. Düğme alanın **içine** girdi, yanına değil: yanındayken kendi alt
+çizgisi olan ikinci bir kutu gibi duruyordu ve iki çizgi yan yana bir bölme
+gibi okunuyordu.
+
+**Bunun açtığı deliği de kapattım.** Kimlik rengi ve hue şeridi kalkınca
+"Kimlik" sekmesinde tek bir alan (ad) kalmıştı ve panel yarı boş
+görünüyordu — yönergeyi oraya aldım, bu sefer "Çalışma" tek alana düştü.
+İkisi birleşti ve **dört sekme üçe indi**:
+
+| sekme | ne |
+|---|---|
+| **Temel** (`forge.tab_kimlik`, adı değişti) | ad · kalıcı yönerge · çalışma dizini |
+| **Motor** | arka uç · model · effort · bağlam bütçesi · tur tavanı |
+| **Araçlar & izin** | araç filtresi · izin kipi · "ben makinedeyken de çalışsın" |
+
+`forge.tab_calisma` ve `forge.choose` anahtarları düştü (444 → 442).
+
+⚠️ **Sekme kimliği `kimlik` kaldı**, yalnızca görünen adı "Temel" oldu:
+`Sekme` yerel bir `useState`, diske yazılmıyor, ve anahtarı değiştirmek
+sözlükte iki satırı gereksizce oynatırdı.

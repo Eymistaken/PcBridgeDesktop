@@ -112,11 +112,15 @@
   --fail: #e2726b; /* 6.17 */
 
   /* ── kimlik ──────────────────────────────────────────────────────────── */
-  /* Hue **addan türer** (0-359), açıklık ve doygunluk sabit. Sabit oldukları
-   * için avatardaki harfin kontrastı hue'dan bağımsız garanti: 360 hue'nun
-   * hepsi için hesaplandı, koyu temada en düşük 4.62, aydınlıkta 4.88.
-   * Tasarım bu formülü aynen kullanıyor — `oklch(0.62 0.14 250)`.
-   * Değişen tek şey **biçim**: avatar artık daire değil, 9px kare. */
+  /* Hue **addan türer** (0-359), açıklık ve doygunluk sabit.
+   *
+   * ⚠️ **Botların kimlik rengi 2026-09-12'de kaldırıldı** (kullanıcının
+   * kararı, Aşama 26). Bu iki token yalnızca **terminal kipindeki çalışma
+   * alanı sekmelerini** besliyor (`AlanSekmeleri`, `.tile`) — kullanıcının
+   * sözü: *"terminal sekmelerinin renkleri kalsın"*. Biçim orada da değişti:
+   * 9px kare değil, 6px yuvarlak.
+   *
+   * "Avatar harfi 360 hue'da AA geçiyor" ölçümü konusuz: çipte metin yok. */
   --av-l: 0.62;
   --av-c: 0.14;
 

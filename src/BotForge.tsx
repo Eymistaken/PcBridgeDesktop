@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
+import { IconFolder } from "./ui/Icon";
 import Picker from "./ui/Picker";
 import Seg from "./ui/Seg";
 import { gecirYukseklik, olcOnce, type YukseklikIzi } from "./lib/yukseklik";
@@ -34,8 +35,16 @@ interface Props {
   cikiyor?: boolean;
 }
 
-type Sekme = "kimlik" | "motor" | "araclar" | "calisma";
-const SEKMELER: Sekme[] = ["kimlik", "motor", "araclar", "calisma"];
+/*
+ * ⚠️ **Dört sekme üçe indi (2026-09-12).** Kimlik rengi ve hue şeridi
+ * kalkınca "Kimlik" sekmesinde tek bir alan kaldı; yönerge ve çalışma
+ * dizini oraya alınınca "Çalışma" da tek alana düştü. İkisi birleşti:
+ * ad · yönerge · dizin = *"bu bot kim ve nerede yaşıyor"*. Sekmenin adı
+ * o yüzden "Kimlik" değil **"Temel"** (`forge.tab_kimlik` anahtarı aynı
+ * kaldı — yerel bir durum, diske yazılmıyor).
+ */
+type Sekme = "kimlik" | "motor" | "araclar";
+const SEKMELER: Sekme[] = ["kimlik", "motor", "araclar"];
 
 const BOS: Omit<BotDraft, "agent"> = {
   name: "",
@@ -323,9 +332,10 @@ export default function BotForge({
                *
                * ⚠️ Çip ve şerit gidince sekmede **tek** bir alan kalıyordu
                * ve panel yarı boş görünüyordu (WebKitGTK görüntüsünde
-               * görüldü). Yönerge "Çalışma"dan buraya alındı: ad ile
-               * sistem promptu birlikte *"bu bot kim"* sorusunu yanıtlıyor,
-               * "Çalışma" ise dizin ve sınırlarla kalıyor.
+               * görüldü). "Çalışma" sekmesinin ikisi de buraya alındı ve
+               * o sekme kapandı: ad · yönerge · dizin birlikte *"bu bot
+               * kim ve nerede yaşıyor"* sorusunu yanıtlıyor. Sınırlar
+               * "Motor"da, filtre ve kip "Araçlar & izin"de.
                */}
               <div className="grp">
                 <label className="lbl" htmlFor="bot-ad">
@@ -355,6 +365,43 @@ export default function BotForge({
                     setDraft({ ...draft, preamble: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="grp">
+                <label className="lbl" htmlFor="bot-dizin">
+                  {t("forge.workdir")}
+                </label>
+                {/*
+                 * ⚠️ **`SEÇ…` kelimesi klasör ikonuna döndü (2026-09-12).**
+                 * Kullanıcının kararı, aynı gün ikon geçişinin devamı.
+                 * Kelime `title` ve `aria-label`'da duruyor.
+                 *
+                 * Düğme alanın **içinde**, yanında değil: yanındayken kendi
+                 * alt çizgisi olan ikinci bir kutu gibi duruyordu ve iki
+                 * çizgi yan yana bir bölme gibi okunuyordu.
+                 */}
+                <div className="fld">
+                  <input
+                    id="bot-dizin"
+                    className="mono"
+                    spellCheck={false}
+                    value={draft.workdir}
+                    placeholder="/home/…"
+                    style={{ flexGrow: 1, fontSize: 13 }}
+                    onChange={(e) =>
+                      setDraft({ ...draft, workdir: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="ib"
+                    title={t("forge.chooseTitle")}
+                    aria-label={t("forge.chooseTitle")}
+                    onClick={() => void dizinSec()}
+                  >
+                    <IconFolder size={17} color="var(--text-muted)" />
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -717,38 +764,6 @@ export default function BotForge({
                   )}
                 </div>
               )}
-            </>
-          )}
-
-          {sekme === "calisma" && (
-            <>
-              <div className="grp">
-                <label className="lbl" htmlFor="bot-dizin">
-                  {t("forge.workdir")}
-                </label>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <div className="fld" style={{ flexGrow: 1 }}>
-                    <input
-                      id="bot-dizin"
-                      className="mono"
-                      spellCheck={false}
-                      value={draft.workdir}
-                      placeholder="/home/…"
-                      style={{ flexGrow: 1, fontSize: 13 }}
-                      onChange={(e) =>
-                        setDraft({ ...draft, workdir: e.target.value })
-                      }
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="fld btn-fld"
-                    onClick={() => void dizinSec()}
-                  >
-                    {t("forge.choose")}
-                  </button>
-                </div>
-              </div>
             </>
           )}
 

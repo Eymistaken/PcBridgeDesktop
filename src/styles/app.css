@@ -155,7 +155,8 @@ input:focus {
 
 /* ── temel parçalar ──────────────────────────────────────────────── */
 
-/* Durum noktası — 9999px'in kabukta kullanıldığı **tek** yer. */
+/* Durum noktası — 6px. `.tile` ile birlikte 9999px'in kabukta kullanıldığı
+ * **iki** yerden biri, ve ikisi aynı geometride. */
 .dot {
   width: 6px;
   height: 6px;
@@ -3027,15 +3028,25 @@ pre.well {
 
 /* ── terminaller ─────────────────────────────────────────────────── */
 
-/* Oturum kutucuğu — bot çipiyle aynı 9px kare, ama durum rengiyle:
- * bot değil terminal olduğu renkten değil **bağlamdan** belli, ikisi de
- * aynı biçimde. Kenar çubuğunda yan yana durmuyorlar. */
+/*
+ * Oturum ve çalışma alanı noktası.
+ *
+ * ⚠️ **9px kareydi, 2026-09-12'de 6px yuvarlağa döndü.** Kullanıcının
+ * kararı: *"terminal sekmelerinin renkleri kalsın ama kare kare değil
+ * botlardaki bildirim gibi yuvarlak olsunlar"*. Kare, kalkan bot kimlik
+ * çipinin biçimiydi; o gidince burada tek başına kaldı.
+ *
+ * Geometri artık `.dot`'un aynısı — kabuğun tek yuvarlak biçimi o.
+ * İki yer kullanıyor ve ikisi **farklı şey** söylüyor: kenar çubuğunda
+ * oturumun **durumu** (çalışan bir CLI mı, kabuk mu, burada açık değil mi),
+ * sekmelerde alanın **kimliği** (addan türeyen hue). Yan yana hiç
+ * durmuyorlar.
+ */
 .tile {
-  width: 9px;
-  height: 9px;
-  border-radius: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
   flex: none;
-  margin-bottom: 1px;
   background: var(--run);
 }
 
