@@ -1,6 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
-import Avatar from "../ui/Avatar";
 import Composer from "../ui/Composer";
 import CtxMenu, { UYARI } from "../ui/CtxMenu";
 import Markdown from "../ui/Markdown";
@@ -10,8 +9,7 @@ import { useAkisMaskesi } from "../lib/akis";
 import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
-import Oluk from "../ui/Oluk";
-import { IconStop } from "../ui/Icon";
+import { IconExport, IconStop, IconTool } from "../ui/Icon";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
@@ -242,7 +240,6 @@ export default function Chat({
   return (
     <>
       <div className="main__head">
-        <Avatar tone={bot.avatar} name={bot.name} size={11} />
         <span className="main__head__ad">{bot.name}</span>
         <span className="main__head__kunye">
           {[
@@ -257,48 +254,54 @@ export default function Chat({
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {/* Kelime ikona döndü (2026-09-12); metin `title` ve
+          * `aria-label`'da duruyor. Ok **yukarı**: aşağı ok indirme demek,
+          * buradaki eylem sohbeti dışarı vermek. */}
         <button
           type="button"
-          className="btn-quiet"
+          className="ib"
           title={t("chat.export")}
+          aria-label={t("chat.export")}
           disabled={turns.length === 0}
           onClick={onExport}
         >
-          {t("chat.exportShort")}
+          <IconExport />
         </button>
       </div>
 
+      {/*
+        ⚠️ **Kaydıran kap ile ölçü sütunu ayrıldı (2026-09-12).** Eskiden
+        `.chat > *` `width: 100%` + `margin-inline: auto` ile ortalanıyordu;
+        artık konuşanı **yön** söylüyor (sen sağda, bot solda) ve `width:
+        100%` `align-self`'i etkisiz bırakırdı. Sütun içeride, kaydırma ve
+        maske dışarıda.
+      */}
       <div className="chat" ref={kaydiran}>
-        {turns.length === 0 && !running && (
-          <div className="chat__bos">
-            <span className="h">{t("chat.empty")}</span>
-            <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)", maxWidth: 420 }}>
-              {t("chat.emptyHint")}
-            </span>
-          </div>
-        )}
+        <div className="chat__ic">
+          {turns.length === 0 && !running && (
+            <div className="chat__bos">
+              <span className="h">{t("chat.empty")}</span>
+              <span style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-3)", maxWidth: 420 }}>
+                {t("chat.emptyHint")}
+              </span>
+            </div>
+          )}
 
-        {turns.map((tur, i) => (
-          <TurnView
-            key={tur.jobId}
-            turn={tur}
-            live={running?.jobId === tur.jobId}
-            // ⚠️ Giriş devinimi **yalnızca sonradan eklenen** tura.
-            // Eskiden `.bub`'un hepsi koşulsuz oynuyordu: sohbet her
-            // kurulduğunda (kip anahtarı, session takası) geçmişin
-            // tamamı aynı anda animasyon başlatıyordu.
-            yeni={i >= mountTurSayisi.current}
-          />
-        ))}
+          {turns.map((tur, i) => (
+            <TurnView
+              key={tur.jobId}
+              turn={tur}
+              live={running?.jobId === tur.jobId}
+              // ⚠️ Giriş devinimi **yalnızca sonradan eklenen** tura.
+              // Eskiden `.bub`'un hepsi koşulsuz oynuyordu: sohbet her
+              // kurulduğunda (kip anahtarı, session takası) geçmişin
+              // tamamı aynı anda animasyon başlatıyordu.
+              yeni={i >= mountTurSayisi.current}
+            />
+          ))}
 
-        {error && (
-          <div
-            className="bub"
-            style={{ background: "var(--field)", color: "var(--fail)" }}
-          >
-            {error}
-          </div>
-        )}
+          {error && <div className="bot kita kita--hata">{error}</div>}
+        </div>
       </div>
 
       <div className="altlik" ref={altlik}>
@@ -442,6 +445,53 @@ function durduruldu(turn: Turn): boolean {
  */
 const TurnView = memo(TurnViewIc);
 
+/**
+ * Ardışık **yardımcı** blokları (düşünce ve araç çağrıları) tek bir şeride
+ * toplar; metin, ham çıktı ve özet kendi başına durur.
+ *
+ * Neden: tasarımda düşünce süresi ve araç çağrısı **aynı satırda** duruyor
+ * (`⟡ 10 s — ⎇ screen_info ●`). Blok listesi onları ayrı ayrı veriyor;
+ * gruplamadan çizilirse aralarına kıta boşluğu girer ve biri ötekinden
+ * kopar.
+ */
+type Grup =
+  | { t: "yardim"; blocks: Block[] }
+  | { t: "tek"; block: Block };
+
+function grupla(blocks: Block[]): Grup[] {
+  const out: Grup[] = [];
+  for (const b of blocks) {
+    const yardimci = b.t === "thinking" || b.t === "tools";
+    const son = out[out.length - 1];
+    if (yardimci && son?.t === "yardim") son.blocks.push(b);
+    else if (yardimci) out.push({ t: "yardim", blocks: [b] });
+    else out.push({ t: "tek", block: b });
+  }
+  return out;
+}
+
+/**
+ * Kıtanın küçük mono etiketi — ham çıktı, özet ve hata için.
+ *
+ * ⚠️ **104px'lik oluk sohbetten kalktı** (2026-09-12). Kullanıcının kararı:
+ * *"düşünce/araçlar/yanıt falan bunlar olmasın böyle"* ve *"yazının benim
+ * promptum mu botun yanıtı mı olduğunu anlamak için yanlarındaki ufacık
+ * yazıları okumak gerekiyor"*. Konuşanı artık **yön** söylüyor: sen sağda
+ * ve dolgulu, bot solda ve çıplak — `YANIT` etiketi konusuz kaldı.
+ *
+ * Ama üç kıtanın etiketi konusuz **kalmadı**: ham çıktı, bağlam özeti ve
+ * hata "bu neyin metni" sorusuna yönle yanıt veremiyor. Onlar bu küçük
+ * satırı taşıyor. Oluğun kendisi ayarlarda, ilk açılışta ve session
+ * ekranında **duruyor** — kalkan şey yalnızca sohbet dökümündeki kopyası.
+ */
+function Etiket({ ad, ton }: { ad: string; ton?: string }) {
+  return (
+    <span className="kita__et" style={ton ? { color: ton } : undefined}>
+      {ad}
+    </span>
+  );
+}
+
 function TurnViewIc({
   turn,
   live,
@@ -452,6 +502,7 @@ function TurnViewIc({
   yeni: boolean;
 }) {
   const blocks = useMemo(() => toBlocks(turn.events), [turn.events]);
+  const gruplar = useMemo(() => grupla(blocks), [blocks]);
   const bitis = finishedOf(turn.events);
   const kesildi = durduruldu(turn);
 
@@ -460,45 +511,61 @@ function TurnViewIc({
   return (
     <>
       {turn.prompt && (
-        // Saat kendi satırında değil, rolün yanında: tasarım "YOU · 17:51"
-        // diyor. Eskiden ortalanmış ayrı bir `.ts` satırıydı ve her tur
-        // arasına boş bir bant koyuyordu.
-        <Oluk
-          et={
-            turn.meta.startedAt
-              ? `${t("chat.gYou")} · ${saat(turn.meta.startedAt)}`
-              : t("chat.gYou")
-          }
-          yeni={yeni}
+        /*
+         * Kullanıcının kendi cümlesi: **sağa dayalı ve dolgulu.** Rolü
+         * söyleyen şey bu, bir etiket değil.
+         *
+         * ⚠️ Saat görünürden `title`'a indi. Tasarımda baloncuğun üstünde
+         * saat yok ve her tura bir zaman satırı koymak dökümü yine
+         * künyeyle dolduruyordu; kaybolmasın diye ipucunda duruyor.
+         */
+        <div
+          className="sen"
+          data-yeni={y}
+          title={turn.meta.startedAt ? saat(turn.meta.startedAt) : undefined}
         >
-          <div className="kita kita--sen">{turn.prompt}</div>
-        </Oluk>
+          {turn.prompt}
+        </div>
       )}
 
-      {blocks.map((b, i) => (
-        // Yalnızca **süren** turun **son** bloğu canlı: akış orada.
-        <BlockView
-          key={i}
-          block={b}
-          live={live && i === blocks.length - 1}
-          yeni={yeni}
-        />
-      ))}
+      {gruplar.map((g, i) =>
+        g.t === "yardim" ? (
+          <div className="yardim" key={i} data-yeni={y}>
+            {g.blocks.map((b, j) => (
+              <YardimBloku
+                key={j}
+                block={b}
+                // Yalnızca **süren** turun **son** bloğu canlı: akış orada.
+                live={
+                  live && i === gruplar.length - 1 && j === g.blocks.length - 1
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <BlockView
+            key={i}
+            block={g.block}
+            live={live && i === gruplar.length - 1}
+            yeni={yeni}
+          />
+        ),
+      )}
 
       {kesildi ? (
-        <Oluk et={t("chat.gError")} yeni={yeni}>
-          <span className="ts" data-yeni={y}>
-            {t("chat.stopped")}
-          </span>
-        </Oluk>
+        <div className="bot" data-yeni={y}>
+          <Etiket ad={t("chat.gError")} />
+          <span className="ts">{t("chat.stopped")}</span>
+        </div>
       ) : (
         bitis &&
         !bitis.ok && (
-          <Oluk et={t("chat.gError")} ton="var(--fail)" yeni={yeni}>
+          <div className="bot" data-yeni={y}>
+            <Etiket ad={t("chat.gError")} ton="var(--fail)" />
             <div className="kita kita--hata">
               {bitis.error ?? t("chat.failed")}
             </div>
-          </Oluk>
+          </div>
         )
       )}
     </>
@@ -510,8 +577,8 @@ function TurnViewIc({
  * tablo kurmaya çalışıyor ve ham `**` ekranda duruyordu.
  *
  * Akış sürerken metnin ucu maskeyle soluk kalıyor — `useAkisMaskesi`.
- * ⚠️ Sarmalayıcı `<div>` kıtanın **içinde**, kıtanın kendisi değil: maske
- * dış öğeye konsaydı oluk etiketini de maskelerdi.
+ * ⚠️ Sarmalayıcı `<div>` içeride, kıtanın kendisi değil: maske dış öğeye
+ * konsaydı kıtanın bütün kenarlarını yumuşatırdı.
  */
 function MetinBloku({
   text,
@@ -525,13 +592,52 @@ function MetinBloku({
   const kap = useRef<HTMLDivElement>(null);
   useAkisMaskesi(kap, text, live);
   return (
-    <Oluk et={t("chat.gReply")} yeni={yeni}>
-      <div className="kita">
-        <div ref={kap} className={live ? "akis--canli" : undefined}>
-          <Markdown text={text} />
-        </div>
+    <div className="bot kita" data-yeni={yeni || undefined}>
+      <div ref={kap} className={live ? "akis--canli" : undefined}>
+        <Markdown text={text} />
       </div>
-    </Oluk>
+    </div>
+  );
+}
+
+/** Düşünce ve araç çağrıları — şeridin satırları. */
+function YardimBloku({ block, live }: { block: Block; live: boolean }) {
+  if (block.t === "thinking") {
+    return <Thinking text={block.text} ms={block.ms} live={live} />;
+  }
+
+  // Araç satırları: ikon · ham araç kimliği · ayrıntı · durum noktası.
+  return (
+    <>
+      {block.t === "tools" &&
+        block.rows.map((r, i) => {
+          const [durum, ton] =
+            r.state === "run"
+              ? [t("side.stRun"), "yardim__dot yardim__dot--run"]
+              : r.state === "fail"
+                ? [t("chat.stErr"), "yardim__dot yardim__dot--fail"]
+                : [t("chat.stOk"), "yardim__dot"];
+          return (
+            <div key={r.id + i} className="yardim__sat">
+              <IconTool />
+              {/* Görünen ad **ham araç kimliği**: denetim kaydıyla
+               * (`screen_capture`, `mouse`) aynı ad olması gerekiyor —
+               * kullanıcı ikisini yan yana okuyor. Çevrilmiş fiil
+               * ipucunda, yani `tool.*` sözlüğü ölü kalmıyor. */}
+              <span className="kod" title={toolVerb(r.tool)}>
+                {r.tool}
+              </span>
+              <span className="yardim__detay">{r.detail}</span>
+              <span
+                className={r.state === "run" ? `dot ${ton} nabiz` : `dot ${ton}`}
+                role="img"
+                aria-label={durum}
+                title={durum}
+              />
+            </div>
+          );
+        })}
+    </>
   );
 }
 
@@ -548,15 +654,12 @@ function BlockView({
     return <MetinBloku text={block.text} live={live} yeni={yeni} />;
   }
 
-  if (block.t === "thinking") {
-    return <Thinking text={block.text} ms={block.ms} live={live} yeni={yeni} />;
-  }
-
   if (block.t === "raw") {
     return (
-      <Oluk et={t("chat.gRaw")} yeni={yeni}>
+      <div className="bot" data-yeni={yeni || undefined}>
+        <Etiket ad={t("chat.gRaw")} />
         <pre className="mono well">{block.text}</pre>
-      </Oluk>
+      </div>
     );
   }
 
@@ -566,7 +669,8 @@ function BlockView({
     // İki durum da metin değil **kod** taşır ve `err.*` sözlüğünden çözülür.
     const basarisiz = block.text.startsWith("#");
     return (
-      <Oluk et={t("chat.gSummary")} yeni={yeni}>
+      <div className="bot" data-yeni={yeni || undefined}>
+        <Etiket ad={t("chat.gSummary")} />
         <div className="kita kita--ozet">
           {block.dropped > 0 && (
             <div style={{ fontWeight: 600, marginBottom: basarisiz ? 0 : 6 }}>
@@ -580,44 +684,13 @@ function BlockView({
             </div>
           )}
         </div>
-      </Oluk>
+      </div>
     );
   }
 
-  // Araç satırları — cetvelli bir tablo: ad · ayrıntı · durum.
-  return (
-    <Oluk et={t("chat.gTools")} yeni={yeni}>
-      <div className="dokum">
-        {block.rows.map((r, i) => (
-          <div key={r.id + i} className="dokum__row">
-            {/* Görünen ad **ham araç kimliği**: tasarım öyle gösteriyor ve
-             * denetim kaydıyla (`screen_capture`, `mouse`) aynı ad olması
-             * gerekiyor — kullanıcı ikisini yan yana okuyor. Çevrilmiş fiil
-             * ipucunda duruyor, yani `tool.*` sözlüğü ölü kalmıyor. */}
-            <span className="dokum__ad" title={toolVerb(r.tool)}>
-              {r.tool}
-            </span>
-            <span className="dokum__detail">{r.detail}</span>
-            <span
-              className={
-                r.state === "run"
-                  ? "dokum__st dokum__st--run nabiz"
-                  : r.state === "fail"
-                    ? "dokum__st dokum__st--fail"
-                    : "dokum__st"
-              }
-            >
-              {r.state === "run"
-                ? t("side.stRun")
-                : r.state === "fail"
-                  ? t("chat.stErr")
-                  : t("chat.stOk")}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Oluk>
-  );
+  // `thinking` ve `tools` buraya hiç düşmüyor: `grupla` onları şeride
+  // topluyor. Yine de bir blok türü eklenirse sessizce kaybolmasın.
+  return <YardimBloku block={block} live={live} />;
 }
 
 function Elapsed({ startedAt }: { startedAt: number | null }) {

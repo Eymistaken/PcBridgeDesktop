@@ -7,7 +7,7 @@ import {
 } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import { IconAttach, IconClose } from "./Icon";
+import { IconAttach, IconClose, IconSend } from "./Icon";
 import { useCikisListesi } from "../lib/cikis";
 import { yukseklikAyarla } from "../lib/yukseklik";
 import { t } from "../lib/i18n";
@@ -22,12 +22,15 @@ import { t } from "../lib/i18n";
 export const TAVAN = 168;
 
 /**
- * Kaç piksellik metin yüksekliğinden sonra kutu karta dönüşüyor (Seçenek B).
+ * Kaç piksellik metinden sonra `Ctrl ↵` ipucu beliriyor.
  *
- * Bir satır 36px (20px satır + 16px dolgu), iki satır 56, üç satır 76.
- * Eşik **60**: iki satır stadyumda kalıyor (orada düğmeler ortalı ve sorun
- * yok), üçüncü satırda karta geçiliyor — şikâyet edilen çirkinlik uzun
- * metinde başlıyordu.
+ * Bir satır 22px. Eşik **60**: iki satıra kadar ipucu yok — tek satırlık bir
+ * mesajda Enter'ın ne yaptığı zaten sorulmuyor; sorun uzun metinde başlıyor.
+ *
+ * ⚠️ Bu sabit bir zamanlar kutunun **biçimini** de değiştiriyordu
+ * (kullanıcının 2026-09-05'te seçtiği "Seçenek B": tek satırda stadyum,
+ * üçüncü satırda kart). O iki hâl ledger'da kalkmıştı ve çerçeve
+ * 2026-09-12'de geri gelirken de geri getirilmedi: kutu tek hâlli.
  */
 const KART_ESIGI = 60;
 
@@ -52,11 +55,14 @@ interface Props {
 /**
  * Mesaj yazma alanı.
  *
- * **Kutu iki hâlli.** Tek satırda stadyum (`9999px`), düğmeler satır içinde.
- * İkinci satıra geçince `--r-lg`'ye (20px) dönüşüyor ve düğmeler kendi
- * sırasına iniyor — kullanıcının 2026-09-05'teki seçimi (Seçenek B). Eskiden
- * kutu her yükseklikte stadyumdu ve `align-items: flex-end` yüzünden düğmeler
- * dibe inip yuvarlak köşenin içine giriyordu.
+ * ⚠️ **Kutu geri geldi (2026-09-12).** Ledger'ın altı çizili satırı
+ * kullanıcının şikâyetiydi: *"alttaki mesaj yazma kutusunun mesaj yazma
+ * kutusu olduğunu anlamak çok zor"*. Artık kendi zemini, kendi 1px
+ * çerçevesi ve 4px köşesi var; eylem sırası **kutunun içinde** duruyor.
+ *
+ * **Yer tutucu boş.** Yine kullanıcının açık isteği: *"Ornith'e yaz diyor
+ * mesela metin kutusu. bunu istemiyorum. içi boş olmalı."* Erişilebilirlik
+ * adı (`aria-label`) duruyor — görünen metin yok, ekran okuyucu var.
  *
  * Yükseklik `yukseklikAyarla` ile geçiyor; ölçüm için gereken `height: 0`
  * adımı geçişin dışında tutuluyor, yoksa kutu her tuşta sıfıra inip açılırdı.
@@ -126,27 +132,35 @@ export default function Composer({
   }
 
   const gonderilemez = busy || !text.trim();
-  // Ledger'da eylemler ikon değil **kelime**: sıra mono, büyük harf ve
-  // hepsi aynı satırda. Gönder tek dolgulu olan — birincil eylem o.
+  /*
+   * ⚠️ **Kelimeler ikona döndü (2026-09-12).** Kullanıcının kararı:
+   * *"altında ek tuşu da gördüğün gibi sadece bir 'ekle' yazısı… gönder
+   * tuşunda bile yazı var"*. Metin `title` ve `aria-label`'da duruyor.
+   *
+   * Gönder tek **dolu** düğme: bir ekranda tek birincil eylem var. Dolgusu
+   * `--text`, metni `--bg` — renksiz, kanunun gerektirdiği gibi.
+   */
   const gonderDugmesi = (
     <button
       type="button"
-      className="btn-fld composer__send"
-      title={t("chat.send")}
+      className="composer__send"
+      title={`${t("chat.send")} ⏎`}
+      aria-label={t("chat.send")}
       disabled={gonderilemez}
       onClick={gonder}
     >
-      {t("chat.sendShort")} ⏎
+      <IconSend color="currentColor" />
     </button>
   );
   const ekDugmesi = (
     <button
       type="button"
-      className="btn-quiet"
+      className="ib"
       title={t("chat.attach")}
+      aria-label={t("chat.attach")}
       onClick={() => void dosyaSec()}
     >
-      {t("chat.attachShort")}
+      <IconAttach size={18} color="currentColor" strokeWidth={1.5} />
     </button>
   );
 
@@ -177,21 +191,14 @@ export default function Composer({
         </div>
       )}
 
-      {/*
-        ⚠️ Kutunun **iki hâli kalktı.** Kullanıcının 2026-09-05'te seçtiği
-        "Seçenek B" (tek satırda stadyum, ikinci satırda kart) yerine
-        tasarım tek bir hâl veriyor: altı çizili bir satır ve altında mono
-        eylem sırası. B'nin çözdüğü sorun — düğmelerin yuvarlak köşenin
-        içine inmesi — burada zaten yok, çünkü ne yuvarlak köşe var ne de
-        satır içinde düğme.
-      */}
       <div className="composer__box">
         <textarea
           ref={alan}
           className="composer__text"
           rows={1}
           value={text}
-          placeholder={t("chat.write", { name: botName })}
+          /* ⛔ Yer tutucu **bilerek yok** — kullanıcının açık isteği
+           * (2026-09-12). Kutu olduğu çerçevesinden belli. */
           aria-label={t("chat.write", { name: botName })}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

@@ -19,7 +19,6 @@ import Composer from "./ui/Composer";
 import TerminalSidebar from "./TerminalSidebar";
 import Terminals from "./views/Terminals";
 import ModeSwitch from "./ui/ModeSwitch";
-import Avatar from "./ui/Avatar";
 import PermMenu from "./ui/PermMenu";
 import { IconPlus } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
@@ -1254,7 +1253,6 @@ export default function Shell({
             {secili && !selectedSession ? (
               <>
                 <div className="main__head">
-                  <Avatar tone={secili.avatar} name={secili.name} size={11} />
                   <span className="main__head__ad">{secili.name}</span>
                   {/* Künye kenar çubuğundan buraya taşındı: tasarımda bot
                    * satırı tek satır ve modeli, araç sayısını, dizini

@@ -7,6 +7,8 @@ const { default: React } = await load('React', `/node_modules/.vite/deps/react.j
 const { default: ReactDOM } = await load('ReactDOM', `/node_modules/.vite/deps/react-dom_client.js?ui-check=${cacheBust}`);
 const { default: Thinking } = await load('Thinking', '/src/ui/Thinking.tsx');
 const { default: Sidebar } = await load('Sidebar', '/src/Sidebar.tsx');
+const { default: Chat } = await load('Chat', '/src/views/Chat.tsx');
+const { default: ModeSwitch } = await load('ModeSwitch', '/src/ui/ModeSwitch.tsx');
 const { default: BotForge } = await load('BotForge', '/src/BotForge.tsx');
 const { default: Terminals } = await load('Terminals', '/src/views/Terminals.tsx');
 const { default: AreaTabs } = await load('AreaTabs', '/src/ui/AlanSekmeleri.tsx');
@@ -51,7 +53,7 @@ window.__TAURI_INTERNALS__ = {
 };
 const native = async action => { window.webkit.messageHandlers.nativeInput.postMessage(JSON.stringify(action)); await wait(30); };
 const point = element => { assert(element, 'Input target missing'); const r=element.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; };
-// The centre is re-read before every event. A point captured once and reused
+// The center is re-read before every event. A point captured once and reused
 // for move/down/up is simply wrong whenever the target moves between them.
 // ⚠️ This did NOT fix the intermittent "Session list did not collapse": four
 // runs with the fix, and with an extra 400ms settle before the first click,
@@ -73,7 +75,7 @@ const terminalProps = {
   alanlar:[{id:'area-1',ad:'Area 1',agac:null}], etkinAlan:'area-1',
   onAlanaTasi:()=>{}, onReload:()=>{},
 };
-const bot = {id:'test',name:'Test',agent:'test-agent',backend:'yerel-model',model:'test-model',effort:null,workdir:'/tmp',preamble:'',permission:'sor',timeout:1800,tools:[],contextBudget:8192,maxTurns:100,forceWhenBusy:false,avatar:null,sessions:[],updatedAt:0};
+const bot = {id:'test',name:'Test',agent:'test-agent',backend:'yerel-model',model:'test-model',effort:null,workdir:'/tmp',preamble:'',permission:'sor',timeout:1800,tools:[],contextBudget:8192,maxTurns:100,forceWhenBusy:false,sessions:[],updatedAt:0};
 const keyboardEvent = (type, key, keyCode) => {
   const event = new KeyboardEvent(type, {key, bubbles:true, cancelable:true, composed:true});
   Object.defineProperties(event, {keyCode:{get:()=>keyCode}, which:{get:()=>keyCode}});
@@ -184,9 +186,9 @@ await test('empty terminal centered at multiple widths', async () => {
     await render(h('div',{style:{width,height:700,display:'flex',flexDirection:'column'}},h(Terminals,{...terminalProps,view:{sessions:[]},agac:null})));
     const treeElement=host.querySelector('.agac');
     const a=treeElement.getBoundingClientRect(),b=host.querySelector('.chat__bos').getBoundingClientRect();
-    // The tree pads its content box asymmetrically, so the expected centre is
+    // The tree pads its content box asymmetrically, so the expected center is
     // read from the computed padding. A hardcoded constant went stale once when
-    // the padding changed and reported a centred empty state as 5px off.
+    // the padding changed and reported a centered empty state as 5px off.
     const style=getComputedStyle(treeElement);
     const top=parseFloat(style.paddingTop),bottom=parseFloat(style.paddingBottom);
     const dx=b.x+b.width/2-a.x-a.width/2;
@@ -381,5 +383,65 @@ await test('the last terminal row stays inside the pane at every height', async 
   }
   return rows;
 });
+
+// The 2026-09-12 redesign replaced the 104px role gutter with direction: the
+// user's prompt sits right and filled, the bot's answer left and bare. The
+// old layout centered every stanza at full column width, so this fails the
+// moment `width: 100%` comes back to a chat child.
+await test('a chat turn tells the speaker by side, not by a gutter label', async () => {
+  const turn = (jobId, prompt, answer) => ({
+    jobId, prompt, meta:{status:'finished',exitCode:0,startedAt:1757600000},
+    events:[{kind:'thinking',text:'weighing it',ms:4800},
+            {kind:'toolStart',id:'t1',tool:'screen_info',detail:'monitor=2'},
+            {kind:'toolEnd',id:'t1',ok:true},
+            {kind:'text',text:answer}],
+  });
+  await render(h('div',{style:{position:'relative',width:1100,height:620,display:'flex'}},
+    h('div',{className:'main',style:{flexGrow:1}},
+      h(Chat,{bot,turns:[turn('j1','ask me','here is the answer')],busy:false,
+        sessionId:'s1',sessionCount:1,onSend:()=>{},onCancel:()=>{},onAnswer:()=>{},
+        onPermission:()=>{},onForce:()=>{},ctx:null,tps:null,baseUrl:'http://x',
+        compacting:false,onCompact:()=>{},efforts:[],onEffort:()=>{},
+        onEditBot:()=>{},onExport:()=>{}}))));
+  await wait(250);
+  const column=host.querySelector('.chat__ic').getBoundingClientRect();
+  const mine=host.querySelector('.sen').getBoundingClientRect();
+  const theirs=host.querySelector('.bot').getBoundingClientRect();
+  assert(!host.querySelector('.chat .oluk'),'The chat transcript still draws the role gutter');
+  assert(Math.abs(mine.right-column.right)<1,'The prompt is not flush right');
+  assert(Math.abs(theirs.left-column.left)<1,'The answer is not flush left');
+  assert(mine.left>column.left+40,'The prompt spans the whole column, so the side says nothing');
+  // Thought and tool call share one helper strip; the tool keeps its raw id.
+  const strip=host.querySelector('.yardim');
+  assert(strip.contains(host.querySelector('.dusunce')),'The thought left the helper strip');
+  assert(strip.textContent.includes('screen_info'),'The raw tool id is gone');
+  return {column:Math.round(column.width),prompt:Math.round(mine.width),answer:Math.round(theirs.width)};
+});
+
+// Words became icons on 2026-09-12 and moved into title/aria-label. A button
+// that loses its accessible name is unreadable to a screen reader and has no
+// tooltip either, so the swap is only safe while this holds.
+await test('icon buttons keep their words, and the composer has no placeholder', async () => {
+  await render(h('div',{style:{position:'relative',width:1100,height:620,display:'flex'}},
+    h('div',{style:{width:252}},h(ModeSwitch,{mode:'agents',onMode:()=>{}})),
+    h('div',{className:'main',style:{flexGrow:1}},
+      h(Chat,{bot,turns:[{jobId:'j1',prompt:'hi',meta:{status:'finished',exitCode:0,startedAt:1},
+        events:[{kind:'text',text:'hello'}]}],busy:false,
+        sessionId:'s1',sessionCount:1,onSend:()=>{},onCancel:()=>{},onAnswer:()=>{},
+        onPermission:()=>{},onForce:()=>{},ctx:null,tps:null,baseUrl:'http://x',
+        compacting:false,onCompact:()=>{},efforts:[],onEffort:()=>{},
+        onEditBot:()=>{},onExport:()=>{}}))));
+  await wait(250);
+  const area=host.querySelector('.composer__text');
+  assert(!area.getAttribute('placeholder'),`The composer placeholder came back: ${area.getAttribute('placeholder')}`);
+  assert(area.getAttribute('aria-label'),'The composer lost its accessible name');
+  const nameless=[...host.querySelectorAll('button')].filter(b=>
+    !b.textContent.trim() && !(b.getAttribute('aria-label')||'').trim() && !(b.getAttribute('title')||'').trim());
+  assert(nameless.length===0,`${nameless.length} icon buttons carry no word at all`);
+  const named=[...host.querySelectorAll('button')].filter(b=>!b.textContent.trim());
+  assert(named.length>=4,`Only ${named.length} icon-only buttons found; the swap did not happen`);
+  return {iconOnly:named.length,labels:named.map(b=>b.getAttribute('aria-label')||b.getAttribute('title'))};
+});
+
 root.unmount();host.remove();
 return {passed:results.every(result=>result.passed),theme:document.documentElement.dataset.theme,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,results};

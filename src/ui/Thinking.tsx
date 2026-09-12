@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { IconThought } from "./Icon";
 import { gecirYukseklik, type YukseklikIzi } from "../lib/yukseklik";
 import { t } from "../lib/i18n";
 
@@ -9,8 +10,6 @@ interface Props {
   ms?: number;
   /** Akış hâlâ sürüyor mu — kapalı kutuda son satırlar canlı kayıyor. */
   live: boolean;
-  /** Sonradan eklenen turda mı — giriş devinimi buna bakıyor. */
-  yeni?: boolean;
 }
 
 /** Kapalı kutuda görünen satır sayısı. */
@@ -31,7 +30,7 @@ const SATIR = 3;
  * **Açıkken kendi kutusunda kaydırılıyor** (`max-height`), sohbeti ele
  * geçirmiyor.
  */
-export default function Thinking({ text, ms, live, yeni }: Props) {
+export default function Thinking({ text, ms, live }: Props) {
   const [acik, setAcik] = useState(false);
   const kaydirilan = useRef<HTMLDivElement>(null);
   const govde = useRef<HTMLDivElement>(null);
@@ -105,42 +104,48 @@ export default function Thinking({ text, ms, live, yeni }: Props) {
   if (!metin) return null;
 
   return (
-    // Kıta ızgarası — `ui/Oluk.tsx` ile aynı yapı. Burada elle kuruluyor
-    // çünkü kutunun kendisi `.oluk__ic` sınıfını paylaşmak zorunda:
-    // yükseklik ölçümü (`gecirYukseklik`) o öğeye yazıyor.
-    <div className="oluk" data-yeni={yeni || undefined}>
-      <span className="oluk__et">{t("chat.gThought")}</span>
-      <div className="oluk__ic dusunce">
-        <button
-          type="button"
-          className="dusunce__baslik"
-          aria-expanded={acik}
-          onClick={() => {
-            setAcik((a) => !a);
-          }}
-        >
-          <span>
-            {live
-              ? t("think.live")
-              : ms === undefined
-                ? t("think.plain")
-                : t("think.took", { s: sure(ms) })}
-          </span>
-          <span className="dusunce__ac">
-            · {acik ? t("think.collapse") : t("think.expand")}
-          </span>
-        </button>
+    /*
+     * ⚠️ **`DÜŞÜNCE` oluğu kalktı (2026-09-12), yerine kıvılcım ikonu
+     * geldi.** Kullanıcının kararı: *"düşünce/araçlar/yanıt falan bunlar
+     * olmasın böyle"*. Kelime `aria-label`'da duruyor.
+     *
+     * Kutu yardımcı şeridin bir satırı; genişliği şeritten geliyor, kendi
+     * içeriğinden değil. **Bu şart:** genişlik içerikten gelseydi akış
+     * sürerken kutu her token'da enini değiştirirdi (regresyon testi tam
+     * bunu sabitliyor).
+     */
+    <div className="yardim__sat dusunce">
+      <button
+        type="button"
+        className="dusunce__baslik"
+        aria-expanded={acik}
+        aria-label={t("chat.gThought")}
+        onClick={() => {
+          setAcik((a) => !a);
+        }}
+      >
+        <IconThought />
+        <span>
+          {live
+            ? t("think.live")
+            : ms === undefined
+              ? t("think.plain")
+              : t("think.took", { s: sure(ms) })}
+        </span>
+        <span className="dusunce__ac">
+          · {acik ? t("think.collapse") : t("think.expand")}
+        </span>
+      </button>
 
-        <div
-          ref={kaydirilan}
-          className={acik ? "dusunce__kuyu dusunce__kuyu--acik" : "dusunce__kuyu"}
-        >
-          {/* `data-acik` içeriğin belirişini tetikliyor: yükseklik geçerken
-            * metin de opaklık ve 4px kayma ile geliyor. Eskiden kutu açılıyor
-            * ama metin bir karede sertçe beliriyordu. */}
-          <div ref={govde} className="dusunce__metin" data-acik={acik || undefined}>
-            {metin}
-          </div>
+      <div
+        ref={kaydirilan}
+        className={acik ? "dusunce__kuyu dusunce__kuyu--acik" : "dusunce__kuyu"}
+      >
+        {/* `data-acik` içeriğin belirişini tetikliyor: yükseklik geçerken
+          * metin de opaklık ve 4px kayma ile geliyor. Eskiden kutu açılıyor
+          * ama metin bir karede sertçe beliriyordu. */}
+        <div ref={govde} className="dusunce__metin" data-acik={acik || undefined}>
+          {metin}
         </div>
       </div>
     </div>

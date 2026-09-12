@@ -175,7 +175,7 @@ export function IconAttach({
 }: IconProps) {
   return svg(
     size,
-    <path d="M14.5 9.5l-4.9 4.9a3 3 0 0 1-4.2-4.2l5.6-5.6a2 2 0 0 1 2.8 2.8l-5.6 5.6a1 1 0 0 1-1.4-1.4l5-5" />,
+    <path d="M14.5 9.2 9.7 14a3 3 0 0 1-4.3-4.3l5.4-5.4a2 2 0 0 1 2.9 2.9l-5.4 5.4a1 1 0 0 1-1.4-1.4l4.8-4.8" />,
     {
       stroke: color,
       strokeWidth,
@@ -366,6 +366,128 @@ function duzenIkonu(icerik: React.ReactNode, kesikli?: boolean) {
       {icerik}
     </>,
     { stroke: "currentColor", strokeWidth: 1.4, strokeLinecap: "round" },
+  );
+}
+
+
+/*
+ * ── kelimenin yerine geçen ikonlar (2026-09-12) ──────────────────────
+ *
+ * ⚠️ **Ledger'ın "eylemler kelime" kuralı burada geri alındı.** Kullanıcının
+ * kararı: *"nerdeyse tüm tuşlarda logo yerine yazı yazmaya kaçılmış… daha
+ * görsel odaklı gitsek"*. Kelimeler **silinmedi**, `title` ve `aria-label`'a
+ * taşındı — ipucu ve ekran okuyucu aynı metni görmeye devam ediyor.
+ *
+ * Çizimler `design/oneriler-2026-09-12/Ikonlar.dc.html`'deki path'lerin
+ * aynısı; 20px ızgarada, 1.5 kalınlıkta.
+ */
+
+/** Bot kipi — anten ve iki göz. Gövde dolgusuz, gözler dolu. */
+export function IconBot({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.5,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <rect x="2.9" y="6.6" width="14.2" height="9.8" />
+      <path d="M10 6.6V4.4" />
+      <circle cx="10" cy="3.3" r="1.2" />
+      {/* Gözler dolu: boş bırakınca ikon uzaktan dışa aktarma tepsisine
+        * benziyordu (WebKitGTK görüntüsünde büyütülerek görüldü). */}
+      <circle cx="7.2" cy="11.2" r="1.15" fill={color} stroke="none" />
+      <circle cx="12.8" cy="11.2" r="1.15" fill={color} stroke="none" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Terminal kipi — kabuk isteminin kendisi: `>` ve alt çizgi. */
+export function IconTerminal({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.5,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <path d="M4 5.5 8 10l-4 4.5" />
+      <path d="M10.5 14.5h5.5" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/**
+ * Dışa aktarma — tepsiden **yukarı** çıkan ok.
+ *
+ * ⚠️ Ok yönü kullanıcının açık isteği (2026-09-12): *"export tuşu aşağı
+ * değil yukarı ok olsun"*. Aşağı ok indirme demek; buradaki eylem sohbeti
+ * uygulamadan **dışarı** vermek.
+ */
+export function IconExport({
+  size = 18,
+  color = "currentColor",
+  strokeWidth = 1.5,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <path d="M10 12.5V3.4" />
+      <path d="m6.4 7 3.6-3.6L13.6 7" />
+      <path d="M4 14.5v2h12v-2" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Gönder — yukarı ok. Bestecideki tek dolu düğme; birincil eylem o. */
+export function IconSend({
+  size = 17,
+  color = "currentColor",
+  strokeWidth = 1.6,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <path d="M10 16V4.5" />
+      <path d="m5.5 9 4.5-4.5L14.5 9" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Düşünce — iki kıvılcım. Sohbette `DÜŞÜNCE` etiketinin yerine geçti. */
+export function IconThought({
+  size = 14,
+  color = "currentColor",
+  strokeWidth = 1.4,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <path d="M10 2.6 11.4 7 15.8 8.4 11.4 9.8 10 14.2 8.6 9.8 4.2 8.4 8.6 7Z" />
+      <path d="M15.4 13.2l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5Z" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+}
+
+/** Araç çağrısı — iki köşeli ayraç ve eğik çizgi. `ARAÇLAR` etiketinin yerine. */
+export function IconTool({
+  size = 14,
+  color = "currentColor",
+  strokeWidth = 1.4,
+}: IconProps) {
+  return svg(
+    size,
+    <>
+      <path d="M7.5 3.5 4 7l3.5 3.5" />
+      <path d="M12.5 9.5 16 13l-3.5 3.5" />
+      <path d="M11.2 3.6 8.8 16.4" />
+    </>,
+    { stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
   );
 }
 

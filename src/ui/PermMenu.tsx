@@ -27,10 +27,11 @@ interface Props {
  * `currentColor` kullanıyor: renk yalnızca kimlikten ve durumdan gelir, bir
  * kip ikisi de değildir.
  */
-function KipIkonu({ kip }: { kip: Permission }) {
-  if (kip === "sor") return <IconShield size={14} />;
-  if (kip === "yazma-serbest") return <IconCheck size={14} color="currentColor" strokeWidth={1.8} />;
-  return <IconBolt size={14} />;
+function KipIkonu({ kip, size = 14 }: { kip: Permission; size?: number }) {
+  if (kip === "sor") return <IconShield size={size} />;
+  if (kip === "yazma-serbest")
+    return <IconCheck size={size} color="currentColor" strokeWidth={1.8} />;
+  return <IconBolt size={size} />;
 }
 
 /**
@@ -186,18 +187,26 @@ export default function PermMenu({
           </button>
         </div>
       )}
+      {/*
+        ⚠️ **Kelime yine ikona döndü (2026-09-12).** Ledger'da burası mono bir
+        kelimeydi (`HİÇ SORMA`); kullanıcı bunu adıyla sayarak şikâyet etti:
+        *"hiç sorma yazısı da öyle"*. Kipin adı `title` ve `aria-label`'da
+        duruyor, yani ipucu ve ekran okuyucu hâlâ kelimeyi görüyor.
+
+        Kip **renkle değil biçimle** anlatılıyor: kalkan durur ve sorar, tik
+        geçirir, şimşek hiç durmaz.
+      */}
       <button
         type="button"
-        className="permmenu__dugme"
+        className="ib permmenu__dugme"
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={acik}
-        aria-label={t("perm.menu", { name: botName })}
+        title={`${t("perm.menu", { name: botName })}: ${t(`perm.${value}`)}`}
+        aria-label={`${t("perm.menu", { name: botName })}: ${t(`perm.${value}`)}`}
         onClick={() => setAcik((a) => !a)}
       >
-        {/* İkon kalktı: sıra mono kelimelerden oluşuyor ve kalkan
-         * kipin ne olduğunu metinden daha az söylüyordu. */}
-        <span>{t(`perm.${value}`)}</span>
+        <KipIkonu kip={value} size={18} />
       </button>
     </div>
   );

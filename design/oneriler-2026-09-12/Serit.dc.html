@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+  @import url("https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+  :root{
+    --bg:#101112; --bg-side:#0b0c0d; --well:#08090a;
+    --field:#1f2122; --field-h:#2a2d2f; --field-a:#33383a;
+    --line:#1f2122; --line-2:#2a2d2f; --line-3:#3a3d3f;
+    --text:#e9e9ea; --text-2:#c4c6c8; --text-3:#9b9ea2; --text-muted:#8f9296;
+    --run:#d3a056; --ok:#75b683; --fail:#e2726b;
+    --id:oklch(0.62 0.14 300); --id2:oklch(0.62 0.14 152);
+    --sans:"Public Sans",ui-sans-serif,system-ui,sans-serif;
+    --serif:"Source Serif 4",ui-serif,Georgia,serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+       font-size:15px;-webkit-font-smoothing:antialiased}
+  a{color:var(--text-2)} a:hover{color:var(--text)}
+  .ekran{width:1440px;height:900px;display:flex;overflow:hidden}
+  .yan{width:252px;flex:none;background:var(--bg-side);display:flex;
+       flex-direction:column;padding:26px 0}
+  .yan__bas{display:flex;align-items:center;gap:10px;padding:0 26px 18px}
+  .yan__ad{font-family:var(--serif);font-size:19px;font-weight:600;
+           letter-spacing:-0.01em;flex-grow:1}
+  .ib{width:30px;height:30px;border-radius:0;display:flex;align-items:center;
+      justify-content:center;flex:none;color:var(--text-muted);background:none;border:0}
+  .ib--etkin{color:var(--text)}
+  .kip{display:flex;gap:2px;padding:0 22px 16px}
+  .kip button{width:34px;height:30px;display:flex;align-items:center;
+    justify-content:center;background:none;border:0;color:var(--text-muted);
+    box-shadow:inset 0 -1px 0 transparent}
+  .kip button[data-e]{color:var(--text);box-shadow:inset 0 -1px 0 var(--line-3)}
+  .ara{display:flex;align-items:center;gap:9px;margin:0 26px 20px;
+       padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .ara span{font-size:13px;color:var(--text-muted)}
+  .liste{flex-grow:1;overflow:hidden;padding:0 0 0 0}
+  .ayak{padding:16px 26px 0;margin:0 26px;border-top:1px solid var(--line);
+        display:flex;flex-direction:column;gap:4px;padding-left:0;padding-right:0}
+  .ayak b{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--text-3)}
+  .ayak i{font-family:var(--mono);font-size:10px;font-style:normal;
+          letter-spacing:.1em;color:var(--text-muted)}
+  .nokta{width:6px;height:6px;border-radius:9999px;background:var(--ok);flex:none}
+  .ana{flex-grow:1;min-width:0;display:flex;flex-direction:column}
+  .bas{flex:none;display:flex;align-items:center;gap:12px;
+       padding:22px 44px 16px;border-bottom:1px solid var(--line)}
+  .bas__ad{font-family:var(--serif);font-size:20px;font-weight:600}
+  .bas__meta{font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+  .cip{width:9px;height:9px;flex:none;background:var(--id)}
+  .akis{flex-grow:1;min-height:0;overflow:hidden;padding:26px 44px 8px}
+  .metin{font-size:15px;line-height:1.7;max-width:620px;overflow-wrap:anywhere}
+  .metin p{margin:0 0 10px}
+  .metin p:last-child{margin:0}
+  .kod{font-family:var(--mono);font-size:12.5px;background:var(--field);
+       padding:1px 5px;border-radius:0}
+  svg{display:block}
+
+  .besteci{flex:none;margin:8px 44px 26px;background:#141617;
+           border:1px solid var(--line-2);border-radius:4px;padding:13px 14px 9px}
+  .besteci__alan{min-height:46px}
+  .besteci__alt{display:flex;align-items:center;gap:4px;margin-top:4px}
+  .besteci__alt .ib{width:28px;height:28px}
+  .model{font-family:var(--mono);font-size:11px;color:var(--text-muted);
+         display:flex;align-items:center;gap:10px;letter-spacing:.02em}
+  .yuzde{width:56px;height:2px;background:var(--line-2);position:relative}
+  .yuzde i{position:absolute;inset:0 92% 0 0;background:var(--text-3)}
+  .yolla{width:30px;height:30px;background:var(--text);color:var(--bg);
+         display:flex;align-items:center;justify-content:center;border:0}
+
+  .s-akis{flex-grow:1;min-height:0;overflow:hidden;padding:26px 44px 8px;
+          position:relative}
+  .s-ray{position:absolute;left:52px;top:26px;bottom:8px;width:1px;background:var(--line-2)}
+  .s-tur{position:relative;padding-left:34px;margin:0 0 20px;max-width:660px}
+  .s-dugum{position:absolute;left:-9px;top:4px;width:17px;height:17px;
+           background:var(--bg);display:flex;align-items:center;justify-content:center}
+  .s-dugum i{width:9px;height:9px;display:block}
+  .s-sen .s-dugum i{background:var(--text-2)}
+  .s-bot .s-dugum i{background:var(--id)}
+  .s-sen .metin{background:#191c1d;padding:10px 14px;color:var(--text);
+                font-size:15.5px}
+  .s-ara{position:relative;padding-left:34px;margin:0 0 14px;
+         display:flex;align-items:center;gap:9px;color:var(--text-muted);
+         font-family:var(--mono);font-size:10.5px}
+  .s-ara .s-dugum{background:var(--bg);top:-1px}
+  .s-ara span{color:var(--text-3)}
+  .durum{width:6px;height:6px;border-radius:9999px;background:var(--ok)}
+  .c-grup{margin:0 14px 10px;background:#111314;border-left:3px solid var(--id)}
+  .c-grup--2{border-left-color:var(--id2);background:none}
+  .c-bot{display:flex;align-items:center;gap:9px;padding:9px 12px;
+         font-family:var(--serif);font-size:15.5px;font-weight:600}
+  .c-ses{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 22px;
+         font-size:13.5px;color:var(--text-2)}
+  .c-etiket{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+            color:var(--text-muted);padding:6px 12px 8px 22px}
+
+  </style>
+</helmet>
+<div class="ekran">
+  <div class="yan">
+    <div class="yan__bas"><span class="yan__ad">pcbridge</span><button class="ib"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg></button></div><div class="kip"><button data-e><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.9" y="6.6" width="14.2" height="9.8"/><path d="M10 6.6V4.4"/><circle cx="10" cy="3.3" r="1.2"/><circle cx="7.2" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.8" cy="11.2" r="1.15" fill="currentColor" stroke="none"/></svg></button><button><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5 8 10l-4 4.5"/><path d="M10.5 14.5h5.5"/></svg></button></div><div class="ara"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="m13.2 13.2 3.3 3.3"/></svg><span>Ara</span></div>
+    <div class="liste">
+      <div class="c-grup">
+        <div class="c-bot">Ornith<span style="flex-grow:1"></span>
+          <span style="font-family:var(--mono);font-size:11px;font-weight:400;color:var(--text-muted)">1</span></div>
+        <div class="c-ses"><span class="nokta"></span>merhaba</div>
+        <div class="c-etiket">YENİ SESSION</div>
+      </div>
+      <div class="c-grup c-grup--2">
+        <div class="c-bot" style="font-weight:400;color:var(--text-2)">Kâtip
+          <span style="flex-grow:1"></span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">2</span></div>
+      </div>
+      <div class="c-bot" style="margin:0 14px;color:var(--text-muted);font-family:var(--mono);font-size:10px;letter-spacing:.14em;font-weight:400">
+        <span style="width:9px;height:9px;box-shadow:inset 0 0 0 1px var(--line-3)"></span>YENİ BOT</div>
+    </div>
+    <div class="ayak"><div style="display:flex;align-items:center;gap:8px"><span class="nokta"></span><b>127.0.0.1:8765</b><span style="flex-grow:1"></span><span style="color:var(--text-muted)"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.6" y="8.6" width="10.8" height="7.4"/><path d="M7 8.6V6.4a3 3 0 0 1 6 0v2.2"/></svg></span></div><i>34 ARAÇ · 2 AJAN</i></div>
+  </div>
+
+  <div class="ana">
+    <div class="bas"><span class="cip"></span><span class="bas__ad">Ornith</span><span class="bas__meta">ornith-1.5-35b-a3b · 33 araç · ~</span><span style="flex-grow:1"></span><button class="ib" title="Dışa aktar"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9"/><path d="m6.5 8.5 3.5 3.5 3.5-3.5"/><path d="M4 14.5v2h12v-2"/></svg></button></div>
+    <div class="s-akis">
+      <div class="s-ray"></div>
+
+      <div class="s-tur s-sen"><span class="s-dugum"><i></i></span>
+        <div class="metin">merhaba</div></div>
+
+      <div class="s-ara"><span class="s-dugum"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.6 11.4 7 15.8 8.4 11.4 9.8 10 14.2 8.6 9.8 4.2 8.4 8.6 7Z"/><path d="M15.4 13.2l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5Z"/></svg></span><span>4,8 s düşündü</span><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 8 4 4 4-4"/></svg></div>
+      <div class="s-tur s-bot"><span class="s-dugum"><i></i></span>
+        <div class="metin"><p>Merhaba! Sana nasıl yardımcı olabilirim?</p>
+          <p>Şu an elinde bir iş ya da sormak istediğin bir şey varsa belirtebilirsin — dosya düzenlemek, komut çalıştırmak veya masaüstü uygulamalarını yönetmek gibi konularda yardımcı olabilirim.</p></div></div>
+
+      <div class="s-tur s-sen"><span class="s-dugum"><i></i></span>
+        <div class="metin">masaüstümü görebiliyor musun</div></div>
+
+      <div class="s-ara"><span class="s-dugum"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.6 11.4 7 15.8 8.4 11.4 9.8 10 14.2 8.6 9.8 4.2 8.4 8.6 7Z"/><path d="M15.4 13.2l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5Z"/></svg></span><span>10 s düşündü</span><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 8 4 4 4-4"/></svg></div>
+      <div class="s-ara"><span class="s-dugum"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3.5 4 7l3.5 3.5"/><path d="M12.5 9.5 16 13l-3.5 3.5"/><path d="M11.2 3.6 8.8 16.4"/></svg></span><span class="kod">screen_info</span><span class="durum"></span></div>
+      <div class="s-tur s-bot"><span class="s-dugum"><i></i></span>
+        <div class="metin"><p>Masaüstü araçları şu an kapalı bir izin durumundadır; ekran görüntüsü almak için önce izni açmam gerekiyor.</p>
+          <p>Evet, masaüstünü görebiliyorum — 2 ekran, DP-4 (sol) ve DP-3 (birincil), toplam tuval 3840x1080.</p></div></div>
+    </div>
+    <div class="besteci"><div class="besteci__alan"></div><div class="besteci__alt"><button class="ib" title="Dosya ekle"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 9.2 9.7 14a3 3 0 0 1-4.3-4.3l5.4-5.4a2 2 0 0 1 2.9 2.9l-5.4 5.4a1 1 0 0 1-1.4-1.4l4.8-4.8"/></svg></button><button class="ib" title="İzin kipi: hiç sorma"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.8 4.6 5v4.4c0 3.3 2.2 6.2 5.4 7.8 3.2-1.6 5.4-4.5 5.4-7.8V5Z"/></svg></button><span style="flex-grow:1"></span><span class="model">ornith-1.5-35b-a3b<span class="yuzde"><i></i></span>%8</span><button class="yolla" title="Gönder"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16V4.5"/><path d="m5.5 9 4.5-4.5L14.5 9"/></svg></button></div></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

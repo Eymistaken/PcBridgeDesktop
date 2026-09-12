@@ -26,6 +26,31 @@ Google Fonts `<link>`'ini kullanıyor çünkü onlar birer **web sayfası.**
 Uygulama ikisini de kullanmaz: yazı tipleri `@fontsource` paketlerinden
 gelir ve Tauri CSP'si `font-src 'self' data:`.
 
+## oneriler-2026-09-12/ — **botlar kipi buradan geliyor**
+
+⚠️ **Yukarıdaki sekiz ekran botlar kipi için artık tam yürürlükte değil.**
+2026-09-12'de kullanıcı `/design` ile üç yön çizdirdi, dördüncüsünü ("D")
+seçti ve dört değişiklikle onayladı (Aşama 26). Kenar çubuğu, sohbet dökümü
+ve besteci **bu klasörden** okunur; `02-Dokum` ve `07-KenarDurumlari` o
+kısımlar için kayıt hâline geldi.
+
+| Dosya | Ne |
+|---|---|
+| `Main.dc.html` | **Seçilen tasarım** — D kenar çubuğu + Ayna sohbeti |
+| `Ikonlar.dc.html` | Kelime → ikon eşlemesi, on iki kart |
+| `Kunye.dc.html` · `Ayna.dc.html` · `Serit.dc.html` · `CListe.dc.html` | Elenen yönler, kayıt |
+| `canvas.json` | Tuval yerleşimi ve notlar |
+
+Tuval: <https://claude.ai/code/artifact/4bc541ef-1b15-49d1-8f05-168f68e772d8>
+
+Tohumlanmış tuval sayfası (`botlar-arayuz-yonleri.html`, 2,5 MB düzenleyici
+kodu) **depoya girmiyor** — `.gitignore`'da, önceki tasarım yüklerinin
+yanında. Kaynak `.dc.html` dosyaları ve `canvas.json`; sayfa onlardan
+`seed-canvas.mjs` ile yeniden üretiliyor.
+
+⛔ **Terminal kipi ve ayarlar bu çalışmanın dışındaydı** ve hâlâ yukarıdaki
+sekiz ekrandan okunuyor.
+
 ## eski-notr-kabuk/
 
 2026-09-08'den önceki tasarım ("Nötr Kabuk") ve onun tuval kaynakları.

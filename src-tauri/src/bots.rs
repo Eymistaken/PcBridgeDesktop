@@ -21,43 +21,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::tools::Izin;
 
-/// Eski altı tonun **hesaplanmış** hue karşılıkları.
+/// ⛔ **Kimlik rengi 2026-09-12'de kaldırıldı.** Kullanıcının kararı:
+/// *"bu botların renklerinin olması hoşuma gitmedi... zaten artık çerçeve
+/// var"* ve *"bu karelerin hiçbir anlamı yok"*. Botları ayıran şey artık
+/// kenar çubuğundaki çerçeveli kutu; renk yalnızca **durumdan** geliyor.
 ///
-/// Bugünkü hex'lerden oklch'e çevrilerek bulundu; göç bu yüzden neredeyse
-/// kayıpsız — altı renkten dördü birebir aynı, ikisi tek kanalda en fazla
-/// 3/255 kayıyor (ölçüldü). Mevcut botlar rengini koruyor.
-const ESKI_TONLAR: &[(&str, u16)] = &[
-    ("mor", 295),
-    ("mavi", 250),
-    ("cam", 196),
-    ("yesil", 150),
-    ("kehribar", 72),
-    ("mercan", 30),
-];
-
-/// Diskteki avatar alanını okur.
-///
-/// **Hem sayı hem eski ad kabul ediliyor:** mevcut `bots.json` `"mor"` gibi
-/// adlar taşıyor. `Serialize` her zaman sayı yazdığı için göç ilk kayıtta
-/// kendiliğinden oluyor. Tanınmayan bir ad `None`'a düşer — yani ada göre
-/// türetilir; sessizce yanlış bir renk seçmekten iyi.
-fn hue_oku<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u16>, D::Error> {
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Ham {
-        Sayi(u16),
-        Ad(String),
-    }
-
-    Ok(match Option::<Ham>::deserialize(d)? {
-        None => None,
-        Some(Ham::Sayi(n)) => Some(n % 360),
-        Some(Ham::Ad(a)) => ESKI_TONLAR
-            .iter()
-            .find(|(ad, _)| *ad == a)
-            .map(|(_, h)| *h),
-    })
-}
+/// Alanla birlikte `hue_oku` çözümleyicisi ve eski altı tonun ad→hue göç
+/// tablosu (`mor` 295, `mavi` 250, `cam` 196, `yesil` 150, `kehribar` 72,
+/// `mercan` 30) da düştü. Diskteki `bots.json` `"avatar"` alanını hâlâ
+/// taşıyor; serde `deny_unknown_fields` kullanmadığı için **sessizce
+/// yutuluyor** ve ilk kayıtta dosyadan düşüyor — `Bot.desktop`'ın yolu.
 
 /// Botun koşumu **kim yürütüyor**.
 ///
@@ -107,19 +80,6 @@ pub struct Session {
 pub struct Bot {
     pub id: String,
     pub name: String,
-    /// Kimlik rengi: **hue** (0-359). Açıklık ve doygunluk temadan geliyor
-    /// (`--av-l` / `--av-c`), o yüzden hue tek başına yeterli ve harfin
-    /// kontrastı hue'dan bağımsız garanti kalıyor — 360 hue'nun hepsinde
-    /// AA geçtiği hesaplandı (koyu en düşük 4,62; aydınlık 4,88).
-    ///
-    /// `None` → **addan türetilir**. Elle seçim yapılınca sayı yazılır.
-    /// İkinci bir "elle seçildi mi" bayrağı **yok**: bu depoda aynı işi yapan
-    /// iki denetimden biri bir kez ölü kaldı.
-    ///
-    /// Karma **yalnızca TypeScript'te** (`src/lib/types.ts::hueOf`); iki dilde
-    /// iki karma er geç ayrışırdı.
-    #[serde(default, deserialize_with = "hue_oku")]
-    pub avatar: Option<u16>,
     /// `list_agents`'tan gelen ajan kimliği. Yerel arka uçta kullanılmaz.
     pub agent: String,
     /// Koşumu kim yürütüyor. **`default` şart:** diskteki mevcut `bots.json`
@@ -210,8 +170,6 @@ fn varsayilan_max_tur() -> u32 {
 #[serde(rename_all = "camelCase")]
 pub struct BotDraft {
     pub name: String,
-    #[serde(default, deserialize_with = "hue_oku")]
-    pub avatar: Option<u16>,
     pub agent: String,
     #[serde(default)]
     pub backend: Backend,
@@ -430,7 +388,6 @@ pub fn create(draft: BotDraft) -> Result<Bot, BotError> {
     let bot = Bot {
         id: yeni_id(&dogrulanan.name),
         name: dogrulanan.name,
-        avatar: dogrulanan.avatar,
         agent: dogrulanan.agent,
         backend: dogrulanan.backend,
         model: dogrulanan.model,
@@ -475,7 +432,6 @@ pub fn update(id: &str, draft: BotDraft) -> Result<Bot, BotError> {
         }
     }
     bot.name = d.name;
-    bot.avatar = d.avatar;
     bot.agent = d.agent;
     bot.backend = d.backend;
     bot.model = d.model;
@@ -673,41 +629,28 @@ fn dogrula(mut d: BotDraft) -> Result<BotDraft, BotError> {
 mod tests {
     use super::*;
 
-    /// **Avatar artık hue saklıyor, ad değil** — ama eski dosya bozulmuyor.
+    /// **Kimlik rengi kalktı ve eski dosya yine de okunuyor.**
     ///
-    /// Hue karşılıkları bugünkü hex'lerden oklch'e çevrilerek hesaplandı;
-    /// altı renkten dördü göç sonrası birebir aynı, ikisi tek kanalda en
-    /// fazla 3/255 kayıyor. `Serialize` sayı yazdığı için göç ilk kayıtta
-    /// kendiliğinden oluyor.
+    /// 2026-09-12'de `Bot.avatar` silindi (kullanıcının kararı). Diskteki
+    /// `bots.json` alanı hâlâ taşıyor — hem sayı hem eski ton adı biçiminde
+    /// — ve serde `deny_unknown_fields` kullanmadığı için ikisi de sessizce
+    /// yutulmalı. Yutulmasaydı bütün botlar açılışta kaybolurdu; bu depoda
+    /// bir alanın göçü bir kez tam olarak böyle ölçülmüştü (`Bot.desktop`).
+    ///
+    /// **Testin dişi var:** `Bot`'a `#[serde(deny_unknown_fields)]` konunca
+    /// iki `unwrap` da patlıyor.
     #[test]
-    fn eski_ton_adlari_hue_ya_gocuyor() {
-        #[derive(Deserialize)]
-        struct Sar {
-            #[serde(default, deserialize_with = "hue_oku")]
-            avatar: Option<u16>,
-        }
-        let oku = |j: &str| serde_json::from_str::<Sar>(j).unwrap().avatar;
-
-        assert_eq!(oku(r#"{"avatar":"mor"}"#), Some(295));
-        assert_eq!(oku(r#"{"avatar":"kehribar"}"#), Some(72));
-        assert_eq!(oku(r#"{"avatar":"mercan"}"#), Some(30));
-        // Sayı olduğu gibi, çember dışı sarılıyor.
-        assert_eq!(oku(r#"{"avatar":123}"#), Some(123));
-        assert_eq!(oku(r#"{"avatar":400}"#), Some(40));
-        // Alan yoksa ya da tanınmıyorsa **addan türetilir**; sessizce yanlış
-        // bir renk seçmek yerine karma karar veriyor.
-        assert_eq!(oku(r#"{}"#), None);
-        assert_eq!(oku(r#"{"avatar":null}"#), None);
-        assert_eq!(oku(r#"{"avatar":"turuncu"}"#), None);
-
-        // Diske her zaman sayı yazılıyor.
-        let bot: Bot = serde_json::from_str(
+    fn kalkan_avatar_alani_eski_dosyayi_bozmuyor() {
+        for ham in [
             r#"{"id":"a","name":"X","avatar":"cam","agent":"c","workdir":"/tmp"}"#,
-        )
-        .unwrap();
-        assert_eq!(bot.avatar, Some(196));
-        let j = serde_json::to_string(&bot).unwrap();
-        assert!(j.contains("\"avatar\":196"), "sayı yazılmalı: {j}");
+            r#"{"id":"a","name":"X","avatar":196,"agent":"c","workdir":"/tmp"}"#,
+        ] {
+            let bot: Bot = serde_json::from_str(ham).unwrap();
+            assert_eq!(bot.name, "X");
+            // Ve ilk kayıtta dosyadan düşüyor.
+            let j = serde_json::to_string(&bot).unwrap();
+            assert!(!j.contains("avatar"), "alan geri yazılmamalı: {j}");
+        }
     }
 
     #[test]
@@ -884,7 +827,6 @@ mod tests {
     fn zorunlu_alan_arka_uca_gore_degisir() {
         let taban = |backend, agent: &str, model: Option<&str>| BotDraft {
             name: "X".into(),
-            avatar: Some(295),
             agent: agent.into(),
             backend,
             model: model.map(str::to_string),
@@ -1011,7 +953,6 @@ mod tests {
     fn olmayan_dizin_reddedilir() {
         let d = BotDraft {
             name: "X".into(),
-            avatar: Some(295),
             agent: "claude".into(),
             backend: Backend::PcbridgeAgent,
             model: None,
@@ -1032,7 +973,6 @@ mod tests {
     fn bos_ad_reddedilir() {
         let d = BotDraft {
             name: "   ".into(),
-            avatar: Some(295),
             agent: "claude".into(),
             backend: Backend::PcbridgeAgent,
             model: None,

@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import Avatar from "./ui/Avatar";
 import Picker from "./ui/Picker";
 import Seg from "./ui/Seg";
 import { gecirYukseklik, olcOnce, type YukseklikIzi } from "./lib/yukseklik";
@@ -13,7 +12,7 @@ import {
   updateBot,
 } from "./lib/ipc";
 import { t } from "./lib/i18n";
-import { BACKENDS, PERMISSIONS, SORAR, hueFor } from "./lib/types";
+import { BACKENDS, PERMISSIONS, SORAR } from "./lib/types";
 import { TOOL_GROUPS, byGroup, type ToolGroup } from "./lib/tools";
 import type {
   Agent,
@@ -38,7 +37,7 @@ interface Props {
 type Sekme = "kimlik" | "motor" | "araclar" | "calisma";
 const SEKMELER: Sekme[] = ["kimlik", "motor", "araclar", "calisma"];
 
-const BOS: Omit<BotDraft, "avatar" | "agent"> = {
+const BOS: Omit<BotDraft, "agent"> = {
   name: "",
   backend: "yerel-model",
   model: null,
@@ -72,7 +71,6 @@ export default function BotForge({
   const [draft, setDraft] = useState<BotDraft>({
     ...BOS,
     ...(bot ?? {}),
-    avatar: bot?.avatar ?? null,
     agent: ilkAjan,
     workdir: bot?.workdir ?? defaultWorkdir ?? "",
   });
@@ -278,10 +276,9 @@ export default function BotForge({
     >
       <div className="forge" ref={forgeRef}>
         <div className="forge__head">
-          {/* Başlıkta botun kendisi var: çip, adı ve künyesi. Hangi botu
+          {/* Başlıkta botun kendisi var: adı ve künyesi. Hangi botu
            * düzenlediğini pencerenin adından değil içeriğinden okumak
-           * tasarımın deseni. */}
-          <Avatar tone={draft.avatar} name={draft.name || "?"} size={11} />
+           * tasarımın deseni. Kimlik çipi 2026-09-12'de kalktı. */}
           <span className="forge__ad">
             {draft.name.trim() || (bot ? t("forge.edit") : t("forge.new"))}
           </span>
@@ -310,66 +307,54 @@ export default function BotForge({
         <div className="forge__body" key={sekme} role="tabpanel">
           {sekme === "kimlik" && (
             <>
-              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                <Avatar
-                  tone={draft.avatar}
-                  name={draft.name || "?"}
-                  size={56}
-                />
-                <div className="grp" style={{ flexGrow: 1 }}>
-                  <label className="lbl" htmlFor="bot-ad">
-                    {t("forge.name")}
-                  </label>
-                  <div className="fld">
-                    <input
-                      id="bot-ad"
-                      autoFocus
-                      value={draft.name}
-                      placeholder={t("forge.namePlaceholder")}
-                      style={{ flexGrow: 1, fontWeight: 500 }}
-                      onChange={(e) =>
-                        setDraft({ ...draft, name: e.target.value })
-                      }
-                    />
-                  </div>
+              {/*
+               * ⛔ **Kimlik çipi ve hue şeridi 2026-09-12'de kaldırıldı.**
+               * Kullanıcının kararı: *"bu botların renklerinin olması
+               * hoşuma gitmedi. renk özelliğini kaldıralım. hepsi tek renk
+               * olsun. zaten artık çerçeve var."* ve *"bu karelerin hiçbir
+               * anlamı yok."*
+               *
+               * Şerit kanunun "renkli gradyan yasak" kuralının **tek
+               * bilinçli istisnasıydı** (dekoratif değil, denetimin
+               * kendisiydi). Denetim ortadan kalkınca istisna da kalktı;
+               * kural artık istisnasız.
+               *
+               * Botu ayıran şey kenar çubuğundaki çerçeveli kutu.
+               *
+               * ⚠️ Çip ve şerit gidince sekmede **tek** bir alan kalıyordu
+               * ve panel yarı boş görünüyordu (WebKitGTK görüntüsünde
+               * görüldü). Yönerge "Çalışma"dan buraya alındı: ad ile
+               * sistem promptu birlikte *"bu bot kim"* sorusunu yanıtlıyor,
+               * "Çalışma" ise dizin ve sınırlarla kalıyor.
+               */}
+              <div className="grp">
+                <label className="lbl" htmlFor="bot-ad">
+                  {t("forge.name")}
+                </label>
+                <div className="fld">
+                  <input
+                    id="bot-ad"
+                    autoFocus
+                    value={draft.name}
+                    placeholder={t("forge.namePlaceholder")}
+                    style={{ flexGrow: 1, fontWeight: 500 }}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  />
                 </div>
               </div>
 
-              {/*
-               * **Hue şeridi.** Renk ada göre kendiliğinden değişiyor; şeride
-               * dokununca elle seçime geçiyor ve "ada göre" onu geri alıyor.
-               * Açıklık ve doygunluk şeritte de sabit — seçilebilecek her renk
-               * avatarda göründüğü gibi ve harfin kontrastı hepsinde AA üstünde.
-               */}
               <div className="grp">
-                <span className="lbl">{t("forge.mark")}</span>
-                <div className="huesecim">
-                  <input
-                    type="range"
-                    className="hue"
-                    min={0}
-                    max={359}
-                    step={1}
-                    aria-label={t("forge.mark")}
-                    value={hueFor(draft.avatar, draft.name)}
-                    onChange={(e) =>
-                      setDraft({ ...draft, avatar: Number(e.target.value) })
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="btn-fld btn-fld--kucuk"
-                    disabled={draft.avatar === null}
-                    onClick={() => setDraft({ ...draft, avatar: null })}
-                  >
-                    {t("forge.markAuto")}
-                  </button>
-                </div>
-                <span className="muted" style={{ fontSize: 11.5 }}>
-                  {draft.avatar === null
-                    ? t("forge.markHint")
-                    : t("forge.markManual")}
-                </span>
+                <label className="lbl" htmlFor="bot-yonerge">
+                  {t("forge.preamble")}
+                </label>
+                <textarea
+                  id="bot-yonerge"
+                  value={draft.preamble}
+                  placeholder={t("forge.preamblePlaceholder")}
+                  onChange={(e) =>
+                    setDraft({ ...draft, preamble: e.target.value })
+                  }
+                />
               </div>
             </>
           )}
@@ -763,20 +748,6 @@ export default function BotForge({
                     {t("forge.choose")}
                   </button>
                 </div>
-              </div>
-
-              <div className="grp">
-                <label className="lbl" htmlFor="bot-yonerge">
-                  {t("forge.preamble")}
-                </label>
-                <textarea
-                  id="bot-yonerge"
-                  value={draft.preamble}
-                  placeholder={t("forge.preamblePlaceholder")}
-                  onChange={(e) =>
-                    setDraft({ ...draft, preamble: e.target.value })
-                  }
-                />
               </div>
             </>
           )}

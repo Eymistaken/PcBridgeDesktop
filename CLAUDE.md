@@ -125,12 +125,30 @@ derse **başka bir şey sormadan** şunu yap:
    yeniden ele alma.**
    ⚠️ **Açılışta siyah-beyaz terminal** açık: yeniden üretilemedi, en olası
    sebep ölçümle elendi. Ayrıntı SORUN.md "Hâlâ açık" başlığında.
-   ⛔ **Genel arayüz okunaklılığı** kullanıcının kararını bekliyor.
+   ✅ **Genel arayüz okunaklılığı** Aşama 26'da kapandı (aşağıda).
 
-11. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi beş aşama da
+11. ✅ **Aşama 26 2026-09-12'de bitti — botlar kipinin arayüzü.** Kullanıcı
+   `/design` ile üç yön çizdirdi, "D"yi seçti ve dört değişiklikle onayladı.
+   Ayrıntı ve bütün ölçümler [ASAMALAR.md](ASAMALAR.md) Aşama 26'da; özetle:
+
+   - **Bot ve session'ları çerçeveli bir kutuda** — *"soldaki bot, altındaki
+     sessionlar ile başka botları ayırmak da çok zor"*.
+   - **Kimlik rengi ve kimlik karesi kaldırıldı** — `Bot.avatar`, `hueFor`,
+     `ui/Avatar.tsx`, hue şeridi silindi. `hueOf` terminal sekmeleri için
+     duruyor.
+   - **Sohbetteki 104px oluk kalktı;** konuşanı yön söylüyor.
+   - **Yedi yerde kelime ikona döndü;** kelimeler `title`/`aria-label`'da.
+   - **Besteci yeniden bir kutu, yer tutucusu boş.**
+
+   ⚠️ **Terminal kipi bu çalışmanın dışındaydı.** `hueOf` hâlâ çalışma alanı
+   sekmelerini besliyor; oradaki rengin kalıp kalmayacağı **kullanıcının
+   kararı**, sorulmadan değiştirilmez. Aynı şekilde `PermAsk` hâlâ oluğu
+   kullanıyor (bestecinin üstünde yüzen kart) — tasarımda yoktu.
+
+12. **Aşama sırası:** [ASAMALAR.md](ASAMALAR.md)'deki **yirmi altı aşama da
    bitti.** O dosya artık yapılacak iş listesi değil, **bitmiş işin kaydı** —
    yeni iş bitince oraya bir aşama olarak taşınır.
-12. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
+13. **Çalışma tarzı bu dosyanın sonunda.** Özeti: ölçmediğini "çalışıyor" diye
    yazma, her aşamadan sonra fiilen çalıştır, sonra commit.
 
 pcbridge MCP sunucusunun **Tauri 2 masaüstü istemcisi.** Botlar, ajan kipi,
@@ -257,6 +275,13 @@ Tasarım: **Claude Design projesi `8794d0d1-189f-4c8b-ad90-732dcac791f6`**,
 dosya `Pcbridge Redesign.dc.html` — sekiz ekran, uygulamanın tamamı.
 Yerel kopyaları `design/*.dc.html`. Kod bunlardan sapamaz.
 
+⚠️ **Botlar kipi 2026-09-12'de bu tuvalden ayrıldı (Aşama 26).** Kullanıcı
+`/design` ile üç yön çizdirip "D"yi seçti; kaynak
+`design/oneriler-2026-09-12/` (`Main.dc.html` seçilen, ötekiler kayıt) ve
+tuval <https://claude.ai/code/artifact/4bc541ef-1b15-49d1-8f05-168f68e772d8>.
+Sapmalar aşağıda, kendi başlıklarında yazılı. **Terminal kipi ve ayarlar
+eski tuvalde kaldı.**
+
 ⚠️ **Bu kanun 2026-09-08'de "Nötr Kabuk"un yerine geçti.** Eskisi
 [ASAMALAR.md](ASAMALAR.md) Aşama 20'de kayıt olarak duruyor; oradaki
 ölçümler (özellikle kontrast tuzakları) hâlâ geçerli, yalnızca tokenların
@@ -264,20 +289,49 @@ adları değişti.
 
 **Tek ilke: kutu yok, cetvel var.** Ayırıcı bir yüzey kademesi değil 1px'lik
 bir çizgi; her bölüm solda mono, büyük harf bir etiket oluğuyla başlıyor.
-Kabuk yine renksiz — renk yalnızca **kimlikten** (bot çipi) ve **durumdan**
-(çalışıyor/bitti/başarısız) gelir. Sistem aksan rengi **yoktur**.
+Kabuk renksiz — renk yalnızca **durumdan** (çalışıyor/bitti/başarısız) gelir.
+Sistem aksan rengi **yoktur**, ve 2026-09-12'den beri **kimlik rengi de
+yoktur**.
 
-### Oluk — tasarımın imzası
+⚠️ **İlkenin üç bilinçli istisnası var, üçü de 2026-09-12'de (Aşama 26)
+kullanıcının kararıyla kondu.** Üçü de ölçülebilir bir şikâyetten doğdu,
+biçim tercihinden değil:
 
-Sekiz ekranın da omurgası: solda 104px'lik mono büyük harf bir etiket
-(`.16em` aralık), sağda içerik. Sohbette rol (`SEN · 17:51` · `DÜŞÜNCE` ·
-`ARAÇLAR` · `YANIT` · `SORUYOR`), ayarlarda bölüm, ilk açılışta `SUNUCU`.
+| istisna | neden |
+|---|---|
+| **bot kutusu** (`.botkutu`) — çerçeveli, 4px | *"soldaki bot, altındaki sessionlar ile başka botları ayırmak da çok zor"* |
+| **besteci** (`.composer`) — çerçeveli, zeminli | *"mesaj yazma kutusunun mesaj yazma kutusu olduğunu anlamak çok zor"* |
+| **kullanıcının cümlesi** (`.sen`) — dolgulu, sağa dayalı | *"yazının benim promptum mu botun yanıtı mı olduğunu anlamak için yanlarındaki ufacık yazıları okumak gerekiyor"* |
+
+Dördüncüsü daha küçük: seçili session kutunun içinde bir **yüzey
+kademesiyle** işaretleniyor (`--field`), altı çizgiyle değil — çizgi
+kutunun kendi cetveliyle karışıyordu. Bunların dışında kural yürürlükte:
+yeni bir kutu **ancak kullanıcı bir okunurluk sorunu bildirdiğinde** açılır.
+
+### Oluk — tasarımın imzası, ama artık sohbette değil
+
+Solda 104px'lik mono büyük harf bir etiket (`.16em` aralık), sağda içerik.
+Ayarlarda bölüm, ilk açılışta `SUNUCU`, session ekranında `İSTEM` · `ÖNCE`.
+
+⛔ **Sohbet dökümünden 2026-09-12'de kalktı (Aşama 26).** Kullanıcının sözü:
+*"yazının benim promptum mu botun yanıtı mı olduğunu anlamak için
+yanlarındaki ufacık yazıları okumak gerekiyor"* ve *"düşünce/araçlar/yanıt
+falan bunlar olmasın böyle"*. Dökümde konuşanı artık **yön** söylüyor:
+kullanıcının cümlesi sağa dayalı ve dolgulu (`.sen`), botun yanıtı sola
+dayalı ve çıplak (`.bot`). `DÜŞÜNCE` ve `ARAÇLAR` tek bir **yardımcı
+şeride** indi (`.yardim`): kıvılcım ikonu + süre, araç ikonu + ham araç
+kimliği + durum noktası. `HAM` · `ÖZET` · `HATA` küçük bir mono satır
+taşımaya devam ediyor (`.kita__et`) — onlar yönle anlatılamıyor.
 
 **Tek yerde: `src/ui/Oluk.tsx`.** Dört dosyada dört kopyası vardı ve
 toplandı; bu depoda kopyalanan yardımcı er geç ayrışıyor (`yukseklik.ts`
 aynı sebeple toplanmıştı). Dar oluk (`--oluk-dar`, 34px) durum
 kısaltmalarını taşıyor: **ÇLS · TMM · HTA** (İngilizcede RUN · OK · ERR).
-Tasarımda 26px'ti; Türkçe kısaltmalar için genişletildi.
+⚠️ Kenar çubuğundaki session listesi de 2026-09-12'de **noktaya** geçti
+(kullanıcı: *"sessionların sollarındaki renkli noktacıklar kalsın ama onlar
+durum bildiriyor"*); kısaltma `aria-label`/`title`'da duruyor. Dar oluğu
+hâlâ kullanan tek yer session açılış ekranının kart listesi (`.okart__st`),
+ve kısaltmalar **aynı sözlükten** geliyor.
 
 ### Tokenlar
 
@@ -310,12 +364,24 @@ seviyenin iki denemede de AA altında kalmasıydı (3.7 ve 3.1). Bu rampa
 düşmüyor — koyu temada 15.58 / 11.03 / 7.03 / 6.05, aydınlıkta 15.57 /
 11.10 / 7.07 / 6.05. Tam tablo aşağıda.
 
-**Kimlik rengi hue'dan.** `Bot.avatar` bir hue sayısı (`Option<u16>`, `None`
-→ addan türetilir), renk `oklch(var(--av-l) var(--av-c) <hue>)`. Karma
-**yalnızca TypeScript'te** (`types.ts::hueOf`) — iki dilde iki karma
-ayrışırdı. ⚠️ **Çip artık daire ve harfli değil, 9px kare ve harfsiz:** ad
-her zaman yanında duruyor, harf ikinci kez aynı şeyi söylüyordu. Bununla
-birlikte "harfin kontrastı 360 hue'da AA geçiyor" ölçümü de konusuz kaldı.
+⛔ **Botların kimlik rengi ve kimlik karesi 2026-09-12'de KALDIRILDI
+(Aşama 26).** Kullanıcının kararı: *"bu botların renklerinin olması hoşuma
+gitmedi. renk özelliğini kaldıralım. hepsi tek renk olsun. zaten artık
+çerçeve var."* ve — kareyi işaretleyerek — *"bu karelerin hiçbir anlamı
+yok."* `Bot.avatar` (Rust ve TS), `Avatar` tipi, `hueFor`, `ui/Avatar.tsx`,
+`.av` / `.av--bos` ve BotForge'un hue şeridi silindi. Botları ayıran şey
+artık kenar çubuğundaki **çerçeveli kutu**; renk yalnızca **durumdan**
+geliyor.
+
+⚠️ **`hueOf` ve `avatarVar` duruyor** — terminal kipindeki çalışma alanı
+sekmeleri (`AlanSekmeleri`, `.tile`) hâlâ addan türeyen hue'yu kullanıyor.
+Terminal kipi bu tasarım çalışmasının dışındaydı; oradaki rengin kalıp
+kalmayacağı **kullanıcının kararı** ve sorulmadan değiştirilmez.
+
+Diskteki `bots.json` `"avatar"` alanını hâlâ taşıyor; serde
+`deny_unknown_fields` kullanmadığı için sessizce yutuluyor ve ilk kayıtta
+düşüyor (`Bot.desktop`'ın yolu). Bir regresyon testi bunu sabitliyor:
+`bots::tests::kalkan_avatar_alani_eski_dosyayi_bozmuyor`.
 
 **Kuyunun rengi tema değiştirmez.** Kuyu (terminal, ham çıktı, izin kutusu,
 kod bloğu) aydınlık temada da koyu; içindeki **hiçbir renk** tema
@@ -392,12 +458,13 @@ etiket maskelenmiyor.
 
 ### Yasak
 
-Sistem aksan rengi · **renkli gradyan** (aşağıda) · cam/blur · neon ·
-**renkli birincil düğme** (birincil eylem `--text` dolgu, `--bg` metin;
-kuyunun içindeyse `--well-text` dolgu, `--well` metin) · **yuvarlatılmış
-düğme** · **kutu ve yüzey kademesiyle ayırma** (ayırıcı çizgidir) ·
-emoji ve dingbat ikon · hover'da zıplama veya ölçeklenme · **sahte pencere
-düğmeleri** (GNOME kendi çiziyor) · shadcn/MUI/Chakra · Inter/Roboto/Arial.
+Sistem aksan rengi · **kimlik rengi** · **renkli gradyan** (aşağıda) ·
+cam/blur · neon · **renkli birincil düğme** (birincil eylem `--text` dolgu,
+`--bg` metin; kuyunun içindeyse `--well-text` dolgu, `--well` metin) ·
+**yuvarlatılmış düğme** · **kutu ve yüzey kademesiyle ayırma** (ayırıcı
+çizgidir — yukarıdaki dört istisna dışında) · emoji ve dingbat ikon ·
+hover'da zıplama veya ölçeklenme · **sahte pencere düğmeleri** (GNOME kendi
+çiziyor) · shadcn/MUI/Chakra · Inter/Roboto/Arial.
 
 **"Gradyan yok" ne demek — kullanıcının netleştirmesi (2026-09-04).** Yasak
 olan **renkli, dekoratif** gradyan. **Nötr (siyah-beyaz) gradyan yasak
@@ -405,14 +472,33 @@ değil**: metnin kenarını soluklaştıran `mask-image`, kaydırılabilir bir
 alanın kenar soluğu serbest. Ölçüt renk: iki uç da nötrse sorun yok, hue
 değişiyorsa yasak.
 
-⚠️ **Tek bilinçli istisna: hue şeridi** (`.huesecim`, BotForge → Kimlik).
-Renkli bir gradyan ama **dekoratif değil, denetimin kendisi** — kullanıcı
-oradan bir hue seçiyor. Tasarım hue seçici göstermiyor; bu uygulamanın
-kendi işlevi ve kalıyor.
+⛔ **Tek istisna olan hue şeridi 2026-09-12'de kalktı.** `.huesecim`
+dekoratif değil denetimin kendisiydi — kullanıcı BotForge → Kimlik'ten bir
+hue seçiyordu. Kimlik rengi kaldırılınca denetim de kalktı, yani istisna
+konusuz kaldı. **Kural artık istisnasız:** kabukta renkli gradyan yok.
 
-**İkonlar azaldı.** Ledger'da eylemler kelime: `EKLE` · `GÖNDER ⏎` ·
-`DIŞA AKTAR` · `SERBEST · IZGARA · SÜTUNLAR`. On bir ikon bu yüzden öldü ve
-silindi. Kalan ikonlar 20px ızgarada inline SVG.
+⚠️ **"Eylemler kelime" kuralı 2026-09-12'de büyük ölçüde GERİ ALINDI
+(Aşama 26).** Kullanıcının sözü: *"nerdeyse tüm tuşlarda logo yerine yazı
+yazmaya kaçılmış. işte dışa aktarma tuşu, botlar ve terminal tuşu falan…
+daha görsel odaklı gitsek"*, ve ayrıca *"gönder tuşunda bile yazı var"*,
+*"altında ek tuşu da gördüğün gibi sadece bir 'ekle' yazısı"*, *"hiç sorma
+yazısı da öyle"*.
+
+Şu yedi yer artık ikon: **kip anahtarı** (Botlar · Terminal), **dışa
+aktar**, **ek**, **izin kipi**, **gönder**, **yeni session**, ve sohbetteki
+**düşünce/araç** şeridi. `IconBot` · `IconTerminal` · `IconExport` ·
+`IconSend` · `IconThought` · `IconTool` bu gün eklendi.
+
+**Kelimeler silinmedi, `title` ve `aria-label`'a taşındı** — ipucu ve ekran
+okuyucu aynı metni görüyor. Bir regresyon testi bunu sabitliyor
+(`icon buttons keep their words…`): metni olmayan hiçbir düğme adsız
+kalamaz.
+
+Kelime kalan yerler: `KAYDET` · `VAZGEÇ` · `YENİ BOT` · izin kartının
+`İZİN VER` / `REDDET` · `+3 DAHA`. Ölçüt şu: **tek bir eylemi olan küçük bir
+hedef ikon, cümle kuran ya da onay isteyen bir düğme kelime.**
+
+Kalan ikonlar 20px ızgarada inline SVG.
 
 **Markdown kendi kütüphanesini getirmez.** `src/lib/markdown.ts` çözümlüyor,
 `src/ui/Markdown.tsx` **React öğesi** üretiyor — HTML dizgesi değil, yani
@@ -1268,10 +1354,30 @@ terminalin kırmızısı ve yeşili kendi koyu zemininde ~2.5:1 ile çiziliyordu
 `--line` zemin üstünde koyu temada 1.17, aydınlıkta 1.29; `--line-2` 1.44
 ve 1.63; `--well-line` kuyu üstünde 1.44.
 
-**Kimlik çipinde metin yok** — 9px kare, yalnızca renk. Eski "avatar harfi
-360 hue'da AA geçiyor" ölçümü (koyu en düşük 4.62, aydınlık 4.88) artık
-konusuz; renk sabit açıklıkta olduğu için zemine göre ağırlığı hue'dan
-bağımsız kalıyor.
+**Kimlik çipi yok** (2026-09-12'de kaldırıldı), yani "avatar harfi 360
+hue'da AA geçiyor" ölçümü de konusuz.
+
+**2026-09-12'de eklenen yüzeyler — WebKitGTK'da ölçüldü**, tahmin değil
+(sonda öğe + `getComputedStyle`, `--bg` ile `--field` arası `color-mix`):
+
+| | koyu | aydınlık |
+|---|---|---|
+| besteci zemini | `#171819` | `#ece9e3` |
+| `--text` / besteci | 14.64✓ | 14.25✓ |
+| `--text-2` / besteci | 10.37✓ | 10.16✓ |
+| `--text-muted` / besteci | **5.68✓** | **5.54✓** |
+| `--text` / `.sen` (= `--field`) | 13.33✓ | 12.74✓ |
+| `--text-2` / araç çipi (= `--field`) | 9.44✓ | 9.08✓ |
+| gönder: `--bg` / `--text` dolgu | 15.58✓ | 15.57✓ |
+
+⚠️ Bestecinin içindeki ikonlar ve model künyesi `--text-muted` taşıyor ve
+o zeminde **5.68 / 5.54** ile AA üstünde. Zemin bir kademe daha koyulaşırsa
+(`--field`'e kadar) bu 5.17'ye iner, hâlâ geçer; `--field-h`'ye çıkarsa
+**4.44** olur ve **düşer** — palet değişti, tuzak değişmedi.
+
+Kutu çerçeveleri dekoratif (WCAG 1.4.11 kapsam dışı) ama ölçüldü: `--line-2`
+`--bg-side` üstünde koyu 1.41 / aydınlık 1.48; etkin kutunun `--line-3`'ü
+1.79 / 2.05.
 
 ## Nasıl ölçülür — bu depoda işe yarayan dört yöntem
 

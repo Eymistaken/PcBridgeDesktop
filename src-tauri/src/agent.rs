@@ -2116,7 +2116,6 @@ mod tests {
         Bot {
             id: "b1".into(),
             name: "test".into(),
-            avatar: Some(295),
             agent: String::new(),
             backend: crate::bots::Backend::YerelModel,
             model: Some("m".into()),

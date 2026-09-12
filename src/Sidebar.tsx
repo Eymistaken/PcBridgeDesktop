@@ -1,11 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import Avatar from "./ui/Avatar";
 import ConnStrip from "./ui/ConnStrip";
 import {
   IconChevron,
   IconClose,
   IconPencil,
+  IconPlus,
   IconSearch,
   IconTrash,
 } from "./ui/Icon";
@@ -144,7 +144,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="side__list" ref={liste}>
+      <div className="side__list side__list--kutu" ref={liste}>
         {bots.length === 0 && (
           <div className="side__empty">
             <span className="h">{t("side.noBots")}</span>
@@ -171,7 +171,7 @@ export default function Sidebar({
           const soruyor = waiting.includes(b.id);
           return (
             <div
-              className="botblok"
+              className={secili ? "botkutu botkutu--etkin" : "botkutu"}
               key={b.id}
               data-flip={b.id}
               data-cikis={cikiyor || undefined}
@@ -189,7 +189,6 @@ export default function Sidebar({
                   }
                 }}
               >
-                <Avatar tone={b.avatar} name={b.name} />
                 <span className="row__name">{b.name}</span>
 
                 {/* Sağ künye tek bir şey söyler ve önceliği var: önce
@@ -205,13 +204,20 @@ export default function Sidebar({
                       : (s?.sessionCount ?? b.sessions.length)}
                 </span>
 
+                {/*
+                 * ⚠️ **Kalıcı düğme ile gizlenen düğme aynı kapta.**
+                 * Düzenle ve sil hover'da beliriyor (ledger'da her satırda
+                 * üç ikon durmuyor); artı ile katlama **her zaman görünür**,
+                 * çünkü tasarımda kutu başlığının sağ ucunda hep bir düğme
+                 * var. Kap zeminli: belirdiklerinde alttaki künyeyi örtmeleri
+                 * gerekiyor.
+                 */}
                 <div className="row__ops">
                   {secili && (
-                    <>
+                    <span className="row__ops__gizli">
                       <button
                         type="button"
-                        className="ib"
-                        style={{ width: 22, height: 22 }}
+                        className="ib ib--kucuk"
                         title={t("side.edit")}
                         aria-label={t("side.editBot", { name: b.name })}
                         onClick={(e) => {
@@ -223,8 +229,7 @@ export default function Sidebar({
                       </button>
                       <button
                         type="button"
-                        className="ib"
-                        style={{ width: 22, height: 22 }}
+                        className="ib ib--kucuk"
                         title={t("side.delete")}
                         aria-label={t("side.deleteBot", { name: b.name })}
                         onClick={(e) => {
@@ -234,12 +239,30 @@ export default function Sidebar({
                       >
                         <IconTrash />
                       </button>
-                    </>
+                    </span>
                   )}
+
+                  {/* Artı yalnızca açık kutuda: kapalı kutuda yeni session
+                    * açmak botu zaten değiştirir ve satırın kendisi onu
+                    * yapıyor. Tasarımın kapalı kutusunda da artı yok. */}
+                  {secili && (
+                    <button
+                      type="button"
+                      className="ib ib--kucuk"
+                      title={t("side.newSession")}
+                      aria-label={t("side.newSessionFor", { name: b.name })}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(b.id);
+                      }}
+                    >
+                      <IconPlus size={15} color="currentColor" strokeWidth={1.5} />
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className="ib"
-                    style={{ width: 22, height: 22 }}
+                    className="ib ib--kucuk"
                     aria-label={t("side.toggleSessions", { name: b.name })}
                     aria-expanded={secili && !collapsed.has(b.id)}
                     aria-controls={secili ? `sessions-${b.id}` : undefined}
@@ -275,7 +298,6 @@ export default function Sidebar({
                     selected={selectedSession}
                     onSelect={onSelectSession}
                     onDelete={onDeleteSession}
-                    onNew={() => onSelect(b.id)}
                   />
                 </div>
               )}
@@ -283,13 +305,13 @@ export default function Sidebar({
           );
         })}
 
-        {/* "Yeni bot" listenin sonunda — tasarımda başlıkta artı yok. */}
+        {/* "Yeni bot" listenin sonunda — tasarımda başlıkta artı yok.
+          * Aynı kutu dili ama **kesik** çerçeve: dolu bir kap değil, bir
+          * yuva. */}
         {bots.length > 0 && (
-          <button type="button" className="row" onClick={onNewBot}>
-            <Avatar tone={null} name="" bos />
-            <span className="h" style={{ flexGrow: 1, textAlign: "left" }}>
-              {t("side.newBotShort")}
-            </span>
+          <button type="button" className="yenibot" onClick={onNewBot}>
+            <IconPlus size={15} color="currentColor" strokeWidth={1.5} />
+            {t("side.newBotShort")}
           </button>
         )}
       </div>
@@ -325,13 +347,11 @@ function SessionListesi({
   selected,
   onSelect,
   onDelete,
-  onNew,
 }: {
   sessions: SessionSummary[];
   selected?: string;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  onNew: () => void;
 }) {
   const [hepsi, setHepsi] = useState(false);
   const kap = useRef<HTMLDivElement>(null);
@@ -349,12 +369,21 @@ function SessionListesi({
   return (
     <div className="oturumlist" ref={kap}>
       {gorunen.map((o) => {
-        // Durum dar olukta, üç harf. Renk yalnızca durumdan geliyor.
+        /*
+         * ⚠️ **Dar oluğun üç harfi (ÇLS · TMM · HTA) noktaya döndü.**
+         * Kullanıcının kararı (2026-09-12): *"sessionların sollarındaki
+         * renkli noktacıklar kalsın ama onlar durum bildiriyor"* —
+         * kutu artık botu ayırıyor, oluğa gerek kalmadı.
+         *
+         * **Kelime kaybolmadı:** noktanın `aria-label`'ı ve `title`'ı o üç
+         * harfi taşıyor, yani ekran okuyucu ve ipucu aynı şeyi söylüyor.
+         * Renk tek başına bilgi taşımıyor.
+         */
         const [st, sinif] = o.running
-          ? [t("side.stRun"), "osat__st osat__st--run"]
+          ? [t("side.stRun"), "dot osat__dot osat__dot--run"]
           : o.status === "failed"
-            ? [t("side.stErr"), "osat__st osat__st--fail"]
-            : [t("side.stOk"), "osat__st"];
+            ? [t("side.stErr"), "dot osat__dot osat__dot--fail"]
+            : [t("side.stOk"), "dot osat__dot"];
         return (
           <div
             key={o.id}
@@ -370,7 +399,12 @@ function SessionListesi({
               }
             }}
           >
-            <span className={o.running ? `${sinif} nabiz` : sinif}>{st}</span>
+            <span
+              className={o.running ? `${sinif} nabiz` : sinif}
+              role="img"
+              aria-label={st}
+              title={st}
+            />
             <span className="osat__ad">{o.title || t("side.untitled")}</span>
             <button
               type="button"
@@ -414,13 +448,9 @@ function SessionListesi({
         </button>
       )}
 
-      <button
-        type="button"
-        className="osat osat--eylem osat--yeni"
-        onClick={onNew}
-      >
-        {t("side.newSession")}
-      </button>
+      {/* ⚠️ Buradaki "YENİ SESSION" satırı **kaldırıldı** (2026-09-12):
+        * kutunun başlığındaki artı aynı komutu veriyor ve ikisi yan yana
+        * duruyordu. Tasarımın kutusunda da yalnızca başlıktaki artı var. */}
     </div>
   );
 }

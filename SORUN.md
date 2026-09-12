@@ -90,7 +90,7 @@ kullanıcının kararını bekliyor. Ayrıntı ve bütün ölçümler
 | Alt satır çerçevenin altında kalıyor | ✅ `FitAddon` kenarlık kutusunu okuyordu; `.pane .term` artık `content-box` |
 | Blok maskot parçalı | ⚠️ **yarısı**: satır arası boşluk kapandı (`SATIR` 1.15 → 1.0); **sütun arası dikiş ⏭️ ES GEÇİLDİ** — kullanıcı 2026-09-12'de "sorun değil" dedi |
 | Açılışta siyah-beyaz terminal | ⛔ **yeniden üretilemedi** — aşağıda |
-| Genel arayüz okunaklılığı | ⛔ **kullanıcının kararını bekliyor** — aşağıda |
+| Genel arayüz okunaklılığı | ✅ **Aşama 26'da kapandı** — botlar kipi yeniden tasarlandı |
 | İlk terminalin adı hep `Pcbridge` | ✅ ölü oturumun etiketi geri dönüştürülen ada yapışıyordu |
 | Grup sağ tık menüsünden kapatılabilsin | ✅ tek alanda da açık |
 | Orta tıkla grup kapatma | ✅ |
@@ -129,11 +129,15 @@ Sıradaki adım: ölçümü **üretim derlemesinde** yinelemek. `dist/index.html
 farklı. Belirti aralıklı olduğu için kullanıcı bir daha görürse o anki
 `document.styleSheets.length` değerli olur.
 
-### Genel arayüz okunaklılığı — karar bekliyor
+### Genel arayüz okunaklılığı — ✅ KAPANDI (Aşama 26, 2026-09-12)
 
-Kullanıcının kendi notu: *"görsel yön ve ayrıntılar henüz kararlaştırılmadı;
-bu madde tasarım çalışması başlamadan önce netleştirilecek."* Karar
-verilmeden koda dokunulmadı.
+Kullanıcı `/design` ile üç yön çizdirdi, "D"yi seçti ve dört değişiklikle
+onayladı. Bot kutusu, yön ile konuşan sohbet, ikonlar, çerçeveli besteci,
+boş yer tutucu — ve kimlik renginin/karesinin kaldırılması. Ayrıntı, bütün
+ölçümler ve kapsam dışı kalan iki uç [ASAMALAR.md](ASAMALAR.md) Aşama 26'da.
+
+⚠️ **Terminal kipi bu çalışmanın dışındaydı.** `hueOf` hâlâ çalışma alanı
+sekmelerinin rengini besliyor; oradaki renk kullanıcının kararını bekliyor.
 
 ### UI süiti kararsız
 
@@ -150,6 +154,13 @@ süitin sabit `wait` süreleri makine yükü altında yetmiyor. Pay geri alınd�
 
 Doğru yön muhtemelen sabit beklemeleri **koşula** çevirmek (aranan durum
 oluşana kadar yokla, zaman aşımıyla). Ayrı bir iş.
+
+⚠️ **Kararsızlığın bedeli 2026-09-12'de görüldü.** Aşama 26'da `session
+collapse` düştü ve sebep flake değildi: kutunun cetveli `.session-panel`'in
+`border-top`'uydu, `box-sizing: border-box` altında `height: 0` kenarlığı
+sıfıra indiremiyor ve kapalı panel 1px kalıyordu. "Yine kararsız" demek
+kolay olurdu. **Kararsız bir süit gerçek hatayı saklıyor** — bu maddenin
+gerçek maliyeti o.
 
 ## Elenmiş ve yeniden denenmemesi gereken yollar
 

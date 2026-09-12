@@ -1,0 +1,114 @@
+{
+  "pages": [
+    {
+      "id": "secilen",
+      "name": "Seçilen"
+    },
+    {
+      "id": "kayit",
+      "name": "Kayıt"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "page": "secilen",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "SEÇİLEN · D liste + B sohbet"
+    },
+    {
+      "file": "Ikonlar.dc.html",
+      "page": "secilen",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 560,
+      "title": "İkon seti"
+    },
+    {
+      "file": "Kunye.dc.html",
+      "page": "kayit",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "A — Künye"
+    },
+    {
+      "file": "Ayna.dc.html",
+      "page": "kayit",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "B — Ayna"
+    },
+    {
+      "file": "Serit.dc.html",
+      "page": "kayit",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "C — Şerit"
+    },
+    {
+      "file": "CListe.dc.html",
+      "page": "kayit",
+      "x": 4680,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "C liste + B sohbet (D'den önce)"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "karar",
+      "page": "secilen",
+      "x": 0,
+      "y": -270,
+      "w": 500,
+      "text": "SEÇİLEN TASARIM — D listesi + B sohbeti.\n\nİşlenen değişiklikler:\n• Botların kimlik rengi KALDIRILDI.\n• Kimlik KARESİ de kaldırıldı — dördü birden (üç bot başlığı + sohbet başlığı + bot yanıtları). Renk gidince hiçbir şey söylemiyorlardı.\n• Renk artık yalnızca DURUMDAN geliyor: session'ların yanındaki noktalar ve bağlantı noktası.\n• Dışa aktar oku yukarı bakıyor.\n• Bot ve terminal yatay alanı eşit bölüşüyor, her biri kendi çerçevesinde, 36px yüksekliğinde."
+    },
+    {
+      "id": "liste-not",
+      "page": "secilen",
+      "x": 0,
+      "y": 940,
+      "w": 500,
+      "text": "SOL LİSTE\n\nHer bot 1px çerçeveli, 4px köşeli bir kutu; zemini kenar çubuğundan bir kademe açık ve BÜTÜN kutularda aynı — hiçbiri \"seçili\" gibi görünmüyor. Seçimi kutunun içindeki dolu satır söylüyor, etkin kutunun çerçevesi bir kademe parlak ve adı kalın.\n\nBaşlık artık yalnızca ad, sayı ve yeni session (+) taşıyor — kimlik karesi yok. Kapalı botta chevron. Yeni bot aynı dilde ama kesik çerçeveli — dolu bir kap değil, bir yuva.\n\nNot: arama satırı hâlâ çerçevesiz, altı çizili bir alan. Çevresindeki her şey artık çerçeveli olduğu için tek başına kalıyor; istersen onu da kutuya alırım — istemediğin bir şeyi kendi başıma değiştirmedim."
+    },
+    {
+      "id": "sohbet-not",
+      "page": "secilen",
+      "x": 1560,
+      "y": 600,
+      "w": 500,
+      "text": "SOHBET (B — Ayna)\n\nKonuşan taraf yönden belli: sen sağda ve dolgulu, bot solda ve düz. Rol etiketi yok, oluk yok.\n\nDüşünce ve araç çağrısı turların arasında ince bir şerit — kutu açmıyorlar.\n\nBesteci çerçeveli gerçek bir alan; yer tutucu BOŞ."
+    },
+    {
+      "id": "kanun",
+      "page": "secilen",
+      "x": 1560,
+      "y": 880,
+      "w": 620,
+      "text": "KODA GEÇERKEN KANUNDA DEĞİŞECEKLER (CLAUDE.md, Ledger):\n\n1. \"İkonlar azaldı, eylemler kelime\" → geri alınıyor; kelimeler title ve aria-label'da yaşıyor.\n2. \"Oluk tasarımın imzası\" → sohbette oluk kalkıyor (Oluk.tsx ayarlarda kalabilir).\n3. \"Kutu yok, cetvel var\" → bot listesi ve besteci çerçeveli kutu oluyor.\n4. \"Kimlik rengi hue'dan türer\" ve 9px kimlik karesi → İKİSİ DE KALKIYOR.\n   Bu bir veri alanını da öldürüyor: Bot.avatar (Option<u16>), types.ts::hueOf, avatarVar, ui/Avatar.tsx ve BotForge'un hue şeridi (.huesecim). Deponun kendi kuralı \"bir alan ya okunur ya silinir\" — diskteki eski bots.json'da kalanı serde sessizce yutar.\n   ⚠️ hueOf ayrıca ÇALIŞMA ALANI sekmelerinin rengini de besliyor (AlanSekmeleri). Terminal kipi bu kararın dışında; oradaki renk kalıyor mu, senin kararın."
+    },
+    {
+      "id": "kayit-not",
+      "page": "kayit",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "text": "Kayıt — seçilmeyen yönler.\n\nB'nin sohbeti ve (D'ye evrilerek) C'nin kapsama fikri seçildi. Silmedim: A'nın künye satırı ve C'nin renk şeridi ilerde tek başına lazım olabilir.\n\nBu dört ekranda kimlik renkleri HÂLÂ duruyor — kayıt oldukları gibi bırakıldı."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "secilen"
+  }
+}

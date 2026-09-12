@@ -164,24 +164,18 @@ input:focus {
 }
 
 /*
- * Kimlik çipi. Eskiden daire ve içinde harf vardı; tasarımda **kare ve
- * harfsiz** — rengin kendisi kimlik, harf gürültüydü.
+ * ⛔ **Kimlik çipi (`.av`, `.av--bos`) 2026-09-12'de silindi.**
  *
- * Hue addan türüyor (`types.ts::hueOf`), açıklık ve doygunluk sabit
- * (`--av-l` / `--av-c`), yani renk 360 hue boyunca aynı ağırlıkta duruyor.
+ * Kullanıcının kararı: *"bu botların renklerinin olması hoşuma gitmedi.
+ * renk özelliğini kaldıralım. hepsi tek renk olsun. zaten artık çerçeve
+ * var."* ve — kareyi de göstererek — *"bu karelerin hiçbir anlamı yok."*
+ *
+ * Botları ayıran şey artık kenar çubuğundaki **çerçeveli kutu**
+ * (`.botkutu`). Renk yalnızca **durumdan** geliyor: session noktaları,
+ * araç çağrısı noktaları, bağlantı noktası. `--av-l` / `--av-c` tokenları
+ * duruyor, çünkü terminal kipindeki çalışma alanı sekmeleri (`.tile`)
+ * hâlâ addan türeyen hue'yu kullanıyor — o karar ayrı.
  */
-.av {
-  border-radius: 0;
-  flex: none;
-  display: block;
-}
-
-/* Boş / pasif kimlik çipi — "yeni bot" ve "PC'de açık değil" satırları.
- * Dolgu yerine içe halka: ledger'da yokluk bir çizgiyle anlatılıyor. */
-.av--bos {
-  background: none;
-  box-shadow: inset 0 0 0 1px var(--line-3);
-}
 
 /* ikon düğmesi */
 .ib {
@@ -796,6 +790,22 @@ input:focus {
   padding: 20px 26px 0;
 }
 
+/*
+ * ⚠️ **Bot listesi satır listesi olmaktan çıktı, kutu listesi oldu
+ * (2026-09-12).** Kullanıcının şikâyeti: *"soldaki bot, altındaki
+ * sessionlar ile başka botları ayırmak da çok zor"*. Kutular arası boşluk
+ * 20 → 9px (çerçeve zaten ayırıyor), yan dolgu 26 → 14px (kutunun kendi
+ * dolgusu var).
+ *
+ * ⛔ **Terminal kipinin listesi dışarıda.** Orası hâlâ satır listesi; bu
+ * karar botlar kipi içindi ve terminal tasarım çalışmasının dışındaydı.
+ * Ölçüyü değiştirmek için ayrı bir sınıf var, ortak sınıf ezilmiyor.
+ */
+.side__list--kutu {
+  gap: 9px;
+  padding-inline: 14px;
+}
+
 .side__empty {
   display: flex;
   flex-direction: column;
@@ -870,6 +880,13 @@ input:focus {
   transition: color var(--dur-fast) var(--ease-out);
 }
 
+/* Kutunun başlığı: satır artık bir kabın içinde, kendi dolgusu var.
+ * Terminal kipinin satırları kutusuz olduğu için dolgu **burada**, `.row`'un
+ * kendisinde değil. */
+.botkutu > .row {
+  padding: 9px 9px 9px 11px;
+}
+
 .row__name {
   font-family: var(--serif);
   font-size: 15.5px;
@@ -941,12 +958,65 @@ input:focus {
   transition-duration: var(--dur-tap);
 }
 
-/* Bot bloğu: satır + altındaki session listesi tek bir grup. */
-.botblok {
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
+/*
+ * ── bot kutusu ──────────────────────────────────────────────────────
+ *
+ * Bot ve session'ları **tek bir çerçevenin içinde.** Kullanıcı üç tasarım
+ * yönü arasından bunu seçti (2026-09-12, "D"): sol renk rayı ve vurgulu
+ * dolgu yerine etrafında çerçeve olan bir kutu.
+ *
+ * ⚠️ **Bu, kanunun "kutu yok, cetvel var" ilkesinden bilinçli bir
+ * sapma.** Gerekçe ölçülebilir bir şikâyetti: cetvelli listede bir botun
+ * nerede bitip ötekinin nerede başladığı okunmuyordu, çünkü session
+ * satırları da aynı dilde yazılıyor. Cetvel **kutunun içinde** duruyor —
+ * başlığı session'lardan o ayırıyor.
+ *
+ * Bütün kutular aynı zemini taşıyor (`--bg`, kenar çubuğunun bir kademe
+ * üstü); seçili kutu yalnızca **çerçevesini** bir kademe parlatıyor. Seçimi
+ * asıl söyleyen şey kutunun içindeki satır.
+ */
+.botkutu {
   min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.botkutu--etkin {
+  border-color: var(--line-3);
+}
+
+/* "Yeni bot" aynı kutu dili ama **kesik** çerçeve: dolu bir kap değil,
+ * bir yuva. */
+.yenibot {
+  flex: none;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.yenibot:hover {
+  color: var(--text-2);
+  border-color: var(--line-3);
+}
+
+.yenibot:active {
+  color: var(--text-muted);
+  transition-duration: var(--dur-tap);
 }
 
 /* ── kip katmanları ──────────────────────────────────────────────── */
@@ -1491,7 +1561,6 @@ input::placeholder {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  gap: 26px;
   padding: 28px 44px 0;
   padding-bottom: calc(var(--besteci-h, 96px) + 20px);
   overflow-y: auto;
@@ -1526,10 +1595,24 @@ input::placeholder {
   position: relative;
 }
 
-.chat > *,
-.composer__box,
-.composer__foot,
-.ekler,
+/*
+ * ⚠️ **Ölçü sütunu `.chat`'in içine indi (2026-09-12).** Eskiden her kıta
+ * `width: 100%` + `margin-inline: auto` ile ortalanıyordu; artık konuşanı
+ * **yön** söylüyor (sen sağda, bot solda) ve `width: 100%` `align-self`'i
+ * etkisiz bırakırdı. Kaydırma ve kenar maskesi dışarıda (`.chat`) kaldı.
+ */
+.chat__ic {
+  width: 100%;
+  max-width: var(--olcu);
+  margin-inline: auto;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+/* Ekler bestecinin **içinde**; ölçüsü ondan geliyor. */
 .jobstrip,
 .permask {
   width: 100%;
@@ -1547,9 +1630,8 @@ input::placeholder {
 }
 
 /*
- * Kıtanın gövdesi. Okuma satırı 620px'te duruyor — oluğun sağındaki alan
- * daha geniş ama metin orada kalıyor; tasarım öyle gösteriyor ve uzun satır
- * zaten okunmuyor.
+ * Kıtanın gövdesi. Okuma satırı 620px'te duruyor; sütun daha geniş ama
+ * metin orada kalıyor — uzun satır zaten okunmuyor.
  */
 .kita {
   font-size: 15px;
@@ -1558,9 +1640,120 @@ input::placeholder {
   overflow-wrap: anywhere;
 }
 
-/* Kullanıcının kendi cümlesi — satır sonları korunuyor. */
-.kita--sen {
+/*
+ * ── konuşan kim: yön söylüyor ────────────────────────────────────────
+ *
+ * ⚠️ **104px'lik oluk sohbet dökümünden kalktı (2026-09-12).**
+ * Kullanıcının sözü: *"yazının benim promptum mu botun yanıtı mı olduğunu
+ * anlamak için yanlarındaki ufacık yazıları okumak gerekiyor"* ve
+ * *"düşünce/araçlar/yanıt falan bunlar olmasın böyle"*.
+ *
+ * Yerine **yön ve dolgu**: kullanıcının cümlesi sağa dayalı ve zeminli,
+ * botun yanıtı sola dayalı ve çıplak. İki sinyal birden (hizalama + zemin)
+ * çünkü yalnızca hizalama kısa bir bot yanıtında okunmuyordu.
+ *
+ * ⛔ Oluk **kabuğun geri kalanında duruyor** — ayarlar, ilk açılış, session
+ * ekranı. Kalkan şey yalnızca dökümdeki kopyası; `ui/Oluk.tsx` hâlâ tek
+ * kaynak.
+ */
+.sen {
+  align-self: flex-end;
+  max-width: 420px;
+  padding: 11px 15px;
+  background: var(--field);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text);
+  /* Kullanıcının yazdığı satır sonları korunuyor. */
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bot {
+  align-self: flex-start;
+  max-width: 640px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* Ham çıktı, bağlam özeti ve hata "bu neyin metni" sorusuna yönle yanıt
+ * veremiyor; oluğun yerine bu küçük mono satırı taşıyorlar. */
+.kita__et {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/*
+ * ── yardımcı şerit: düşünce + araç çağrıları ────────────────────────
+ *
+ * Tasarımda düşünce süresi ve araç çağrısı aynı şeridin satırları
+ * (`⟡ 10 s · ⎇ screen_info ●`). `Chat.tsx::grupla` ardışık olanları burada
+ * topluyor.
+ *
+ * ⚠️ **Şerit sütunun tamamını kaplıyor** (`align-self: stretch`), içeriği
+ * kadar değil. Böyle olmak zorunda: genişlik içerikten gelseydi akış
+ * sürerken düşünce kutusu her token'da enini değiştirirdi — regresyon
+ * testi (`thinking stream never shrinks or changes width`) tam bunu
+ * sabitliyor.
+ */
+.yardim {
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.yardim__sat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Ham araç kimliği — denetim kaydıyla aynı ad. Zeminli bir çip: satırın
+ * geri kalanından ayrılması gerekiyor, çünkü ikisi de mono. */
+.yardim__sat .kod {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 0;
+  background: var(--field);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* ⚠️ **Ayrıntı esnemiyor.** `flex-grow: 1` ile denendi ve durum noktası
+ * satırın öbür ucuna, adından 700px uzağa düşüyordu (WebKitGTK görüntüsünde
+ * görüldü) — bir tabloda doğru, bir şeritte değil. Nokta ayrıntının hemen
+ * ardında duruyor; yer kalmazsa kısalan şey ayrıntı. */
+.yardim__detay {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.yardim__dot {
+  background: var(--ok);
+}
+
+.yardim__dot--run {
+  background: var(--run);
+}
+
+.yardim__dot--fail {
+  background: var(--fail);
 }
 
 /* Başarısız koşumun sebebi. Renk durumdan geliyor. */
@@ -1579,60 +1772,15 @@ input::placeholder {
   border-left: 1px solid var(--line-2);
 }
 
-/* ── araç satırları ──────────────────────────────────────────────── */
+/* ── araç satırları — ⛔ TABLO KALKTI (2026-09-12) ────────────────── */
 /*
- * `TOOLS` kıtası. Baloncuk değil, cetvelli bir tablo: ad · ayrıntı · durum.
- * Ad sütunu sabit genişlikte, ayrıntı kırpılıyor, durum sağa yaslı.
+ * `ARAÇLAR` kıtası cetvelli bir tabloydu (ad · ayrıntı · durum) ve 104px'lik
+ * bir oluk etiketi taşıyordu. Kullanıcının kararıyla ikisi de kalktı:
+ * *"düşünce/araçlar/yanıt falan bunlar olmasın böyle"*.
+ *
+ * Yerine `.yardim__sat`: ikon · ham araç kimliği · ayrıntı · durum noktası.
+ * Kuralları sohbet bölümünde, `.yardim` ailesiyle birlikte.
  */
-.dokum {
-  display: flex;
-  flex-direction: column;
-}
-
-.dokum__row {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
-.dokum__ad {
-  width: 132px;
-  flex: none;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dokum__detail {
-  font-size: 11.5px;
-  color: var(--text-3);
-  flex-grow: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-/* Durum — üç harf ve varsa süre. Renk yalnızca durumdan. */
-.dokum__st {
-  flex: none;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--ok);
-}
-
-.dokum__st--run {
-  color: var(--run);
-}
-
-.dokum__st--fail {
-  color: var(--fail);
-}
 
 /* ham çıktı — `plain` koşumları ve tanınmayan satırlar.
  * Zemin, renk ve yazı tipi `.well`'den geliyor; burada yalnızca `pre`'ye
@@ -1835,59 +1983,15 @@ pre.well {
   color: var(--text);
 }
 
-/* ── hue şeridi ──────────────────────────────────────────────────── */
+/* ── hue şeridi — ⛔ KALDIRILDI (2026-09-12) ──────────────────────── */
 /*
- * Bot rengi **addan türüyor**; şerit onu elle almak için. Açıklık ve doygunluk
- * şeritte de sabit (`--av-l` / `--av-c`), yani seçilebilecek her renk avatarda
- * göründüğü gibi ve harfin kontrastı hepsinde AA üstünde — 360 hue için
- * hesaplandı (koyu en düşük 4,62; aydınlık 4,88).
+ * `.huesecim` ve `.hue`, kanunun "renkli gradyan yasak" kuralının **tek
+ * bilinçli istisnasıydı**: dekoratif değil, denetimin kendisiydi —
+ * kullanıcı BotForge'un Kimlik sekmesinden bir hue seçiyordu.
+ *
+ * Kimlik rengi kalkınca denetim de kalktı, yani istisna konusuz kaldı.
+ * **Kural artık istisnasız:** kabukta renkli gradyan yok.
  */
-.huesecim {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.hue {
-  flex-grow: 1;
-  height: 18px;
-  border-radius: 9999px;
-  appearance: none;
-  -webkit-appearance: none;
-  background: linear-gradient(
-    to right,
-    oklch(var(--av-l) var(--av-c) 0),
-    oklch(var(--av-l) var(--av-c) 60),
-    oklch(var(--av-l) var(--av-c) 120),
-    oklch(var(--av-l) var(--av-c) 180),
-    oklch(var(--av-l) var(--av-c) 240),
-    oklch(var(--av-l) var(--av-c) 300),
-    oklch(var(--av-l) var(--av-c) 360)
-  );
-}
-
-/* İmleç: `--bg` halkalı beyaz/siyah nokta — her hue üstünde görünür kalıyor.
- * Hover'da büyümüyor; zıplama ve ölçeklenme yasak. */
-.hue::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 9999px;
-  background: var(--bg);
-  box-shadow: 0 0 0 2px var(--text);
-  cursor: ew-resize;
-}
-
-.hue::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: none;
-  border-radius: 9999px;
-  background: var(--bg);
-  box-shadow: 0 0 0 2px var(--text);
-  cursor: ew-resize;
-}
 
 /* ── markdown ────────────────────────────────────────────────────── */
 /*
@@ -2049,14 +2153,21 @@ pre.well {
  * gizlemek "bir şey oluyor mu" sorusunu doğuruyordu. Yükseklik sabit olduğu
  * için akış sırasında sohbet düzeni oynamıyor.
  *
- * Ledger'da kutunun zemini yok; düşünce **soldan bir çizgiyle** ayrılıyor
- * ve metni bir kademe soluk (`--text-3`). Alıntı gibi okunuyor, ki zaten o.
+ * Kutunun zemini yok; düşünce **soldan bir çizgiyle** ayrılıyor ve metni
+ * bir kademe soluk (`--text-3`). Alıntı gibi okunuyor, ki zaten o.
+ *
+ * ⚠️ `.yardim__sat` ile aynı öğede duruyor ve onun `flex-direction: row`'unu
+ * eziyor — burası bir satır değil, satır + altında kuyu. Özgüllük eşit
+ * (0,1,0), yani karar **kaynak sırasına** kalıyor; bu blok bilerek
+ * `.yardim__sat`'tan sonra. (Aynı tuzak `.row__name--mono`'da bir kez
+ * tmux adlarını serif yapmıştı.)
  */
 .dusunce {
   max-width: 620px;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   overflow: hidden;
 }
@@ -2067,14 +2178,15 @@ pre.well {
  * JS ölçümüyle geçiriliyor (`gecirYukseklik`), açılma/kapanmayla aynı
  * yardımcı. */
 
+/* İkon geldi: hizalama `baseline`'dan `center`'a çıktı — SVG'nin taban
+ * çizgisi yok ve `baseline` onu metinden iki piksel aşağı düşürüyordu. */
 .dusunce__baslik {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 0;
-  font-family: var(--mono);
-  font-size: 11px;
+  font: inherit;
   color: var(--text-muted);
   text-align: left;
   transition: color var(--dur-fast) var(--ease-out);
@@ -2129,7 +2241,11 @@ pre.well {
   -webkit-mask-image: none;
 }
 
+/* ⚠️ **Yazı tipi açıkça sans.** Kutu artık `.yardim__sat`'ın içinde ve
+ * oradan `--mono` miras alıyordu; düşünce metni mono çıkıyordu (ölçüldü,
+ * WebKitGTK görüntüsü). Düşünce bir alıntı, bir künye değil. */
 .dusunce__metin {
+  font-family: var(--sans);
   font-size: 13.5px;
   line-height: 1.7;
   /* Gövde metni `--text-3`: düşünce bir alıntı, künye değil. */
@@ -2639,33 +2755,48 @@ pre.well {
   flex: none;
 }
 
-/* Session açılış ekranında besteci akışın içinde: orada altında
- * kaydırılacak bir sohbet yok, yüzecek bir şey de yok. */
-.home .composer {
-  padding: 0;
-}
-
 /*
- * **Kutu artık tek hâlli.** Zemin yok, yarıçap yok: altı çizili bir satır.
+ * ⚠️ **Besteci yeniden bir kutu (2026-09-12).**
  *
- * ⚠️ Burada bir zamanlar iki hâl vardı (kullanıcının 2026-09-05'te seçtiği
- * "Seçenek B": tek satırda stadyum, ikinci satırda 20px kart) ve aralarında
- * `border-radius` + `padding` geçişi koşuyordu. O seçimin çözdüğü sorun —
- * düğmelerin yuvarlak köşenin içine inmesi — ledger'da doğmuyor: ne
- * yuvarlak köşe var ne de satır içinde düğme. Geçiş de onunla birlikte
- * kalktı; geçirilecek bir şey kalmadı.
+ * Kullanıcının şikâyeti: *"alttaki mesaj yazma kutusunun mesaj yazma
+ * kutusu olduğunu anlamak çok zor"*. Ledger'ın altı çizili satırı
+ * sohbetin geri kalanından ayrışmıyordu — sohbet de çıplak metin.
+ *
+ * Kutu **bir kademe koyu** (`--well` ile `--bg` arası), 1px çerçeveli ve
+ * 4px köşeli; eylem sırası içeride. Yani kanunun "kutu yok, cetvel var"
+ * ilkesinden ikinci bilinçli sapma — birincisi kenar çubuğundaki bot
+ * kutusu, ve ikisi de aynı sebepten: çıplak bir yüzeyde her şey aynı
+ * kademede duruyordu.
+ *
+ * ⚠️ Zemin `color-mix` ile türetiliyor, elle bir hex konmuyor. Tasarım
+ * koyu temada `#141617` veriyor — `--bg`'nin bir kademe **üstü**. Aydınlıkta
+ * "bir kademe" ters yöne gider (`--field` orada `--bg`'den koyu), o yüzden
+ * sayı değil **token** karıştırılıyor: `--bg` ile `--field` arası. İki ayrı
+ * hex yazmak iki temayı er geç ayrıştırırdı.
  */
-.composer__box {
-  display: flex;
-  padding: 0 0 14px;
-  border-bottom: 1px solid var(--line-2);
-  background: none;
-  border-radius: 0;
+.composer {
+  background: color-mix(in srgb, var(--bg) 55%, var(--field));
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 13px 14px 9px;
+  width: 100%;
+  max-width: var(--olcu);
+  margin-inline: auto;
   transition: border-color var(--dur-fast) var(--ease-out);
 }
 
-.composer__box:focus-within {
-  border-color: var(--text-3);
+.composer:focus-within {
+  border-color: var(--line-3);
+}
+
+/* Metin alanının kendi çerçevesi yok: çerçeve kutunun. */
+.composer__box {
+  display: flex;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 0;
 }
 
 .composer__ipucu {
@@ -2702,30 +2833,68 @@ pre.well {
 }
 
 /*
- * Eylem sırası — tasarımın bestecideki imzası. Hepsi mono, büyük harf,
- * aynı satırda: EKLE · izin kipi · ---- · model · token · GÖNDER ⏎.
- * Yalnızca gönder dolgulu; birincil eylem o.
+ * Eylem sırası — **kutunun içinde**, metin alanının altında: ek · izin
+ * kipi · ---- · model · token · gönder. İlk ikisi ve sonuncusu ikon
+ * (2026-09-12); yalnızca gönder dolgulu, çünkü bir ekranda tek birincil
+ * eylem var.
  */
 .composer__foot {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 0 0;
+  gap: 4px;
+  padding: 4px 0 0;
 }
 
-/* Boşluk foot'un içinden geliyor (`PermMenu`'den sonraki esneyen öğe),
- * gönder her zaman en sağda. */
+/* Kutunun içinde dolgu daha dar: 30px ikon düğmesi 14px'lik kenar
+ * dolgusuyla birlikte kutuyu şişiriyordu. */
+.composer__foot .ib {
+  width: 28px;
+  height: 28px;
+}
+
+/*
+ * Gönder — tek dolu düğme. **Renksiz:** dolgu `--text`, ikon `--bg`.
+ * Kanun renkli birincil düğmeyi yasaklıyor ve bu kural değişmedi;
+ * değişen yalnızca içindeki kelimenin ikona dönmesi.
+ */
 .composer__send {
   flex: none;
   margin-left: auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
 }
+
+.composer__send:hover:not(:disabled) {
+  background: var(--text-2);
+}
+
+.composer__send:active:not(:disabled) {
+  background: var(--text-3);
+  transition-duration: var(--dur-tap);
+}
+
+.composer__send:disabled {
+  background: var(--field-a);
+  color: var(--text-muted);
+}
+
+
 
 /* ek listesi — dosya kopyalanmıyor, YOLU gönderiliyor */
 .ekler {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 12px 8px;
+  padding: 0 0 8px;
 }
 
 .ek {
@@ -2783,15 +2952,13 @@ pre.well {
   color: var(--run);
 }
 
-/* Satır eylemleri (düzenle · sil · katla) yalnızca seçili botta ve
- * hover'da görünür: ledger'da her satırda üç ikon durmuyor. */
 /*
- * ⚠️ Eylemler **akışın dışında.** Görünmezken de yer kaplıyorlardı ve
+ * ⚠️ **Eylemler akışın dışında.** Görünmezken de yer kaplıyorlardı ve
  * 252px'lik sütunda bot adını erken kırpıyorlardı ("Deskto…"). Tasarımda
- * satır eylemleri hiç yok; burada duruyorlar çünkü düzenle/sil/katla
+ * satır eylemleri hiç yok; burada duruyorlar çünkü düzenle/sil/öldür
  * çalışan işlevler — ama satırın üstüne biniyorlar, yanına değil.
  *
- * Zemin `--bg-side`: altındaki künyeyi örtmeleri gerekiyor.
+ * Zemin şart: belirdiklerinde alttaki künyeyi örtmeleri gerekiyor.
  */
 .row__ops {
   position: absolute;
@@ -2799,6 +2966,7 @@ pre.well {
   top: 50%;
   transform: translateY(-50%);
   display: flex;
+  align-items: center;
   gap: 2px;
   flex: none;
   padding-left: 10px;
@@ -2810,12 +2978,51 @@ pre.well {
 
 .row:hover .row__ops,
 .row__ops:focus-within {
+  opacity: 1;
   pointer-events: auto;
 }
 
-.row:hover .row__ops,
-.row__ops:focus-within {
+/*
+ * ⚠️ **Bot kutusunda kap her zaman görünür (2026-09-12).** Tasarımda kutu
+ * başlığının sağ ucunda **hep** bir düğme var (artı ya da ok); onu hover'a
+ * bağlamak kutunun yegâne kalıcı eylemini gizlerdi. Beliren yalnızca
+ * düzenle ve sil — onlar `.row__ops__gizli`'nin içinde.
+ *
+ * Zemin `--bg`: kutunun içindeyiz, kenar çubuğunun değil.
+ */
+.botkutu .row__ops {
+  right: 9px;
+  background: var(--bg);
   opacity: 1;
+  pointer-events: auto;
+}
+
+.row__ops__gizli {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.row:hover .row__ops__gizli,
+.row__ops__gizli:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Kutu başlığının 22px'lik ikon düğmeleri. Eskiden her çağrı yerinde
+ * `style={{width:22,height:22}}` diye yazılıydı; kopyalar tek sınıfa
+ * toplandı. */
+.ib--kucuk {
+  width: 22px;
+  height: 22px;
+}
+
+/* Katlanamayan ok (kapalı kutu) basılabilir görünmemeli. */
+.ib:disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 /* ── terminaller ─────────────────────────────────────────────────── */
@@ -3373,28 +3580,39 @@ pre.well {
  * şeyi söylüyordu.
  *
  * ⚠️ Kabuk (başlık + anahtar) `Shell`'de duruyor ve kip değişince
- * SÖKÜLMÜYOR — Aşama 12'de ölçüldü: yeni kurulan bir öğe geçiş oynatmaz,
- * o yüzden bir yıl boyunca hiç kaymamıştı. Alt çizginin geçişi de aynı
- * sebeple ancak aynı DOM düğümü kaldığı için çalışıyor.
+ * SÖKÜLMÜYOR — Aşama 12'de ölçüldü: yeni kurulan bir öğe geçiş oynatmaz.
+ *
+ * ⚠️ **İki kelime iki ikona, alt çizgi çerçeveye döndü (2026-09-12).**
+ * Kullanıcının kararı: *"bots ve terminal tuşları böyle küçük olursa
+ * basması zor olur. o iki tuşun olduğu yatay alanı eşit bölüşecek şekilde
+ * kendi içlerinde çerçeveli tuşları olsun bu kadar küçük olmaz."*
+ *
+ * `1fr 1fr` ızgara: iki tuş yatay alanı **birebir eşit** bölüşüyor ve her
+ * biri 36px yüksekliğinde — eski hâlinde tıklama hedefi kelimenin kendi
+ * genişliği kadardı. Seçim çerçevenin bir kademe parlaması ve zeminin
+ * kalkmasıyla; alt çizgi kalktı, çünkü kenar çubuğunda artık kutular var
+ * ve alt çizgi ikinci bir seçim dili olurdu.
  */
 .side__modes {
   flex: none;
-  display: flex;
-  gap: 18px;
-  padding: 0 26px 14px;
-  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 14px 18px;
 }
 
 .side__modes > button {
-  font-size: 12.5px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
   color: var(--text-muted);
-  padding-bottom: 2px;
-  /* Alt çizgi `box-shadow` ile: düzeni etkilemiyor, seçili olmayan sekme
-   * 2px aşağı kaymıyor. */
-  box-shadow: inset 0 -2px 0 transparent;
   transition:
     color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-base) var(--ease-inout);
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 .side__modes > button:hover {
@@ -3402,9 +3620,9 @@ pre.well {
 }
 
 .side__modes > button[aria-pressed="true"] {
+  border-color: var(--line-3);
+  background: var(--bg);
   color: var(--text);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--text);
 }
 
 /* ── masaüstü izni ───────────────────────────────────────────────── */
@@ -3676,9 +3894,9 @@ pre.well {
   }
 }
 
-/* Nabız artık noktaya değil, **duruma** ait: ledger'da koşan session'ı
- * anlatan şey dar oluktaki `ÇLS` yazısı, ayrı bir nokta değil. İki sınıf
- * aynı ritmi paylaşıyor. */
+/* Nabız hem noktada hem üç harflik durum yazısında: kenar çubuğu ve
+ * sohbet noktayı kullanıyor (2026-09-12), araç dökümü ve koşum şeridi hâlâ
+ * kelimeyi. İki sınıf aynı ritmi paylaşıyor. */
 .dot--pulse,
 .nabiz {
   animation: nabiz var(--dur-pulse) ease-in-out infinite;
@@ -3696,11 +3914,14 @@ pre.well {
  * `data-yeni`'yi `Chat.tsx::TurnView` koyuyor: mount'ta gelen geçmiş
  * animasyonsuz oturuyor, ondan sonra eklenen tur belirerek geliyor.
  */
-/* Baloncuk kalktı; devinimi taşıyan şey artık **kıtanın kendisi** —
- * yani `.oluk`. Düşünce kutusu turun içinde ve o da aynı kapıdan geçiyor. */
+/* Devinimi taşıyan şey kıtanın kendisi: kullanıcının cümlesi, botun
+ * yanıtı ve yardımcı şerit. `.oluk` de listede, çünkü ayarlar ve session
+ * ekranı hâlâ onu kullanıyor. */
 .oluk[data-yeni],
 .ts[data-yeni],
-.dusunce[data-yeni] {
+.sen[data-yeni],
+.bot[data-yeni],
+.yardim[data-yeni] {
   animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
@@ -4082,8 +4303,12 @@ pre.well {
   transition-duration: var(--dur-tap);
 }
 
-/* Durum — kenar çubuğundaki session listesiyle aynı üç harf ve aynı
- * genişlik. İki yerde iki farklı kısaltma ayrışırdı. */
+/* Durum — üç harf, dar oluk genişliğinde.
+ *
+ * ⚠️ Kenar çubuğundaki session listesi 2026-09-12'de **noktaya** geçti; bu
+ * kart listesi kelimeyi tuttu, çünkü burada satır geniş ve künye zaten
+ * mono. Kısaltmalar (`ÇLS · TMM · HTA`) yine tek sözlükten geliyor, yani
+ * ayrışan bir şey yok — ayrışsaydı bu depoda ikinci kopya olurdu. */
 .okart__st {
   width: var(--oluk-dar);
   flex: none;
@@ -4152,16 +4377,17 @@ pre.well {
   color: var(--text-muted);
 }
 
-/* Session açılışında besteci akışın içinde: orada altında kaydırılacak bir
- * sohbet yok, yüzecek bir şey de yok. */
+/*
+ * Session açılışında besteci akışın içinde: orada altında kaydırılacak bir
+ * sohbet yok, yüzecek bir şey de yok.
+ *
+ * Çerçevesi ve dolgusu **duruyor** — kutu olduğunu anlatan şey o. Kalkan
+ * tek şey ölçü sınırı: burada besteci zaten oluğun içerik sütununda ve
+ * ikinci bir 800px sınırı onu ikinci kez daraltırdı.
+ */
 .home .composer {
-  padding: 0;
-}
-
-.home .composer__box,
-.home .composer__foot,
-.home .ekler {
   max-width: none;
+  margin-inline: 0;
 }
 
 .home__hata {
@@ -4177,8 +4403,13 @@ pre.well {
 
 /* ── kenar çubuğu: katlanır session listesi ──────────────────────── */
 /*
- * Bot satırının altında, 19px girintili. Her satır **dar oluk** ızgarasında:
- * solda mono durum kısaltması (ÇLS · TMM · HTA), sağda başlık.
+ * ── session listesi — bot kutusunun alt yarısı ───────────────────────
+ *
+ * ⚠️ **Dar oluk (ÇLS · TMM · HTA) 2026-09-12'de noktaya döndü.**
+ * Kullanıcının kararı: *"sessionların sollarındaki renkli noktacıklar
+ * kalsın ama onlar durum bildiriyor"*. Kutu botu ayırdığı için oluğa
+ * gerek kalmadı; kısaltma `aria-label` ve `title`'da duruyor, yani renk
+ * tek başına bilgi taşımıyor.
  *
  * Açılış/kapanış yüksekliği JS ölçümüyle geçiyor (`lib/yukseklik.ts`) —
  * WebKitGTK'da `height: auto` CSS'ten geçirilemiyor.
@@ -4186,71 +4417,66 @@ pre.well {
 .oturumlist {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line-2);
   overflow: hidden;
-  padding-left: 19px;
   animation: girisYukari var(--dur-base) var(--ease-out) both;
 }
 
 .osat {
   position: relative;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 9px;
   margin: 0;
-  padding: 0;
+  padding: 6px 11px 6px 20px;
   border-radius: 0;
-  font-size: 12.5px;
-  color: var(--text-muted);
+  font-size: 13.5px;
+  color: var(--text-2);
   text-align: left;
   min-width: 0;
-  transition: color var(--dur-fast) var(--ease-out);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 .osat:hover {
-  color: var(--text-2);
-}
-
-/*
- * Seçili session'ın altı çizili — yüzey yok. Çizgi başlığın kendisinde,
- * satırın tamamında değil: tasarım öyle gösteriyor ve satır boyu bir çizgi
- * ayırıcıyla karışırdı.
- */
-.osat[aria-selected="true"] {
   color: var(--text);
 }
 
-.osat[aria-selected="true"] .osat__ad {
-  font-weight: 600;
-  box-shadow: inset 0 -1px 0 var(--line-3);
-  padding-bottom: 1px;
+/*
+ * ⚠️ **Seçili session bir yüzey kademesiyle işaretleniyor** — kanunun
+ * "kutu ve yüzey kademesiyle ayırma" yasağından bilinçli bir sapma, ve
+ * kullanıcının seçtiği tasarımda böyle. Gerekçe: satır artık bir kutunun
+ * içinde ve altı çizili bir başlık kutunun kendi cetveliyle karışıyordu.
+ *
+ * Kontrast ölçüldü: `--text` `--field` üstünde koyu temada 13.33,
+ * aydınlıkta 12.74 — ikisi de AA üstü.
+ */
+.osat[aria-selected="true"] {
+  background: var(--field);
+  color: var(--text);
 }
 
-/* ⚠️ Basmada dolgu kademesine çıkılmıyor: bu satırlar `--text-muted`
- * taşıyor ve `--field-h` üstünde 4.44 ile AA altında kalırlar. Metin bir
- * kademe **aşağı** iniyor — eski paletteki kuralın ledger karşılığı. */
+/* ⚠️ Basmada dolgu kademesine çıkılmıyor: seçili olmayan satır `--text-2`
+ * taşıyor ve `--field-h` üstünde marjı daralırdı. Metin bir kademe
+ * **aşağı** iniyor — eski paletteki kuralın ledger karşılığı. */
 .osat:active {
   color: var(--text-muted);
   transition-duration: var(--dur-tap);
 }
 
-/* Durum kısaltması — dar oluk. Türkçede ÇLS · TMM · HTA, İngilizcede
- * RUN · OK · ERR; genişlik ikisini de alacak kadar (`--oluk-dar`). */
-.osat__st {
-  width: var(--oluk-dar);
-  flex: none;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+/* Durum noktası — 6px, yalnızca renk. Anlamı `aria-label`'da. */
+.osat__dot {
+  background: var(--ok);
 }
 
-.osat__st--run {
-  color: var(--run);
+.osat__dot--run {
+  background: var(--run);
 }
 
-.osat__st--fail {
-  color: var(--fail);
+.osat__dot--fail {
+  background: var(--fail);
 }
 
 .osat__ad {
@@ -4264,24 +4490,25 @@ pre.well {
 /* Satır eylemleriyle aynı gerekçe: görünmezken başlığı kırpmasın. */
 .osat__sil {
   position: absolute;
-  right: 0;
-  top: 0;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
   flex: none;
   padding-left: 8px;
-  background: var(--bg-side);
+  background: var(--bg);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.osat:hover .osat__sil,
-.osat__sil:focus-visible {
-  pointer-events: auto;
+.osat[aria-selected="true"] .osat__sil {
+  background: var(--field);
 }
 
 .osat:hover .osat__sil,
 .osat__sil:focus-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .osat__sil:disabled {
@@ -4289,16 +4516,19 @@ pre.well {
   cursor: default;
 }
 
-/* "+3 DAHA" ve "YENİ SESSION" — mono, büyük harf, oluğun sağına hizalı. */
+/* "+3 DAHA" — mono, büyük harf, noktanın sağına hizalı.
+ * ⚠️ "YENİ SESSION" satırı 2026-09-12'de kaldırıldı: kutu başlığındaki
+ * artı aynı komutu veriyordu ve ikisi yan yana duruyordu. */
 .osat--eylem {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding-left: calc(var(--oluk-dar) + 9px);
+  color: var(--text-muted);
+  padding-left: 35px;
 }
 
-.osat--yeni {
+.osat--eylem:hover {
   color: var(--text-2);
 }
 
@@ -4565,8 +4795,24 @@ pre.well {
   animation-delay: 60ms;
 }
 
-.session-panel { overflow: hidden; }
-.session-panel--collapsed { height: 0; }
+/*
+ * ⚠️ **Başlığı session'lardan ayıran cetvel `.oturumlist`'in üst kenarı,
+ * `.session-panel`'in değil.** İlk denemede paneldeydi ve regresyon testi
+ * onu yakaladı: `box-sizing: border-box` altında `height: 0` bir kenarlığı
+ * sıfıra indiremiyor, kapalı panel **1px** yüksekliğinde kalıyordu
+ * (`Session list did not collapse`). Kenarlık içeride olunca panelin
+ * `overflow: hidden`'ı onu da kırpıyor ve katlanmış yükseklik tam 0.
+ *
+ * Ayrı bir `<div>` de olmazdı: liste katlanınca çizgi tek başına havada
+ * kalırdı.
+ */
+.session-panel {
+  overflow: hidden;
+}
+
+.session-panel--collapsed {
+  height: 0;
+}
 
 
 /* ── sağ tık menüsü ──────────────────────────────────────────────── */

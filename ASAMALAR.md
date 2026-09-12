@@ -1703,3 +1703,145 @@ zamanlaması üstünde duruyor. Ayrı bir iş; kayda geçiyor.
 - **Genel arayüz okunaklılığı** — kullanıcının kendi notu *"görsel yön ve
   ayrıntılar henüz kararlaştırılmadı"* diyor. Karar verilmeden koda
   dokunulmadı.
+
+---
+
+## Aşama 26 — Botlar kipinin arayüzü ✅ BİTTİ
+
+**2026-09-12.** Kullanıcı `/design` ile üç yön çizdirdi, "D"yi seçti, dört
+değişiklikle onayladı. SORUN.md'nin *"Genel arayüz okunaklılığı — karar
+bekliyor"* maddesi bu aşamada kapandı.
+
+### Kullanıcının şikâyetleri (kendi sözleriyle)
+
+| şikâyet | çözüm |
+|---|---|
+| *"yazının benim promptum mu botun yanıtı mı olduğunu anlamak için yanlarındaki ufacık yazıları okumak gerekiyor"* | sohbetteki 104px oluk kalktı; konuşanı **yön** söylüyor |
+| *"soldaki bot, altındaki sessionlar ile başka botları ayırmak da çok zor"* | bot + session'ları **çerçeveli bir kutuda** |
+| *"nerdeyse tüm tuşlarda logo yerine yazı yazmaya kaçılmış… daha görsel odaklı gitsek"* | yedi yerde kelime **ikona** döndü |
+| *"alttaki mesaj yazma kutusunun mesaj yazma kutusu olduğunu anlamak çok zor"* | besteci **kutu** oldu: zemin + 1px çerçeve + 4px köşe |
+| *"Ornith'e yaz diyor mesela metin kutusu. bunu istemiyorum. içi boş olmalı."* | yer tutucu **kaldırıldı**; `aria-label` duruyor |
+| *"düşünce/araçlar/yanıt falan bunlar olmasın böyle"* | `DÜŞÜNCE` + `ARAÇLAR` tek bir **yardımcı şeride** indi |
+| *"bu botların renklerinin olması hoşuma gitmedi… zaten artık çerçeve var"* | kimlik **rengi** silindi |
+| *"bu karelerin hiçbir anlamı yok. onları da kaldır öyle onay vereceğim."* | kimlik **karesi** silindi |
+| *"export tuşu aşağı değil yukarı ok olsun"* | ok yönü çevrildi |
+| *"bots ve terminal tuşları böyle küçük olursa basması zor olur… yatay alanı eşit bölüşecek şekilde kendi içlerinde çerçeveli"* | `1fr 1fr` ızgara, 36px yükseklik, her biri çerçeveli |
+
+### Kaynak
+
+`design/oneriler-2026-09-12/` — `Main.dc.html` seçilen tasarım, `Ikonlar` ·
+`Kunye` · `Ayna` · `Serit` · `CListe` kayıt. Tuval:
+<https://claude.ai/code/artifact/4bc541ef-1b15-49d1-8f05-168f68e772d8>
+
+Yol: A/B/C üç yön → kullanıcı "C'nin kapsaması + B'nin sohbeti" dedi →
+**D** çizildi (renk rayı ve vurgulu dolgu yerine çerçeveli kutu) → D seçildi
+→ dört düzeltme (renk kalksın, export yukarı ok, kip tuşları büyüsün) →
+kareler de kalkınca onay.
+
+### Silinen şeyler
+
+| ne | nerede |
+|---|---|
+| `Bot.avatar` | `bots.rs` (Rust) + `types.ts` |
+| `hue_oku` çözümleyicisi + `ESKI_TONLAR` göç tablosu | `bots.rs` |
+| `Avatar` tipi, `hueFor` | `types.ts` |
+| `ui/Avatar.tsx` | tamamen |
+| `.av` · `.av--bos` · `.huesecim` · `.hue` | `app.css` |
+| BotForge'un hue şeridi ve çip | `BotForge.tsx` |
+| `.dokum*` araç tablosu (7 kural) | `app.css` |
+| `.osat__st` üç harfli durum, `.osat--yeni` satırı | `app.css` + `Sidebar.tsx` |
+| 10 i18n anahtarı (`chat.gYou`, `chat.gReply`, `chat.gTools`, `*Short`, `forge.mark*`) | `i18n.ts` (453 → 444) |
+
+**`hueOf` ve `avatarVar` KALDI.** Terminal kipindeki çalışma alanı sekmeleri
+(`AlanSekmeleri`, `.tile`) hâlâ addan türeyen hue'yu kullanıyor; terminal kipi
+bu çalışmanın dışındaydı ve oradaki renk **kullanıcının kararı**.
+
+### Göç güvencesi — ölçüldü
+
+Diskteki `bots.json` `"avatar"` alanını hâlâ taşıyor, hem sayı (`196`) hem
+eski ton adı (`"cam"`) biçiminde. serde `deny_unknown_fields` kullanmadığı
+için ikisi de sessizce yutuluyor ve ilk kayıtta dosyadan düşüyor —
+`Bot.desktop`'ın 2026-09-03'teki yolu.
+
+`bots::tests::kalkan_avatar_alani_eski_dosyayi_bozmuyor` bunu sabitliyor.
+**Testin dişi var:** `Bot`'a `#[serde(deny_unknown_fields)]` konunca iki
+`unwrap` da patlıyor.
+
+### Kontrast — WebKitGTK'da ölçüldü, hesaplanmadı
+
+Sonda öğe + `getComputedStyle` (token değerleri ham metin, computed değerler
+`rgb()` ya da `color(srgb …)` geliyor; tek normalleştirme yolu tarayıcının
+kendisi). Besteci zemini `color-mix(in srgb, var(--bg) 55%, var(--field))`:
+
+| | koyu | aydınlık |
+|---|---|---|
+| besteci zemini | `#171819` | `#ece9e3` |
+| `--text` / besteci | 14.64 | 14.25 |
+| `--text-2` / besteci | 10.37 | 10.16 |
+| `--text-muted` / besteci | **5.68** | **5.54** |
+| `--text` / `.sen` | 13.33 | 12.74 |
+| `--text-2` / araç çipi | 9.44 | 9.08 |
+| gönder dolgusu | 15.58 | 15.57 |
+| `--ok` / `--run` / `--fail` kutu üstünde | 7.90 / 8.04 / 6.17 | 6.76 / 7.35 / 6.86 |
+
+Hepsi AA (4.5) üstünde. Kutu çerçeveleri dekoratif ama ölçüldü: `--line-2`
+`--bg-side` üstünde 1.41 / 1.48, etkin kutunun `--line-3`'ü 1.79 / 2.05.
+
+⚠️ Zemin **elle hex olarak yazılmadı.** Tasarım koyu temada `#141617` veriyor
+— `--bg`'nin bir kademe *üstü*. Aydınlıkta "bir kademe" ters yöne gidiyor
+(`--field` orada `--bg`'den koyu), o yüzden sayı değil **token**
+karıştırılıyor. İki ayrı hex iki temayı er geç ayrıştırırdı.
+
+### Ölçülen üç şey daha
+
+- **Düşünce metni mono çıkıyordu.** Kutu `.yardim__sat`'ın içine girince
+  oradan `--mono` miras alıyordu; WebKitGTK görüntüsünde görüldü ve
+  `.dusunce__metin` artık `--sans`'ı açıkça yazıyor. Düşünce bir alıntı,
+  bir künye değil.
+- **Araç durumu satırın öbür ucuna düşüyordu.** `.yardim__detay`'da
+  `flex-grow: 1` vardı ve nokta araç adından ~700px uzağa gidiyordu — bir
+  tabloda doğru, bir şeritte değil. Esneme kaldırıldı.
+- **`.dusunce`, `.yardim__sat`'ın `flex-direction: row`'unu eziyor** ve
+  özgüllük eşit (0,1,0), yani karar kaynak sırasına kalıyor. Blok bilerek
+  `.yardim__sat`'tan sonra. Aynı tuzak `.row__name--mono`'da bir kez tmux
+  adlarını serif yapmıştı.
+
+### Regresyon testi bir gerçek hatayı yakaladı
+
+İlk denemede kutunun cetveli `.session-panel`'in `border-top`'uydu.
+`box-sizing: border-box` altında `height: 0` bir kenarlığı sıfıra
+indiremiyor: kapalı panel **1px** yüksekliğinde kalıyor ve
+`session collapse: native pointer and keyboard` düştü
+(*"Session list did not collapse"*). Cetvel `.oturumlist`'e indi — panelin
+`overflow: hidden`'ı onu da kırpıyor ve katlanmış yükseklik tam 0.
+
+⚠️ **Bu, SORUN.md'de "kararsız" diye kayıtlı bir testti.** İlk koşumda
+"yine flake" demek kolay olurdu; sebep gerçekti.
+
+### Eklenen iki regresyon testi — ikisinin de dişi görüldü
+
+| test | eski davranış geri konunca |
+|---|---|
+| `a chat turn tells the speaker by side, not by a gutter label` | `.sen { align-self: flex-start }` → **düştü** (*"The prompt is not flush right"*) |
+| `icon buttons keep their words, and the composer has no placeholder` | yer tutucu geri konunca → **düştü** (*"The composer placeholder came back: Message Test"*) |
+
+⚠️ İlk diş denemesi `.chat__ic > * { width: 100% }` ile yapıldı ve test
+**geçti** — çünkü `.sen`'in `max-width: 420px`'i onu zaten dar tutuyor.
+Doğru diş `align-self`'in kendisi: testin sabitlediği şey yön, genişlik
+değil.
+
+### Sonuç
+
+- `npm run build` geçti (i18n 444 anahtar, TS, Vite).
+- `cargo test --lib` → **138 geçti, 0 düştü.**
+- `scripts/check-ui.py` → **14 testin 14'ü**, arka arkaya iki koşumda.
+- Koyu ve aydınlık tema WebKitGTK'da gözle görüldü (`goruntu-webkit.py`):
+  sohbet, session açılışı, BotForge.
+
+### Kapsam dışı kalan iki uç
+
+- **`PermAsk` hâlâ oluğu kullanıyor** (`SORUYOR` etiketi). Bestecinin üstünde
+  yüzen bir kart, sohbet dökümünün parçası değil; tasarımda hiç yoktu.
+- **Terminal kipi** hiç dokunulmadı: kenar çubuğu satır listesi
+  (`.side__list--kutu` yalnızca botlarda), `.row__ops` hover davranışı,
+  çalışma alanı sekmelerinin `hueOf` rengi.

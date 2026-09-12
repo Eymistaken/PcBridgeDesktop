@@ -44,23 +44,18 @@ export type Theme = "system" | "dark" | "light";
 // ─────────────────────────────── botlar ───────────────────────────────
 
 /**
- * Kimlik rengi: **hue** (0-359), `null` ise addan türetilir.
- *
- * Açıklık ve doygunluk temadan geliyor (`--av-l` / `--av-c`) ve sabit; bu
- * yüzden avatardaki harfin kontrastı hue'dan bağımsız garanti. 360 hue'nun
- * hepsi için hesaplandı: koyu temada en düşük oran 4,62, aydınlıkta 4,88 —
- * AA'nın (4,5) altına düşen hue yok.
- */
-export type Avatar = number | null;
-
-/**
  * Addan hue: FNV-1a, 0-359.
  *
- * **Karma yalnızca burada.** Rust yalnızca sayıyı saklıyor; iki dilde iki
- * karma er geç ayrışır ve aynı botun rengi iki yerde farklı çıkardı.
+ * ⛔ **Botların kimlik rengi 2026-09-12'de kaldırıldı** (kullanıcının kararı:
+ * *"bu botların renklerinin olması hoşuma gitmedi... zaten artık çerçeve
+ * var"*). `Bot.avatar` alanı, `Avatar` tipi, `hueFor` ve `ui/Avatar.tsx` o
+ * gün silindi; botlarda renk artık yalnızca **durumdan** geliyor.
  *
- * Ad `tr-TR` kurallarıyla küçültülüyor — avatardaki harf de `toLocaleUpperCase`
- * ile büyütülüyor, ikisi aynı alfabede kalsın.
+ * Bu iki yardımcı kaldı çünkü **terminal kipindeki çalışma alanı sekmeleri**
+ * onları hâlâ kullanıyor (`ui/AlanSekmeleri.tsx`). O karar botlarınkinden
+ * ayrı; terminal kipi tasarım çalışmasının dışındaydı.
+ *
+ * Ad `tr-TR` kurallarıyla küçültülüyor.
  */
 export function hueOf(name: string): number {
   const s = name.trim().toLocaleLowerCase("tr-TR");
@@ -72,10 +67,6 @@ export function hueOf(name: string): number {
   }
   return Math.abs(h) % 360;
 }
-
-/** Botun fiilen çizilecek hue'su: elle seçim varsa o, yoksa addan. */
-export const hueFor = (avatar: Avatar, name: string): number =>
-  avatar ?? hueOf(name);
 
 /** Temanın açıklık/doygunluğuyla birleşmiş renk. */
 export const avatarVar = (hue: number) => `oklch(var(--av-l) var(--av-c) ${hue})`;
@@ -124,7 +115,6 @@ export const SORAR: Record<Permission, ToolGroup[]> = {
 export interface Bot {
   id: string;
   name: string;
-  avatar: Avatar;
   agent: string;
   backend: Backend;
   model: string | null;
@@ -198,7 +188,6 @@ export interface SessionSummary {
 /** Formdan gelen alanlar; `id` ve zaman damgaları Rust tarafında konur. */
 export interface BotDraft {
   name: string;
-  avatar: Avatar;
   agent: string;
   backend: Backend;
   model: string | null;
@@ -223,7 +212,6 @@ export interface BotDraft {
 export function botDraft(bot: Bot): BotDraft {
   return {
     name: bot.name,
-    avatar: bot.avatar,
     agent: bot.agent,
     backend: bot.backend,
     model: bot.model,
