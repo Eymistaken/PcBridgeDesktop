@@ -1882,3 +1882,65 @@ görünüyordu — yönergeyi oraya aldım, bu sefer "Çalışma" tek alana dü�
 ⚠️ **Sekme kimliği `kimlik` kaldı**, yalnızca görünen adı "Temel" oldu:
 `Sekme` yerel bir `useState`, diske yazılmıyor, ve anahtarı değiştirmek
 sözlükte iki satırı gereksizce oynatırdı.
+
+### Üçüncü tur: session açılışı, başlık ve seçenek sırası
+
+Kullanıcının aynı gün verdiği üçüncü liste. Ekran görüntüsünde karalayarak
+gösterdi.
+
+| istek | yapılan |
+|---|---|
+| *"bot içine girince bu üzerini karaladığım yazıları sil"* | `home.headline` (*"Bir session, bir işlik hafıza."*) ve `home.subtitle` silindi |
+| *"soldaki session x, istem ve önce yazılarını sil"* | session açılışındaki üç oluk etiketi kalktı (`home.sessionNo`, `chat.gPrompt`, `home.recent`) |
+| *"sağ üstteki düzenle yazısını sil… sol üstte ornith yazan o bot isminin kendisine tıklayınca direkt açılsın botforge"* | `DÜZENLE` düğmesi kalktı; `.main__head__ad` artık bir `<button>` |
+| *"mesaj gönderme kutusu tam ortada dursun"* | `.home__besteci { margin-top: auto }` + `:last-child` alt auto |
+| *"ilk mesajı gönderince mesaj kutusu aşağıya insin animasyonla"* | `src/lib/inis.ts` |
+| *"şu permission seçenekleri de böyle altı çizili olmasın etrafları çerçeveli kutular olsunlar"* | `.seg` çerçeveli kutulara döndü |
+| *"ingilizce için de yapmayı unutma"* | beş anahtar iki sözlükten de düştü (442 → 437); `check-i18n` iki sözlüğün de tam olduğunu doğruluyor |
+
+**Ara bir kalem ikonu çizilmedi.** Kullanıcı önce *"onun yerine solda hemen
+modelin solunda bir kalem ikonuyla dursun"* dedi, sonra aynı mesajda
+vazgeçti: *"o kalem sembollü düzenleme tuşu olmasın… bot isminin kendisine
+tıklayınca direkt açılsın. daha mantıklı olur."* İkinci karar uygulandı;
+ikisi birden bir eylem için iki hedef olurdu.
+
+#### İniş — neden ayrı bir modül
+
+İki besteci **aynı besteci değil**: biri `SessionHome`'un içinde, biri
+`Chat`'in yüzen altlığında. İlk mesaj gönderilince biri sökülüp öteki
+kuruluyor ve **yeni kurulan bir öğe geçiş oynatmaz** — Aşama 12'de
+ölçülmüştü (kip anahtarının kayan parçası bir yıl boyunca hiç kaymamıştı,
+aynı sebeple).
+
+Bu yüzden konum el değiştiriyor: `Shell::gonder` `setSelectedSession`'dan
+**önce** `.home .composer`'ın üst kenarını ölçüyor, `Chat` mount'ta
+`useLayoutEffect` içinde farkı `transform` olarak koyup sıfıra geçiriyor.
+`flip.ts`'in deseninin aynısı, ters konum bir kare görünsün diye
+`requestAnimationFrame` dahil.
+
+Ölçüm **bir kez** tüketiliyor: yoksa session değiştirmek ya da kip
+anahtarından dönmek de bir iniş oynatırdı.
+
+#### Regresyon testi iki hata yakaladı
+
+1. **Session yokken besteci dibe yapışıyordu.** Yalnızca `margin-top: auto`
+   vardı; altında bir `auto` olmayınca boşluğun tamamı üste gidiyor.
+   600px'lik kapta besteci 488'e düşüyordu, beklenen 268.
+   `.home__besteci:last-child { margin-bottom: auto }` ile kapandı.
+2. **İlk tolerans çok dardı** (8px). İki kare sonra ölçülüyor ve 300ms'lik
+   geçiş o ana kadar ~11px yemiş oluyor. Ölçüt "yolun ilk çeyreğinde"e
+   çevrildi — testin sabitlediği şey inişin **başladığı yer**, tek bir
+   piksel değil.
+
+**Testin dişi görüldü:** `Chat`'teki `useLayoutEffect` devre dışı bırakılınca
+besteci doğrudan son yerinde doğuyor ve test düşüyor
+(`502 is not above 327`).
+
+#### `text-transform: uppercase` tuzağı — yine
+
+İngilizce ölçümde başlıklar `BASİCS` · `ENGİNE` · `PERMİSSİON MODE` diye
+çıktı (noktalı İ). **Uygulamanın hatası değil:** `main.tsx` `lang`'ı ilk
+boyamadan önce yazıyor ve bu tuzak orada zaten kayıtlı. Sebep benim geçici
+önizleme sayfamın `lang="tr"` ile açılmasıydı. Önizleme düzeltilince
+İngilizce doğru çıktı — ölçüm ortamı uygulamayı temsil etmiyorsa ölçüm
+çöptür, bu sefer dokümantasyon doğruyu söylüyordu.

@@ -9,6 +9,9 @@ const { default: Thinking } = await load('Thinking', '/src/ui/Thinking.tsx');
 const { default: Sidebar } = await load('Sidebar', '/src/Sidebar.tsx');
 const { default: Chat } = await load('Chat', '/src/views/Chat.tsx');
 const { default: ModeSwitch } = await load('ModeSwitch', '/src/ui/ModeSwitch.tsx');
+const { default: SessionHome } = await load('SessionHome', '/src/views/SessionHome.tsx');
+const { default: ComposerBox } = await load('Composer', '/src/ui/Composer.tsx');
+const descent = await load('descent', '/src/lib/inis.ts');
 const { default: BotForge } = await load('BotForge', '/src/BotForge.tsx');
 const { default: Terminals } = await load('Terminals', '/src/views/Terminals.tsx');
 const { default: AreaTabs } = await load('AreaTabs', '/src/ui/AlanSekmeleri.tsx');
@@ -441,6 +444,58 @@ await test('icon buttons keep their words, and the composer has no placeholder',
   const named=[...host.querySelectorAll('button')].filter(b=>!b.textContent.trim());
   assert(named.length>=4,`Only ${named.length} icon-only buttons found; the swap did not happen`);
   return {iconOnly:named.length,labels:named.map(b=>b.getAttribute('aria-label')||b.getAttribute('title'))};
+});
+
+
+// The session-home composer sits mid-screen and descends to the chat's
+// floating footer on the first message. The two composers are different
+// elements, so the transition is carried by position (src/lib/inis.ts): a
+// newly mounted element plays no transition of its own.
+await test('the composer descends from session home into the chat', async () => {
+  const chat = extra => h('div',{className:'main',style:{position:'relative',flexGrow:1}},
+    h(Chat,{bot,turns:[{jobId:'j1',prompt:'hi',meta:{status:'finished',exitCode:0,startedAt:1},
+      events:[{kind:'text',text:'hello'}]}],busy:false,sessionId:'s1',sessionCount:1,
+      onSend:()=>{},onCancel:()=>{},onAnswer:()=>{},onPermission:()=>{},onForce:()=>{},
+      ctx:null,tps:null,baseUrl:'http://x',compacting:false,onCompact:()=>{},
+      efforts:[],onEffort:()=>{},onEditBot:()=>{},onExport:()=>{},...extra}));
+  const home = h('div',{className:'main',style:{position:'relative',flexGrow:1}},
+    h(SessionHome,{sessions:[],onOpen:()=>{},onDelete:()=>{},
+      composer:h(ComposerBox,{botName:'Test',workdir:'/tmp',busy:false,resetKey:'x',onSend:()=>{}})}));
+
+  await render(h('div',{style:{width:900,height:600,display:'flex'}},home));
+  const start=host.querySelector('.home .composer').getBoundingClientRect().top;
+
+  // Shell calls this immediately before the state change unmounts the home.
+  descent.inisiKaydet();
+  root.render(h('div',{style:{width:900,height:600,display:'flex'}},chat()));
+
+  // Sample the first painted frames; the transform must still be in place.
+  const frames=[];
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    frames.push(host.querySelector('.composer').getBoundingClientRect().top);
+    resolve();
+  })));
+  await wait(600);
+  const settled=host.querySelector('.composer').getBoundingClientRect().top;
+
+  assert(settled>start+40,`The chat composer is not meaningfully lower: ${start} -> ${settled}`);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // Sampled two frames in, so the 300ms transition has already eaten a few
+    // pixels. The claim is "it starts up there", not an exact pixel: the first
+    // painted position must still be in the top quarter of the travel. Without
+    // the descent it would simply be `settled`.
+    const esik=start+(settled-start)*0.25;
+    assert(frames[0]<esik,`The descent did not start from the session-home position: ${frames[0]} is not above ${Math.round(esik)} (travel ${Math.round(start)} -> ${Math.round(settled)})`);
+  }
+  assert(!host.querySelector('.composer').style.transform,'The descent left a transform behind');
+
+  // A plain remount must not replay it: the measurement is consumed once.
+  root.render(null);await wait(60);
+  root.render(h('div',{style:{width:900,height:600,display:'flex'}},chat()));
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  const again=host.querySelector('.composer').getBoundingClientRect().top;
+  assert(Math.abs(again-settled)<2,`A later mount replayed the descent: ${again} vs ${settled}`);
+  return {start:Math.round(start),settled:Math.round(settled),firstFrame:Math.round(frames[0])};
 });
 
 root.unmount();host.remove();

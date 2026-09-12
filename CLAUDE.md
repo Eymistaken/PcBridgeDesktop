@@ -142,6 +142,14 @@ derse **başka bir şey sormadan** şunu yap:
    - **Sohbetteki 104px oluk kalktı;** konuşanı yön söylüyor.
    - **Yedi yerde kelime ikona döndü;** kelimeler `title`/`aria-label`'da.
    - **Besteci yeniden bir kutu, yer tutucusu boş.**
+   - **Session açılış ekranı boşaldı:** açılış sözü ve `SESSION n` · `İSTEM`
+     · `ÖNCE` etiketleri kalktı; besteci dikeyde ortada, ilk mesajda
+     sohbetteki yerine **iniyor** (`lib/inis.ts`).
+   - **Botun ayarlarını adının kendisi açıyor;** sağ üstteki `DÜZENLE`
+     kelimesi kalktı.
+   - **Seçenek sırası (`.seg`) altı çizili metinden çerçeveli kutulara
+     döndü** — izin kipi, arka uç, tema, dil. Sekmeler (`.sek`, `.sekme`)
+     alt çizgiyi tutuyor: onlar seçenek değil **yer** gösteriyor.
 
    ⚠️ **Terminal kipinin geri kalanı bu çalışmanın dışındaydı** — satır
    listesi, `.row__ops` hover davranışı, bölme başlıkları. Sekme rengine
@@ -314,7 +322,8 @@ yeni bir kutu **ancak kullanıcı bir okunurluk sorunu bildirdiğinde** açılı
 ### Oluk — tasarımın imzası, ama artık sohbette değil
 
 Solda 104px'lik mono büyük harf bir etiket (`.16em` aralık), sağda içerik.
-Ayarlarda bölüm, ilk açılışta `SUNUCU`, session ekranında `İSTEM` · `ÖNCE`.
+Ayarlarda bölüm, ilk açılışta `SUNUCU`. **Kalan iki yer bunlar** — sohbet
+dökümü ve session açılış ekranı 2026-09-12'de oluğu bıraktı.
 
 ⛔ **Sohbet dökümünden 2026-09-12'de kalktı (Aşama 26).** Kullanıcının sözü:
 *"yazının benim promptum mu botun yanıtı mı olduğunu anlamak için
@@ -458,7 +467,15 @@ altında. Bu, eski paletteki "`--text-muted` `--surface-2` üstünde
 kullanılmaz" kuralının aynısı: **palet değişti, tuzak değişmedi.**
 
 **Çıkış devinimi kütüphanesiz** (`src/lib/cikis.ts`), **düzen devinimi**
-`src/lib/flip.ts`, **akan metnin ucu maskeyle soluk** (`src/lib/akis.ts`).
+`src/lib/flip.ts`, **bestecinin session açılışından sohbete inişi**
+`src/lib/inis.ts`, **akan metnin ucu maskeyle soluk** (`src/lib/akis.ts`).
+
+⚠️ **İniş neden ayrı bir modül:** iki besteci aynı öğe değil (biri
+`SessionHome`'un içinde, biri `Chat`'in yüzen altlığında) ve yeni kurulan
+bir öğe geçiş oynatmaz — Aşama 12'de ölçülmüştü. O yüzden **konum el
+değiştiriyor**: `Shell` ilk mesajı gönderirken eskisinin üst kenarını
+ölçüyor, `Chat` mount'ta farkı bir kez oynatıyor. Ölçüm **bir kez**
+tüketiliyor, yoksa sonraki her mount'ta besteci zıplardı.
 Maske **kıtanın içine** konur — `.oluk` üstünde oluk etiketini de
 maskelerdi. Ölçüldü: kıta ızgarasında `--akis-x` 436px, iki katmanlı maske,
 etiket maskelenmiyor.

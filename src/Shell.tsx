@@ -22,6 +22,7 @@ import ModeSwitch from "./ui/ModeSwitch";
 import PermMenu from "./ui/PermMenu";
 import { IconPlus } from "./ui/Icon";
 import { t, type Lang } from "./lib/i18n";
+import { inisiKaydet } from "./lib/inis";
 import { kisaltEv } from "./lib/yol";
 import { botDraft } from "./lib/types";
 import { ekle, oturumKoy, oturumlar, type Dugum } from "./lib/agac";
@@ -960,6 +961,10 @@ export default function Shell({
         selectedSession ?? null,
         text,
       );
+      // ⚠️ **Ölçüm sökümden önce.** `setSelectedSession` `SessionHome`'u
+      // söküp `Chat`'i kuruyor; bestecinin ortadaki yeri o karede
+      // kayboluyor. `inis.ts` farkı yeni bestecinin mount'unda oynatıyor.
+      if (!selectedSession) inisiKaydet();
       setSelectedSession(sessionId);
       // İyimser tur: akış gelmeye başlayana kadar ekran boş kalmasın.
       setTurns((prev) => [
@@ -1253,7 +1258,21 @@ export default function Shell({
             {secili && !selectedSession ? (
               <>
                 <div className="main__head">
-                  <span className="main__head__ad">{secili.name}</span>
+                  {/* ⚠️ **Adın kendisi düğme (2026-09-12).** Sağ üstteki
+                    * `DÜZENLE` kelimesi kalktı; kullanıcının kararı:
+                    * *"sol üstte ornith yazan o bot isminin kendisine
+                    * tıklayınca direkt açılsın botforge. daha mantıklı
+                    * olur."* Arada bir kalem ikonu da denenmedi — o da
+                    * ikinci bir hedef olurdu. */}
+                  <button
+                    type="button"
+                    className="main__head__ad"
+                    title={t("side.editBot", { name: secili.name })}
+                    aria-label={t("side.editBot", { name: secili.name })}
+                    onClick={() => setForge({ bot: secili })}
+                  >
+                    {secili.name}
+                  </button>
                   {/* Künye kenar çubuğundan buraya taşındı: tasarımda bot
                    * satırı tek satır ve modeli, araç sayısını, dizini
                    * başlık söylüyor. */}
@@ -1268,15 +1287,6 @@ export default function Shell({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <button
-                    className="btn-quiet"
-                    type="button"
-                    title={t("side.edit")}
-                    aria-label={t("side.editBot", { name: secili.name })}
-                    onClick={() => setForge({ bot: secili })}
-                  >
-                    {t("side.edit")}
-                  </button>
                 </div>
                 <SessionHome
                   sessions={sessions}

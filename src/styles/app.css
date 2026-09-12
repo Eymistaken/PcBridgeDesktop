@@ -351,15 +351,27 @@ input:focus {
   box-shadow: inset 0 -1px 0 var(--text);
 }
 
-/* ── seçenek sırası (eski `.seg`) ────────────────────────────────── */
+/* ── seçenek sırası (`.seg`) ─────────────────────────────────────── */
 /*
- * Eskiden kayan bir yüzey parçası taşıyan segmentli denetimdi. Tasarımda
- * öyle bir parça yok: seçenekler yan yana mono metin, etkin olanın altı
- * çizili. Ölçülen thumb (`Seg.tsx`) böylece gereksizleşti.
+ * ⚠️ **Altı çizili metinden çerçeveli kutulara (2026-09-12).**
+ * Kullanıcının kararı, izin kiplerini işaretleyerek: *"şu permission
+ * seçenekleri de böyle altı çizili olmasın etrafları çerçeveli kutular
+ * olsunlar genel tasarıma uygun."*
+ *
+ * Dil kip anahtarının (`.side__modes`) aynısı: 1px çerçeve, 4px köşe,
+ * etkin olan bir kademe parlak çerçeve + kalkık zemin. Kabukta artık
+ * kutular var ve alt çizgi ikinci bir seçim dili olurdu.
+ *
+ * ⛔ **Sekmeler bunun dışında.** `.sek` (BotForge) ve `.sekme` (çalışma
+ * alanı) alt çizgiyi tutuyor: onlar bir *seçenek* değil bir *yer*
+ * gösteriyor, ve çerçeveli kutular orada seçeneklerle karışırdı.
+ *
+ * Eskiden kayan bir yüzey parçası (`.seg__parca`) vardı; ledger'da yüzey
+ * kademesi kalkınca ölçüm makinesiyle birlikte gitti (`Seg.tsx`).
  */
 .seg {
   display: flex;
-  gap: 20px;
+  gap: 6px;
   align-self: flex-start;
   background: none;
   padding: 0;
@@ -368,31 +380,39 @@ input:focus {
 
 .seg[data-esit] {
   align-self: stretch;
-}
-
-.seg[data-esit] > button {
-  flex: 1;
-  text-align: left;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .seg > button {
   position: relative;
-  padding: 0 0 2px;
-  border-radius: 0;
+  min-height: 32px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.06em;
+  text-align: center;
   color: var(--text-muted);
-  transition: color var(--dur-fast) var(--ease-out);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
+/* ⚠️ Hover dolguya değil **metne** biniyor: bu düğmeler `--text-muted`
+ * taşıyor ve `--field-h` üstünde 4.44 ile AA altında kalırlardı. */
 .seg > button:hover {
   color: var(--text-2);
+  border-color: var(--line-3);
 }
 
 .seg > button[aria-pressed="true"] {
   color: var(--text);
-  box-shadow: inset 0 -1px 0 var(--text);
+  border-color: var(--line-3);
+  background: var(--field);
 }
 
 /* Kip ile araç filtresi arasındaki boşluk — burada söylenip burada kapanıyor.
@@ -1106,12 +1126,39 @@ input:focus {
   border-bottom: 1px solid var(--line);
 }
 
+/*
+ * ⚠️ **Ad bir düğme (2026-09-12).** Sağ üstteki `DÜZENLE` kelimesi kalktı;
+ * botun ayarlarını adının kendisi açıyor. Kullanıcının kararı: *"sol üstte
+ * ornith yazan o bot isminin kendisine tıklayınca direkt açılsın botforge.
+ * daha mantıklı olur."*
+ *
+ * Düğme olduğu **hover'da** belli oluyor: ad bir kademe soluyor ve altı
+ * çiziliyor. Duruyorken bir düğme gibi görünmüyor — başlıktaki tek serif
+ * metin o ve bir çerçeve orada gürültü olurdu.
+ */
 .main__head__ad {
   font-family: var(--serif);
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
   flex: none;
+  padding: 0;
+  border-radius: 0;
+  color: var(--text);
+  text-align: left;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+button.main__head__ad:hover {
+  color: var(--text-2);
+  box-shadow: inset 0 -1px 0 var(--line-3);
+}
+
+button.main__head__ad:active {
+  color: var(--text-3);
+  transition-duration: var(--dur-tap);
 }
 
 /* Künye satırı: model · araç sayısı · dizin. Uzarsa kırpılır, sarmaz. */
@@ -4234,7 +4281,12 @@ pre.well {
  * ilk mesajla doğuyor, o yüzden düğmeye basıp yazmayan kullanıcı arkasında
  * boş bir kayıt bırakmıyor.
  *
- * Üç kıta, hepsi aynı oluk ızgarasında: açılış sözü · besteci · öncekiler.
+ * ⚠️ **Açılış sözü ve oluk etiketleri 2026-09-12'de kalktı.** Kullanıcı
+ * *"Bir session, bir işlik hafıza"* başlığını, altındaki cümleyi ve soldaki
+ * `SESSION 2` · `İSTEM` · `ÖNCE` etiketlerini üzerini çizerek sildirdi.
+ * Ekranın işi yazmak; geriye o kaldı.
+ *
+ * İki blok: ortadaki besteci ve altındaki geçmiş.
  */
 .home {
   flex-grow: 1;
@@ -4242,35 +4294,49 @@ pre.well {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 24px 44px 32px;
 }
 
+/*
+ * ⚠️ **`min-height: 100%` şart.** `justify-content: center` kaydırılan bir
+ * kapta taşan içeriği **üstten kırpar** (kaydırma çubuğu yukarı çıkmıyor);
+ * onun yerine iç kabın en az kap kadar uzun olması ve ortalamanın **auto
+ * kenar boşluklarıyla** yapılması gerekiyor.
+ */
 .home__ic {
   width: 100%;
   max-width: var(--olcu);
   margin-inline: auto;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 34px;
 }
 
-/* Açılış sözü — sayfadaki tek büyük serif. */
-.home__baslikBuyuk {
-  margin: 0;
-  font-family: var(--serif);
-  font-size: 36px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+/*
+ * Besteci dikeyde ortada — kullanıcının isteği (2026-09-12): *"mesaj
+ * gönderme kutusu tam ortada dursun."*
+ *
+ * Boş alan iki `auto` arasında **yarı yarıya** bölünüyor: üstte bestecinin
+ * `margin-top`'u, altta geçmişin `margin-bottom`'u. Yani besteci + geçmiş
+ * birlikte ortalanıyor; liste uzayınca besteci kendiliğinden yukarı kayıyor
+ * ve hiçbir şey kırpılmıyor. Session yoksa besteci tam ortada kalıyor.
+ */
+.home__besteci {
+  flex: none;
+  margin-top: auto;
 }
 
-.home__alt {
-  margin: 12px 0 0;
-  max-width: 520px;
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--text-3);
+/* ⚠️ **Hiç session yoksa besteci tek başına kalıyor** ve yalnızca üstteki
+ * `auto` çalışınca dibe yapışıyordu (regresyon testi yakaladı: 600px'lik
+ * kapta 488'e düştü). Son çocuksa alttan da esniyor, yani tam ortada. */
+.home__besteci:last-child {
+  margin-bottom: auto;
+}
+
+.home__gecmis {
+  flex: none;
+  margin-bottom: auto;
 }
 
 /* "Ara" ve "daha fazla" — bölüm başlığı satırı. */

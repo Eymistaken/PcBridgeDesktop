@@ -1,4 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import Composer from "../ui/Composer";
 import CtxMenu, { UYARI } from "../ui/CtxMenu";
@@ -10,6 +17,7 @@ import PermMenu from "../ui/PermMenu";
 import Picker from "../ui/Picker";
 import Thinking from "../ui/Thinking";
 import { IconExport, IconStop, IconTool } from "../ui/Icon";
+import { inisiOynat } from "../lib/inis";
 import { toBlocks, finishedOf, type Block } from "../lib/timeline";
 import { locale, t, toolVerb } from "../lib/i18n";
 import { detailText } from "../lib/ipc";
@@ -134,6 +142,21 @@ export default function Chat({
     };
   }, []);
 
+  /**
+   * **Besteci session açılışından buraya iniyor.**
+   *
+   * İki besteci aynı öğe değil (biri `SessionHome`'un içinde, biri bu
+   * yüzen altlıkta), o yüzden geçiş **konumla** taşınıyor: `Shell` ilk
+   * mesajı gönderirken eskisinin üst kenarını ölçüyor, burası farkı bir
+   * kez oynatıyor. Gerekçe `lib/inis.ts`'te.
+   *
+   * `useLayoutEffect`: boyamadan önce çalışmalı, yoksa besteci bir kare
+   * yeni yerinde görünüp sonra yukarı zıplar.
+   */
+  useLayoutEffect(() => {
+    inisiOynat(altlik.current?.querySelector(".composer") ?? null);
+  }, []);
+
   // Besteci üstündeki üç şerit de kapanırken bir karede yok oluyordu.
   // İzin sorusu ve koşum şeridi **içeriğini de** korumak zorunda: yanıt
   // verilir verilmez `pending` düşüyor ve kart boşalırdı.
@@ -240,7 +263,18 @@ export default function Chat({
   return (
     <>
       <div className="main__head">
-        <span className="main__head__ad">{bot.name}</span>
+        {/* ⚠️ **Adın kendisi düğme (2026-09-12).** Sağ üstteki `DÜZENLE`
+          * kelimesi kalktı; kullanıcının kararı: *"sol üstte ornith yazan o
+          * bot isminin kendisine tıklayınca direkt açılsın botforge."* */}
+        <button
+          type="button"
+          className="main__head__ad"
+          title={t("side.editBot", { name: bot.name })}
+          aria-label={t("side.editBot", { name: bot.name })}
+          onClick={onEditBot}
+        >
+          {bot.name}
+        </button>
         <span className="main__head__kunye">
           {[
             bot.model,

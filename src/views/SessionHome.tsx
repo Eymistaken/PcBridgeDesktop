@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { IconClose, IconSearch } from "../ui/Icon";
-import Oluk from "../ui/Oluk";
 import { useFlip } from "../lib/flip";
 import { locale, t } from "../lib/i18n";
 import type { SessionSummary } from "../lib/types";
@@ -24,7 +23,14 @@ interface Props {
  * boş bir ekran açıyor. Session ilk mesajla doğuyor — düğmeye basıp yazmayan
  * kullanıcı arkasında boş kayıt bırakmıyor (`bots::ensure_session`).
  *
- * Üç kıta: açılış sözü, besteci, önceki session'lar.
+ * ⚠️ **Açılış sözü ve oluk etiketleri 2026-09-12'de kalktı.** Kullanıcı
+ * *"Bir session, bir işlik hafıza"* başlığını, altındaki cümleyi ve soldaki
+ * `SESSION 2` · `İSTEM` · `ÖNCE` etiketlerini üzerini çizerek sildirdi.
+ * Geriye ekranın işi kalıyor: **yaz.** Besteci dikeyde ortada, altında
+ * arama ve önceki session'lar.
+ *
+ * İlk mesaj gönderilince besteci sohbetteki yerine **iniyor**
+ * (`lib/inis.ts`) — iki ayrı bileşen olduğu için geçiş konumla taşınıyor.
  *
  * ⚠️ `bot` propu **kaldırıldı**. Botun kimliği (ad, çip, model, dizin)
  * ana panel başlığında duruyor ve burada ikinci kez çizilmiyordu; okunmayan
@@ -59,87 +65,83 @@ export default function SessionHome({
   return (
     <div className="home">
       <div className="home__ic">
-        {/* Açılış kıtası: solda session numarası, sağda ne olduğunu söyleyen
-         * tek cümle. Botun kimliği başlıkta zaten yazıyor; burada anlatılan
-         * şey **session'ın kendisi** — bağlamın sınırı orası. */}
-        <Oluk et={t("home.sessionNo", { n: sessions.length + 1 })}>
-          <h1 className="home__baslikBuyuk">{t("home.headline")}</h1>
-          <p className="home__alt">{t("home.subtitle")}</p>
-        </Oluk>
-
-        <Oluk et={t("chat.gPrompt")}>{composer}</Oluk>
+        {/* Besteci dikeyde ortada: `margin-top: auto` ile aşağıdaki
+          * `margin-bottom: auto` boş alanı yarı yarıya paylaşıyor, yani
+          * besteci + geçmiş bloğu birlikte ortalanıyor ve liste uzayınca
+          * kendiliğinden kayıyor. */}
+        <div className="home__besteci">{composer}</div>
 
         {sessions.length > 0 && (
-          <Oluk et={t("home.recent")}>
-              <div className="home__baslik">
-                {arama === null ? (
-                  <button
-                    type="button"
-                    className="btn-quiet"
-                    title={t("home.searchSessions")}
-                    onClick={() => setArama("")}
-                  >
-                    {t("home.searchShort")}
-                  </button>
-                ) : (
-                  <div className="field home__ara">
-                    <IconSearch />
-                    <input
-                      autoFocus
-                      className="mono"
-                      style={{ fontSize: 11 }}
-                      value={arama}
-                      placeholder={t("home.searchSessions")}
-                      aria-label={t("home.searchSessions")}
-                      spellCheck={false}
-                      onChange={(e) => setArama(e.target.value)}
-                      onKeyDown={(e) => e.key === "Escape" && setArama(null)}
-                    />
-                    <button
-                      type="button"
-                      className="ek__sil"
-                      title={t("home.less")}
-                      aria-label={t("home.less")}
-                      onClick={() => setArama(null)}
-                    >
-                      <IconClose size={11} />
-                    </button>
-                  </div>
-                )}
-                <div style={{ flexGrow: 1 }} />
-                {arama === null && suzulmus.length > KART && (
-                  <button
-                    type="button"
-                    className="btn-quiet"
-                    onClick={() => setHepsi((h) => !h)}
-                  >
-                    {hepsi ? t("home.less") : t("home.more")}
-                  </button>
-                )}
-              </div>
-
-              {gorunen.length === 0 ? (
-                <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>
-                  {t("home.noMatch", { q: arama ?? "" })}
-                </span>
+          <div className="home__gecmis">
+            <div className="home__baslik">
+              {arama === null ? (
+                <button
+                  type="button"
+                  className="btn-quiet"
+                  title={t("home.searchSessions")}
+                  onClick={() => setArama("")}
+                >
+                  {t("home.searchShort")}
+                </button>
               ) : (
-                <div className="oturumlar" ref={izgara}>
-                  {gorunen.map((o) => (
-                    <OturumKarti
-                      key={o.id}
-                      oturum={o}
-                      onOpen={() => onOpen(o.id)}
-                      onDelete={() => onDelete(o.id)}
-                    />
-                  ))}
+                <div className="field home__ara">
+                  <IconSearch />
+                  <input
+                    autoFocus
+                    className="mono"
+                    style={{ fontSize: 11 }}
+                    value={arama}
+                    placeholder={t("home.searchSessions")}
+                    aria-label={t("home.searchSessions")}
+                    spellCheck={false}
+                    onChange={(e) => setArama(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && setArama(null)}
+                  />
+                  <button
+                    type="button"
+                    className="ek__sil"
+                    title={t("home.less")}
+                    aria-label={t("home.less")}
+                    onClick={() => setArama(null)}
+                  >
+                    <IconClose size={11} />
+                  </button>
                 </div>
               )}
-              {arama === null && !hepsi && gizli > 0 && (
-                <span className="okart__daha">
-                  {t("side.moreSessions", { n: gizli })}
-                </span>
+              <div style={{ flexGrow: 1 }} />
+              {arama === null && suzulmus.length > KART && (
+                <button
+                  type="button"
+                  className="btn-quiet"
+                  onClick={() => setHepsi((h) => !h)}
+                >
+                  {hepsi ? t("home.less") : t("home.more")}
+                </button>
               )}
-          </Oluk>
+            </div>
+
+            {gorunen.length === 0 ? (
+              <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>
+                {t("home.noMatch", { q: arama ?? "" })}
+              </span>
+            ) : (
+              <div className="oturumlar" ref={izgara}>
+                {gorunen.map((o) => (
+                  <OturumKarti
+                    key={o.id}
+                    oturum={o}
+                    onOpen={() => onOpen(o.id)}
+                    onDelete={() => onDelete(o.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {arama === null && !hepsi && gizli > 0 && (
+              <span className="okart__daha">
+                {t("side.moreSessions", { n: gizli })}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
